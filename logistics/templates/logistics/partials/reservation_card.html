@@ -1,0 +1,99 @@
+{# ~/ebi3/logistics/templates/logistics/partials/reservation_card.html #}
+
+<div class="card logistics-card h-100">
+    <div class="card-body d-flex flex-column">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-start mb-3">
+            <div>
+                <h6 class="card-title mb-1">
+                    <a href="{% url 'logistics:reservation_detail' reservation.pk %}" class="text-decoration-none text-dark">
+                        #{{ reservation.id }}
+                    </a>
+                </h6>
+                <small class="text-muted">
+                    {{ reservation.created_at|date:"d/m/Y" }}
+                </small>
+            </div>
+            <span class="status-badge status-{{ reservation.status|lower }}">
+                {{ reservation.get_status_display }}
+            </span>
+        </div>
+
+        <!-- Annonce -->
+        <div class="mb-3">
+            <small class="text-muted d-block">{% trans "Annonce" %}</small>
+            <a href="{{ reservation.ad.get_absolute_url }}" class="text-decoration-none">
+                <strong>{{ reservation.ad.title|truncatechars:40 }}</strong>
+            </a>
+        </div>
+
+        <!-- Informations -->
+        <div class="mb-3">
+            <div class="row">
+                <div class="col-6">
+                    <small class="text-muted d-block">{% trans "Option" %}</small>
+                    <small class="fw-bold">{{ reservation.get_logistics_option_display }}</small>
+                </div>
+                <div class="col-6">
+                    <small class="text-muted d-block">{% trans "Prix total" %}</small>
+                    <small class="fw-bold">{{ reservation.total_price }} €</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dates -->
+        <div class="mb-3">
+            <div class="row">
+                <div class="col-6">
+                    <small class="text-muted d-block">{% trans "Prise en charge" %}</small>
+                    <small>
+                        {% if reservation.pickup_date %}
+                            {{ reservation.pickup_date|date:"d/m/Y" }}
+                        {% else %}
+                            <span class="text-muted">{% trans "À définir" %}</span>
+                        {% endif %}
+                    </small>
+                </div>
+                <div class="col-6">
+                    <small class="text-muted d-block">{% trans "Livraison" %}</small>
+                    <small>
+                        {% if reservation.delivery_date %}
+                            {{ reservation.delivery_date|date:"d/m/Y" }}
+                        {% else %}
+                            <span class="text-muted">{% trans "À définir" %}</span>
+                        {% endif %}
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress bar for active reservations -->
+        {% if reservation.status == 'IN_TRANSIT' and reservation.mission %}
+        <div class="mb-3">
+            <small class="text-muted d-block mb-1">{% trans "Progression" %}</small>
+            <div class="progress-bar-logistics">
+                <div class="progress-fill bg-info" data-width="{{ reservation.mission.progress_percentage }}"></div>
+            </div>
+            <small class="text-muted text-end d-block mt-1">{{ reservation.mission.progress_percentage }}%</small>
+        </div>
+        {% endif %}
+
+        <!-- Actions -->
+        <div class="mt-auto">
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'logistics:reservation_detail' reservation.pk %}" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-eye me-1"></i> {% trans "Détails" %}
+                </a>
+                {% if reservation.can_be_cancelled %}
+                <form method="post" action="{% url 'logistics:reservation_cancel' reservation.pk %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger confirm-action"
+                            data-confirm-message="{% trans 'Êtes-vous sûr de vouloir annuler cette réservation ?' %}">
+                        <i class="fas fa-times me-1"></i> {% trans "Annuler" %}
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>

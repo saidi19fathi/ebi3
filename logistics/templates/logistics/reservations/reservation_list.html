@@ -1,0 +1,133 @@
+{# ~/ebi3/logistics/templates/logistics/reservations/reservation_list.html #}
+
+{% extends 'logistics/base_logistics.html' %}
+{% load i18n %}
+
+{% block logistics_title %}{% trans "Mes réservations" %}{% endblock %}
+
+{% block logistics_subtitle %}{% trans "Gérez toutes vos réservations" %}{% endblock %}
+
+{% block logistics_breadcrumb_items %}
+<li class="breadcrumb-item active" aria-current="page">{% trans "Réservations" %}</li>
+{% endblock %}
+
+{% block logistics_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="mb-0">{% trans "Réservations" %}</h3>
+    <div class="d-flex gap-2">
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <i class="fas fa-filter me-2"></i> {% trans "Filtrer" %}
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="?status=all">{% trans "Tous" %}</a></li>
+                {% for status, label in status_choices %}
+                <li><a class="dropdown-item" href="?status={{ status }}">{{ label }}</a></li>
+                {% endfor %}
+            </ul>
+        </div>
+        <a href="{% url 'ads:ad_list' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i> {% trans "Nouvelle réservation" %}
+        </a>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-light">
+            <div class="card-body text-center">
+                <h3 class="text-primary">{{ stats.total }}</h3>
+                <p class="text-muted mb-0">{% trans "Total" %}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-light">
+            <div class="card-body text-center">
+                <h3 class="text-warning">{{ stats.pending }}</h3>
+                <p class="text-muted mb-0">{% trans "En attente" %}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-light">
+            <div class="card-body text-center">
+                <h3 class="text-info">{{ stats.in_transit }}</h3>
+                <p class="text-muted mb-0">{% trans "En transit" %}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-light">
+            <div class="card-body text-center">
+                <h3 class="text-success">{{ stats.delivered }}</h3>
+                <p class="text-muted mb-0">{% trans "Livrées" %}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reservations List -->
+{% if reservations %}
+    <div class="row">
+        {% for reservation in reservations %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            {% include 'logistics/partials/reservation_card.html' with reservation=reservation %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_status != 'all' %}&status={{ current_status }}{% endif %}{% if current_date_filter != 'all' %}&date={{ current_date_filter }}{% endif %}">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+            </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}{% if current_status != 'all' %}&status={{ current_status }}{% endif %}{% if current_date_filter != 'all' %}&date={{ current_date_filter }}{% endif %}">
+                        {{ num }}
+                    </a>
+                </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_status != 'all' %}&status={{ current_status }}{% endif %}{% if current_date_filter != 'all' %}&date={{ current_date_filter }}{% endif %}">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+{% else %}
+    <div class="text-center py-5">
+        <i class="fas fa-shopping-cart fa-4x text-muted mb-3"></i>
+        <h4 class="text-muted mb-3">{% trans "Aucune réservation" %}</h4>
+        <p class="text-muted mb-4">
+            {% if current_status != 'all' %}
+                {% trans "Aucune réservation avec ce statut." %}
+            {% else %}
+                {% trans "Vous n'avez pas encore fait de réservation." %}
+            {% endif %}
+        </p>
+        <a href="{% url 'ads:ad_list' %}" class="btn btn-primary btn-lg">
+            <i class="fas fa-search me-2"></i> {% trans "Parcourir les annonces" %}
+        </a>
+    </div>
+{% endif %}
+{% endblock %}

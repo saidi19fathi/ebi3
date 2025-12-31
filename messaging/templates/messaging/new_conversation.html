@@ -1,0 +1,178 @@
+{# ~/ebi3/messaging/templates/messaging/new_conversation.html #}
+{% extends 'messaging/base_messaging.html' %}
+{% load i18n crispy_forms_tags %}
+
+{% block title %}{% trans "Nouvelle conversation" %} - Ebi3{% endblock %}
+
+{% block messaging_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-lg">
+            <div class="card-header bg-primary text-white">
+                <h2 class="mb-0">
+                    <i class="fas fa-comment-medical"></i> {% trans "Nouvelle conversation" %}
+                </h2>
+            </div>
+            <div class="card-body p-4">
+                <form method="post" id="new-conversation-form">
+                    {% csrf_token %}
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "À :" %}</label>
+                            {{ form.recipient }}
+                            {% if form.recipient.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.recipient.errors }}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                {% trans "Entrez le nom d'utilisateur ou l'email du destinataire" %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Sujet (optionnel) :" %}</label>
+                            {{ form.subject }}
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">{% trans "Message :" %}</label>
+                        {{ form.message }}
+                        {% if form.message.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.message.errors }}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">
+                            {% trans "Écrivez votre message ici. Vous pourrez ajouter des pièces jointes après." %}
+                        </div>
+                    </div>
+
+                    <!-- Suggestions de contacts -->
+                    {% if suggested_contacts %}
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-users"></i> {% trans "Contacts suggérés" %}
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    {% for contact in suggested_contacts %}
+                                        <div class="col-md-6 mb-2">
+                                            <div class="d-flex align-items-center p-2 border rounded">
+                                                <div class="flex-shrink-0">
+                                                    <div class="conversation-avatar bg-primary text-white d-flex align-items-center justify-content-center"
+                                                         style="width: 40px; height: 40px;">
+                                                        {{ contact.username|first|upper }}
+                                                    </div>
+                                                </div>
+                                                <div class="flex-grow-1 ms-3">
+                                                    <div class="fw-bold">{{ contact.username }}</div>
+                                                    <div class="small text-muted">{{ contact.get_role_display }}</div>
+                                                </div>
+                                                <button type="button" class="btn btn-sm btn-outline-primary select-contact"
+                                                        data-username="{{ contact.username }}">
+                                                    <i class="fas fa-user-plus"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <!-- Contacts récents -->
+                    {% if recent_contacts %}
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-history"></i> {% trans "Contacts récents" %}
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex flex-wrap gap-2">
+                                    {% for contact in recent_contacts %}
+                                        <button type="button" class="btn btn-outline-secondary select-contact"
+                                                data-username="{{ contact.username }}">
+                                            <i class="fas fa-user me-2"></i> {{ contact.username }}
+                                        </button>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a href="{% url 'messaging:inbox' %}" class="btn btn-secondary me-md-2">
+                            <i class="fas fa-times"></i> {% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-paper-plane"></i> {% trans "Envoyer le message" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Informations importantes -->
+        <div class="card shadow-sm mt-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> {% trans "Conseils pour une bonne communication" %}</h5>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li>{% trans "Soyez clair et précis dans votre message" %}</li>
+                    <li>{% trans "Respectez les règles de politesse et de courtoisie" %}</li>
+                    <li>{% trans "Évitez d'envoyer des informations personnelles sensibles" %}</li>
+                    <li>{% trans "Signalez tout comportement inapproprié à notre équipe" %}</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        // Auto-suggestion pour le champ destinataire
+        $('#id_recipient').on('input', function() {
+            const query = $(this).val();
+            if (query.length > 2) {
+                $.get('/api/users/search/', { q: query }, function(data) {
+                    // Afficher les suggestions
+                    // À implémenter selon l'API disponible
+                });
+            }
+        });
+
+        // Sélectionner un contact depuis les suggestions
+        $('.select-contact').click(function() {
+            const username = $(this).data('username');
+            $('#id_recipient').val(username);
+        });
+
+        // Validation du formulaire
+        $('#new-conversation-form').submit(function(e) {
+            const recipient = $('#id_recipient').val();
+            const message = $('#id_message').val();
+
+            if (!recipient.trim()) {
+                alert('{% trans "Veuillez entrer un destinataire." %}');
+                e.preventDefault();
+                return false;
+            }
+
+            if (!message.trim()) {
+                alert('{% trans "Veuillez écrire un message." %}');
+                e.preventDefault();
+                return false;
+            }
+
+            return true;
+        });
+    });
+</script>
+{% endblock %}

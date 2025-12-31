@@ -1,0 +1,496 @@
+{# ~/ebi3/logistics/templates/logistics/dashboard.html #}
+
+{% extends 'logistics/base_logistics.html' %}
+{% load i18n %}
+
+{% block logistics_title %}{% trans "Tableau de bord Logistique" %}{% endblock %}
+
+{% block logistics_subtitle %}{% trans "Vue d'ensemble de vos activités logistiques" %}{% endblock %}
+
+{% block logistics_content %}
+<div class="row mb-4">
+    <!-- Quick Stats -->
+    <div class="col-md-3 mb-4">
+        <div class="card stats-card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stats-number">{{ stats.total_reservations|default:"0" }}</div>
+                        <div class="small">{% trans "Réservations" %}</div>
+                    </div>
+                    <div class="stats-icon">
+                        <i class="fas fa-shopping-cart"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3 mb-4">
+        <div class="card stats-card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stats-number">{{ stats.active_missions_count|default:"0" }}</div>
+                        <div class="small">{% trans "Missions actives" %}</div>
+                    </div>
+                    <div class="stats-icon">
+                        <i class="fas fa-truck"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3 mb-4">
+        <div class="card stats-card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stats-number">{{ stats.available_routes_count|default:"0" }}</div>
+                        <div class="small">{% trans "Routes disponibles" %}</div>
+                    </div>
+                    <div class="stats-icon">
+                        <i class="fas fa-route"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3 mb-4">
+        <div class="card stats-card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stats-number">{{ stats.pending_proposals|default:"0" }}</div>
+                        <div class="small">{% trans "Propositions en attente" %}</div>
+                    </div>
+                    <div class="stats-icon">
+                        <i class="fas fa-handshake"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Main Content based on user role -->
+    {% if user.role == 'SELLER' %}
+        <!-- Seller Dashboard -->
+        <div class="col-lg-8 mb-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-clock me-2"></i> {% trans "Réservations récentes" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if active_reservations %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>{% trans "ID" %}</th>
+                                        <th>{% trans "Acheteur" %}</th>
+                                        <th>{% trans "Option" %}</th>
+                                        <th>{% trans "Statut" %}</th>
+                                        <th>{% trans "Prix" %}</th>
+                                        <th>{% trans "Date" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for reservation in active_reservations %}
+                                    <tr>
+                                        <td>
+                                            <a href="{% url 'logistics:reservation_detail' reservation.pk %}" class="text-decoration-none">
+                                                #{{ reservation.id }}
+                                            </a>
+                                        </td>
+                                        <td>{{ reservation.buyer.username }}</td>
+                                        <td>
+                                            <span class="badge bg-secondary">
+                                                {{ reservation.get_logistics_option_display }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="status-badge status-{{ reservation.status|lower }}">
+                                                {{ reservation.get_status_display }}
+                                            </span>
+                                        </td>
+                                        <td>{{ reservation.total_price }} €</td>
+                                        <td>{{ reservation.created_at|date:"d/m/Y" }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-shopping-cart fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">{% trans "Aucune réservation récente" %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 mb-4">
+            <!-- Sales Stats -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i> {% trans "Vos statistiques" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if sales_stats.total_sales %}
+                        <div class="text-center">
+                            <h3 class="text-success">{{ sales_stats.total_sales }} €</h3>
+                            <p class="text-muted">{% trans "Chiffre d'affaires total" %}</p>
+
+                            <div class="row mt-4">
+                                <div class="col-6">
+                                    <h4>{{ sales_stats.total_count|default:"0" }}</h4>
+                                    <small class="text-muted">{% trans "Transactions" %}</small>
+                                </div>
+                                <div class="col-6">
+                                    <h4>{{ sales_stats.avg_sale|default:"0"|floatformat:2 }} €</h4>
+                                    <small class="text-muted">{% trans "Moyenne par vente" %}</small>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <p class="text-muted">{% trans "Aucune statistique disponible" %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Pending Proposals -->
+            <div class="card">
+                <div class="card-header bg-warning text-white">
+                    <h5 class="mb-0"><i class="fas fa-handshake me-2"></i> {% trans "Propositions en attente" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if pending_proposals %}
+                        <div class="list-group">
+                            {% for proposal in pending_proposals %}
+                            <a href="{% url 'logistics:proposal_detail' proposal.pk %}" class="list-group-item list-group-item-action">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">{{ proposal.carrier.user.username }}</h6>
+                                    <small>{{ proposal.proposed_price }} €</small>
+                                </div>
+                                <p class="mb-1 small text-muted">{{ proposal.ad.title|truncatechars:50 }}</p>
+                                <small>
+                                    <i class="fas fa-clock me-1"></i>
+                                    {% trans "Expire dans" %} {{ proposal.days_until_expiry }} {% trans "jours" %}
+                                </small>
+                            </a>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-handshake fa-2x text-muted mb-2"></i>
+                            <p class="text-muted">{% trans "Aucune proposition en attente" %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+    {% elif user.role == 'CARRIER' and user.carrier_profile %}
+        <!-- Carrier Dashboard -->
+        <div class="col-lg-8 mb-4">
+            <!-- Active Missions -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-truck me-2"></i> {% trans "Missions actives" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if active_missions %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>{% trans "Mission" %}</th>
+                                        <th>{% trans "Client" %}</th>
+                                        <th>{% trans "Statut" %}</th>
+                                        <th>{% trans "Livraison estimée" %}</th>
+                                        <th>{% trans "Actions" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for mission in active_missions %}
+                                    <tr>
+                                        <td>
+                                            <a href="{% url 'logistics:mission_detail' mission.pk %}" class="text-decoration-none">
+                                                #{{ mission.id }}
+                                            </a>
+                                        </td>
+                                        <td>{{ mission.reservation.buyer.username }}</td>
+                                        <td>
+                                            <span class="status-badge status-{{ mission.status|lower }}">
+                                                {{ mission.get_status_display }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if mission.estimated_delivery %}
+                                                {{ mission.estimated_delivery|date:"d/m/Y" }}
+                                            {% else %}
+                                                <span class="text-muted">{% trans "Non définie" %}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'logistics:mission_update' mission.pk %}" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="{% url 'logistics:mission_detail' mission.pk %}" class="btn btn-sm btn-outline-info">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-truck fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">{% trans "Aucune mission active" %}</p>
+                            <a href="{% url 'logistics:proposal_create' %}" class="btn btn-primary">
+                                <i class="fas fa-handshake me-2"></i> {% trans "Proposer des transports" %}
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Available Routes -->
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-route me-2"></i> {% trans "Vos routes disponibles" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if available_routes %}
+                        <div class="row">
+                            {% for route in available_routes %}
+                            <div class="col-md-6 mb-3">
+                                {% include 'logistics/partials/route_card.html' with route=route %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-route fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">{% trans "Aucune route active" %}</p>
+                            <a href="{% url 'logistics:route_create' %}" class="btn btn-success">
+                                <i class="fas fa-plus me-2"></i> {% trans "Créer une route" %}
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 mb-4">
+            <!-- Carrier Stats -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i> {% trans "Vos statistiques" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if carrier_stats %}
+                        <div class="text-center">
+                            <h3 class="text-info">{{ carrier_stats.completed_missions|default:"0" }}</h3>
+                            <p class="text-muted">{% trans "Missions complétées" %}</p>
+
+                            <div class="row mt-4">
+                                <div class="col-6">
+                                    <h4>{{ carrier_stats.total_earnings|default:"0"|floatformat:2 }} €</h4>
+                                    <small class="text-muted">{% trans "Revenus totaux" %}</small>
+                                </div>
+                                <div class="col-6">
+                                    <h4>{{ carrier_stats.avg_rating|default:"0.0" }}/5</h4>
+                                    <small class="text-muted">{% trans "Note moyenne" %}</small>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <p class="text-muted">{% trans "Aucune statistique disponible" %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Pending Proposals -->
+            <div class="card">
+                <div class="card-header bg-warning text-white">
+                    <h5 class="mb-0"><i class="fas fa-clock me-2"></i> {% trans "Propositions en attente" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if pending_proposals %}
+                        <div class="list-group">
+                            {% for proposal in pending_proposals %}
+                            <a href="{% url 'logistics:proposal_detail' proposal.pk %}" class="list-group-item list-group-item-action">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">{{ proposal.ad.seller.username }}</h6>
+                                    <small>{{ proposal.proposed_price }} €</small>
+                                </div>
+                                <p class="mb-1 small text-muted">{{ proposal.ad.title|truncatechars:50 }}</p>
+                                <small>
+                                    <i class="fas fa-clock me-1"></i>
+                                    {% trans "Expire dans" %} {{ proposal.days_until_expiry }} {% trans "jours" %}
+                                </small>
+                            </a>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-handshake fa-2x text-muted mb-2"></i>
+                            <p class="text-muted">{% trans "Aucune proposition en attente" %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+    {% else %}
+        <!-- Buyer Dashboard -->
+        <div class="col-lg-8 mb-4">
+            <!-- My Reservations -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-shopping-cart me-2"></i> {% trans "Mes réservations" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if my_reservations %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>{% trans "ID" %}</th>
+                                        <th>{% trans "Annonce" %}</th>
+                                        <th>{% trans "Statut" %}</th>
+                                        <th>{% trans "Prix" %}</th>
+                                        <th>{% trans "Date" %}</th>
+                                        <th>{% trans "Actions" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for reservation in my_reservations %}
+                                    <tr>
+                                        <td>
+                                            <a href="{% url 'logistics:reservation_detail' reservation.pk %}" class="text-decoration-none">
+                                                #{{ reservation.id }}
+                                            </a>
+                                        </td>
+                                        <td>
+                                            <a href="{{ reservation.ad.get_absolute_url }}" class="text-decoration-none">
+                                                {{ reservation.ad.title|truncatechars:30 }}
+                                            </a>
+                                        </td>
+                                        <td>
+                                            <span class="status-badge status-{{ reservation.status|lower }}">
+                                                {{ reservation.get_status_display }}
+                                            </span>
+                                        </td>
+                                        <td>{{ reservation.total_price }} €</td>
+                                        <td>{{ reservation.created_at|date:"d/m/Y" }}</td>
+                                        <td>
+                                            <a href="{% url 'logistics:reservation_detail' reservation.pk %}" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="text-center mt-3">
+                            <a href="{% url 'logistics:reservation_list' %}" class="btn btn-primary">
+                                <i class="fas fa-list me-2"></i> {% trans "Voir toutes mes réservations" %}
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-shopping-cart fa-4x text-muted mb-3"></i>
+                            <h4 class="text-muted mb-3">{% trans "Aucune réservation" %}</h4>
+                            <p class="text-muted mb-4">{% trans "Vous n'avez pas encore fait de réservation." %}</p>
+                            <a href="{% url 'ads:ad_list' %}" class="btn btn-primary btn-lg">
+                                <i class="fas fa-search me-2"></i> {% trans "Parcourir les annonces" %}
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Tracking Missions -->
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-truck me-2"></i> {% trans "Mes livraisons en cours" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if tracking_missions %}
+                        <div class="row">
+                            {% for mission in tracking_missions %}
+                            <div class="col-md-6 mb-3">
+                                {% include 'logistics/partials/mission_card.html' with mission=mission %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-truck fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">{% trans "Aucune livraison en cours" %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 mb-4">
+            <!-- Quick Actions -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-bolt me-2"></i> {% trans "Actions rapides" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'ads:ad_list' %}" class="btn btn-primary">
+                            <i class="fas fa-search me-2"></i> {% trans "Trouver un objet" %}
+                        </a>
+                        <a href="{% url 'logistics:route_list' %}" class="btn btn-success">
+                            <i class="fas fa-route me-2"></i> {% trans "Trouver un transport" %}
+                        </a>
+                        {% if not user.carrier_profile %}
+                            <a href="{% url 'carriers:apply' %}" class="btn btn-warning">
+                                <i class="fas fa-truck me-2"></i> {% trans "Devenir transporteur" %}
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Help Section -->
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i> {% trans "Besoin d'aide ?" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        <a href="{% url 'logistics:faq' %}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-question me-2"></i> {% trans "FAQ" %}
+                        </a>
+                        <a href="{% url 'logistics:guide' %}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-book me-2"></i> {% trans "Guide d'utilisation" %}
+                        </a>
+                        <a href="{% url 'core:contact' %}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-envelope me-2"></i> {% trans "Contactez-nous" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

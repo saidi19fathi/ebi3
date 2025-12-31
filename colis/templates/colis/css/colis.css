@@ -1,0 +1,83 @@
+/* ~/ebi3/colis/static/colis/css/colis.css */
+/* Styles spécifiques à l'application colis */
+
+/* Banner principal */
+.colis-banner {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 0 0 20px 20px;
+    margin-bottom: 2rem;
+}
+
+/* Cartes de colis */
+.package-card {
+    transition: all 0.3s ease;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.package-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 15px 35px rgba(50, 50, 93, 0.1), 0 5px 15px rgba(0, 0, 0, 0.07);
+}
+
+.package-image {
+    height: 200px;
+    object-fit: cover;
+    width: 100%;
+}
+
+/* Badges */
+.featured-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+}
+
+.package-type-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+/* Route display */
+.route-display {
+    border-left: 4px solid #667eea;
+    padding-left: 1.5rem;
+    margin: 1.5rem 0;
+}
+
+/* Statistiques */
+.stats-number {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #667eea;
+    line-height: 1;
+}
+
+/* Pagination */
+.pagination .page-link {
+    color: #667eea;
+    border: 1px solid #dee2e6;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #667eea;
+    border-color: #667eea;
+    color: white;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .colis-banner {
+        padding: 2rem 0;
+    }
+
+    .colis-banner h1 {
+        font-size: 2rem;
+    }
+
+    .package-card {
+        margin-bottom: 1.5rem;
+    }
+}

@@ -1,0 +1,98 @@
+{# ~/ebi3/messaging/templates/messaging/partials/notification_item.html #}
+<div class="list-group-item notification-item {% if not notification.is_read %}unread{% endif %}">
+    <div class="d-flex align-items-start">
+        <!-- Icône -->
+        <div class="flex-shrink-0 me-3">
+            <div class="notification-icon
+                        {% if notification.notification_type == 'MESSAGE_RECEIVED' %}text-primary
+                        {% elif notification.notification_type == 'MESSAGE_READ' %}text-success
+                        {% elif notification.notification_type == 'SYSTEM' %}text-info
+                        {% else %}text-warning{% endif %}">
+                <i class="fas
+                    {% if notification.notification_type == 'MESSAGE_RECEIVED' %}fa-envelope
+                    {% elif notification.notification_type == 'MESSAGE_READ' %}fa-check-double
+                    {% elif notification.notification_type == 'SYSTEM' %}fa-info-circle
+                    {% elif notification.notification_type == 'AD_RELATED' %}fa-ad
+                    {% elif notification.notification_type == 'PAYMENT' %}fa-credit-card
+                    {% else %}fa-bell{% endif %} fa-2x">
+                </i>
+            </div>
+        </div>
+
+        <!-- Contenu -->
+        <div class="flex-grow-1">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h6 class="mb-1">
+                        {% if not notification.is_read %}
+                            <span class="badge bg-danger me-2">{% trans "Nouveau" %}</span>
+                        {% endif %}
+                        {{ notification.title }}
+                        {% if notification.is_important %}
+                            <i class="fas fa-star text-warning ms-1" title="{% trans 'Important' %}"></i>
+                        {% endif %}
+                    </h6>
+                    <p class="mb-1">{{ notification.message }}</p>
+
+                    <div class="small text-muted">
+                        <i class="fas fa-clock"></i>
+                        {{ notification.created_at|timesince }}
+
+                        {% if notification.related_conversation %}
+                            •
+                            <a href="{% url 'messaging:conversation_detail' notification.related_conversation.uuid %}"
+                               class="text-decoration-none">
+                                <i class="fas fa-comments"></i> {% trans "Voir la conversation" %}
+                            </a>
+                        {% endif %}
+
+                        {% if notification.related_ad %}
+                            •
+                            <a href="{{ notification.related_ad.get_absolute_url }}"
+                               class="text-decoration-none">
+                                <i class="fas fa-ad"></i> {% trans "Voir l'annonce" %}
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="btn-group">
+                    {% if not notification.is_read %}
+                        <form method="post" action="{% url 'messaging:mark_notification_read' notification.pk %}"
+                              class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-success"
+                                    title="{% trans 'Marquer comme lu' %}">
+                                <i class="fas fa-check"></i>
+                            </button>
+                        </form>
+                    {% endif %}
+
+                    <form method="post" action="{% url 'messaging:delete_notification' notification.pk %}"
+                          class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-danger"
+                                onclick="return confirm('{% trans 'Supprimer cette notification ?' %}')"
+                                title="{% trans 'Supprimer' %}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Action -->
+            {% if notification.action_url %}
+                <div class="mt-2">
+                    <a href="{{ notification.action_url }}" class="btn btn-sm btn-primary">
+                        {% if notification.action_text %}
+                            {{ notification.action_text }}
+                        {% else %}
+                            <i class="fas fa-external-link-alt"></i> {% trans "Voir" %}
+                        {% endif %}
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>

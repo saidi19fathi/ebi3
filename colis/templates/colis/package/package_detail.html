@@ -1,0 +1,586 @@
+{# ~/ebi3/colis/templates/colis/package/package_detail.html #}
+{% extends 'colis/base_colis.html' %}
+{% load i18n %}
+
+{% block title %}{{ package.title }} - Ebi3{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+<style>
+    .package-detail-image {
+        height: 400px;
+        object-fit: cover;
+        border-radius: 10px;
+    }
+    .map-container {
+        height: 300px;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    .route-display {
+        border-left: 3px solid #667eea;
+        padding-left: 1rem;
+        margin: 1rem 0;
+    }
+    .specs-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin: 1rem 0;
+    }
+    .spec-item {
+        text-align: center;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+    .spec-label {
+        display: block;
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+    }
+    .spec-value {
+        display: block;
+        font-size: 1.25rem;
+        font-weight: bold;
+        color: #212529;
+    }
+</style>
+{% endblock %}
+
+{% block colis_title %}{{ package.title }}{% endblock %}
+
+{% block colis_content %}
+<div class="row">
+    <!-- Colonne principale -->
+    <div class="col-lg-8">
+        <!-- Galerie d'images -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                {% include 'colis/partials/image_gallery.html' with images=package.images.all %}
+            </div>
+        </div>
+
+        <!-- Description détaillée -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> {% trans "Description" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <p><strong>{% trans "Catégorie:" %}</strong>
+                            <a href="{{ package.category.get_absolute_url }}" class="badge bg-info">
+                                {{ package.category.name }}
+                            </a>
+                        </p>
+                        <p><strong>{% trans "Type:" %}</strong>
+                            <span class="badge bg-secondary">{{ package.get_package_type_display }}</span>
+                        </p>
+                        <p><strong>{% trans "Prix:" %}</strong>
+                            <span class="h5 text-primary">{{ package.get_price_with_currency }}</span>
+                            {% if package.price_type == 'NEGOTIABLE' %}
+                                <span class="badge bg-warning">{% trans "Négociable" %}</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>{% trans "Statut:" %}</strong>
+                            {% include 'colis/partials/status_badge.html' with status=package.status %}
+                        </p>
+                        <p><strong>{% trans "Publié le:" %}</strong>
+                            {{ package.created_at|date:"d/m/Y à H:i" }}
+                        </p>
+                        <p><strong>{% trans "Vues:" %}</strong>
+                            {{ package.view_count }}
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Spécifications -->
+                <div class="specs-grid">
+                    <div class="spec-item">
+                        <span class="spec-label">{% trans "Poids" %}</span>
+                        <span class="spec-value">{{ package.weight }} kg</span>
+                    </div>
+                    <div class="spec-item">
+                        <span class="spec-label">{% trans "Dimensions" %}</span>
+                        <span class="spec-value">{{ package.length }}×{{ package.width }}×{{ package.height }} cm</span>
+                    </div>
+                    <div class="spec-item">
+                        <span class="spec-label">{% trans "Volume" %}</span>
+                        <span class="spec-value">{{ package.volume|floatformat:1 }} L</span>
+                    </div>
+                    <div class="spec-item">
+                        <span class="spec-label">{% trans "Distance estimée" %}</span>
+                        <span class="spec-value">{{ package.get_distance_display }}</span>
+                    </div>
+                </div>
+
+                <!-- Description complète -->
+                <h6 class="mt-4">{% trans "Description complète" %}</h6>
+                <div class="description-content">
+                    {{ package.description|linebreaks }}
+                </div>
+
+                <!-- Options -->
+                {% if package.is_fragile or package.requires_insurance or package.requires_packaging %}
+                    <div class="mt-4">
+                        <h6>{% trans "Options spéciales" %}</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% if package.is_fragile %}
+                                <span class="badge bg-danger">
+                                    <i class="fas fa-exclamation-triangle"></i> {% trans "Fragile" %}
+                                </span>
+                            {% endif %}
+                            {% if package.requires_insurance %}
+                                <span class="badge bg-warning">
+                                    <i class="fas fa-shield-alt"></i> {% trans "Assurance requise" %}
+                                </span>
+                            {% endif %}
+                            {% if package.requires_packaging %}
+                                <span class="badge bg-info">
+                                    <i class="fas fa-box"></i> {% trans "Emballage requis" %}
+                                </span>
+                            {% endif %}
+                            {% if package.requires_loading_help %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-arrow-up"></i> {% trans "Aide chargement" %}
+                                </span>
+                            {% endif %}
+                            {% if package.requires_unloading_help %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-arrow-down"></i> {% trans "Aide déchargement" %}
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Trajet et carte -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-route"></i> {% trans "Trajet" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="route-display">
+                    <div class="mb-3">
+                        <h6><i class="fas fa-map-marker-alt text-danger"></i> {% trans "Départ" %}</h6>
+                        <p class="mb-1">
+                            <strong>{{ package.pickup_city }}</strong>, {{ package.pickup_country.name }}
+                        </p>
+                        {% if package.pickup_address %}
+                            <p class="text-muted small mb-0">{{ package.pickup_address }}</p>
+                        {% endif %}
+                        <p class="text-muted small">
+                            <i class="fas fa-calendar"></i> {% trans "Disponible à partir du" %} {{ package.pickup_date|date:"d/m/Y" }}
+                        </p>
+                    </div>
+
+                    <div class="mb-3">
+                        <h6><i class="fas fa-map-marker-alt text-success"></i> {% trans "Destination" %}</h6>
+                        <p class="mb-1">
+                            <strong>{{ package.delivery_city }}</strong>, {{ package.delivery_country.name }}
+                        </p>
+                        {% if package.delivery_address %}
+                            <p class="text-muted small mb-0">{{ package.delivery_address }}</p>
+                        {% endif %}
+                        <p class="text-muted small">
+                            <i class="fas fa-calendar-check"></i> {% trans "Livraison avant le" %} {{ package.delivery_date|date:"d/m/Y" }}
+                        </p>
+                    </div>
+
+                    {% if package.flexible_dates %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-clock"></i>
+                            {% trans "Dates flexibles - L'expéditeur accepte des dates différentes" %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Carte -->
+                <div class="map-container mt-3" id="routeMap"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Actions -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h5 class="card-title mb-3">{% trans "Actions" %}</h5>
+
+                <div class="d-grid gap-2 mb-3">
+                    {% if user.is_authenticated %}
+                        {% if user == package.sender %}
+                            <!-- Propriétaire du colis -->
+                            <a href="{% url 'colis:package_edit' package.slug %}" class="btn btn-primary">
+                                <i class="fas fa-edit"></i> {% trans "Modifier" %}
+                            </a>
+                            <a href="{% url 'colis:package_management' package.slug %}" class="btn btn-outline-primary">
+                                <i class="fas fa-cog"></i> {% trans "Gérer" %}
+                            </a>
+
+                            {% if package.status == 'AVAILABLE' and transport_offers %}
+                                <div class="mt-3">
+                                    <h6>{% trans "Offres reçues" %}</h6>
+                                    <div class="list-group">
+                                        {% for offer in transport_offers|slice:":3" %}
+                                            <div class="list-group-item">
+                                                <div class="d-flex justify-content-between">
+                                                    <strong>{{ offer.price }} {{ offer.currency }}</strong>
+                                                    <span class="badge bg-{% if offer.status == 'PENDING' %}warning{% else %}secondary{% endif %}">
+                                                        {{ offer.get_status_display }}
+                                                    </span>
+                                                </div>
+                                                <small class="text-muted">
+                                                    {{ offer.carrier.user.username }}
+                                                </small>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% if has_pending_offers %}
+                                        <a href="{% url 'colis:my_offers' %}" class="btn btn-warning mt-2 w-100">
+                                            <i class="fas fa-gavel"></i> {% trans "Voir toutes les offres" %}
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+
+                        {% elif can_make_offer %}
+                            <!-- Transporteur pouvant faire une offre -->
+                            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#makeOfferModal">
+                                <i class="fas fa-handshake"></i> {% trans "Faire une offre" %}
+                            </button>
+                            <a href="{% url 'messaging:new_conversation' package.sender.username %}" class="btn btn-outline-primary">
+                                <i class="fas fa-envelope"></i> {% trans "Contacter" %}
+                            </a>
+
+                        {% elif user_offer %}
+                            <!-- Transporteur ayant déjà fait une offre -->
+                            <div class="alert alert-info">
+                                <h6>{% trans "Votre offre" %}</h6>
+                                <p class="mb-1">
+                                    <strong>{{ user_offer.price }} {{ user_offer.currency }}</strong>
+                                </p>
+                                <p class="mb-0">
+                                    <span class="badge bg-{% if user_offer.status == 'PENDING' %}warning{% elif user_offer.status == 'ACCEPTED' %}success{% else %}secondary{% endif %}">
+                                        {{ user_offer.get_status_display }}
+                                    </span>
+                                </p>
+                            </div>
+                        {% else %}
+                            <!-- Autre utilisateur -->
+                            <button class="btn btn-outline-primary requires-login" data-bs-toggle="tooltip"
+                                    title="{% trans 'Devenez transporteur pour faire des offres' %}">
+                                <i class="fas fa-truck"></i> {% trans "Devenir transporteur" %}
+                            </button>
+                        {% endif %}
+
+                        <!-- Favori -->
+                        <button class="btn favorite-btn
+                                    {% if is_favorite %}btn-danger{% else %}btn-outline-danger{% endif %}"
+                                data-url="{% url 'colis:toggle_favorite' package.slug %}"
+                                data-package-slug="{{ package.slug }}">
+                            <i class="{% if is_favorite %}fas{% else %}far{% endif %} fa-heart"></i>
+                            {% if is_favorite %}
+                                {% trans "Retirer des favoris" %}
+                            {% else %}
+                                {% trans "Ajouter aux favoris" %}
+                            {% endif %}
+                        </button>
+
+                        <!-- Partage -->
+                        <button class="btn btn-outline-secondary" onclick="sharePackage()">
+                            <i class="fas fa-share-alt"></i> {% trans "Partager" %}
+                        </button>
+
+                        <!-- Signalement -->
+                        {% if can_report %}
+                            <a href="{% url 'colis:package_report' package.slug %}" class="btn btn-outline-warning">
+                                <i class="fas fa-flag"></i> {% trans "Signaler" %}
+                            </a>
+                        {% endif %}
+                    {% else %}
+                        <!-- Non connecté -->
+                        <a href="{% url 'users:login' %}?next={{ request.path }}" class="btn btn-primary">
+                            <i class="fas fa-sign-in-alt"></i> {% trans "Se connecter" %}
+                        </a>
+                        <a href="{% url 'users:register' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-user-plus"></i> {% trans "S'inscrire" %}
+                        </a>
+                        <p class="text-muted small text-center mt-2">
+                            {% trans "Connectez-vous pour contacter l'expéditeur" %}
+                        </p>
+                    {% endif %}
+                </div>
+
+                <!-- Statistiques -->
+                <div class="d-flex justify-content-around text-center border-top pt-3">
+                    <div>
+                        <div class="h5">{{ package.view_count }}</div>
+                        <small class="text-muted">{% trans "Vues" %}</small>
+                    </div>
+                    <div>
+                        <div class="h5">{{ package.offer_count }}</div>
+                        <small class="text-muted">{% trans "Offres" %}</small>
+                    </div>
+                    <div>
+                        <div class="h5">{{ package.favorite_count }}</div>
+                        <small class="text-muted">{% trans "Favoris" %}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Informations expéditeur -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-user"></i> {% trans "Expéditeur" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="avatar-circle bg-primary text-white d-flex align-items-center justify-content-center me-3">
+                        <span style="font-size: 1.5rem; font-weight: bold;">
+                            {{ package.sender.username|first|upper }}
+                        </span>
+                    </div>
+                    <div>
+                        <h5 class="mb-0">
+                            <a href="{% url 'users:profile' package.sender.username %}" class="text-decoration-none">
+                                {{ package.sender.username }}
+                            </a>
+                        </h5>
+                        <p class="text-muted small mb-0">
+                            <i class="fas fa-user-tag"></i> {{ package.sender.get_role_display }}
+                        </p>
+                        <p class="text-muted small mb-0">
+                            <i class="fas fa-calendar-alt"></i> {% trans "Membre depuis" %} {{ package.sender.date_joined|date:"Y" }}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="row text-center">
+                    <div class="col-4">
+                        <div class="h5">{{ package.sender.sent_packages.count }}</div>
+                        <small class="text-muted">{% trans "Colis" %}</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="h5">{{ package.sender.rating|default:"0.0" }}</div>
+                        <small class="text-muted">{% trans "Note" %}</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="h5">98%</div>
+                        <small class="text-muted">{% trans "Satisfaction" %}</small>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    {% if user.is_authenticated and user != package.sender %}
+                        <a href="{% url 'messaging:new_conversation' package.sender.username %}"
+                           class="btn btn-outline-primary w-100">
+                            <i class="fas fa-envelope"></i> {% trans "Contacter" %}
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Colis similaires -->
+        {% if similar_packages %}
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-boxes"></i> {% trans "Colis similaires" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        {% for similar in similar_packages %}
+                            <a href="{{ similar.get_absolute_url }}" class="list-group-item list-group-item-action">
+                                <div class="d-flex justify-content-between">
+                                    <strong>{{ similar.title|truncatechars:30 }}</strong>
+                                    <span class="text-primary">{{ similar.asking_price }} €</span>
+                                </div>
+                                <small class="text-muted">
+                                    {{ similar.pickup_city }} → {{ similar.delivery_city }}
+                                </small>
+                            </a>
+                        {% endfor %}
+                    </div>
+                    <a href="{% url 'colis:search' %}?category={{ package.category.slug }}"
+                       class="btn btn-sm btn-outline-secondary w-100 mt-2">
+                        {% trans "Voir plus" %}
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal pour faire une offre -->
+{% if can_make_offer %}
+<div class="modal fade" id="makeOfferModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Faire une offre" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'colis:offer_create' package.slug %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    {{ transport_offer_form.as_p }}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "Annuler" %}
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-paper-plane"></i> {% trans "Envoyer l'offre" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<script>
+// Initialisation de la carte
+function initMap() {
+    const map = L.map('routeMap').setView([46.603354, 1.888334], 6);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Marqueur de départ (simulé)
+    const startMarker = L.marker([48.8566, 2.3522]).addTo(map)
+        .bindPopup('{% trans "Départ" %}: {{ package.pickup_city }}');
+
+    // Marqueur d'arrivée (simulé)
+    const endMarker = L.marker([45.7640, 4.8357]).addTo(map)
+        .bindPopup('{% trans "Arrivée" %}: {{ package.delivery_city }}');
+
+    // Ligne entre les deux points
+    const polyline = L.polyline([
+        [48.8566, 2.3522],
+        [45.7640, 4.8357]
+    ], {color: 'blue'}).addTo(map);
+
+    // Ajuster la vue pour voir les deux marqueurs
+    map.fitBounds([startMarker.getLatLng(), endMarker.getLatLng()]);
+}
+
+// Fonction de partage
+function sharePackage() {
+    const url = window.location.href;
+    const title = '{{ package.title }}';
+
+    if (navigator.share) {
+        navigator.share({
+            title: title,
+            text: '{% trans "Regardez ce colis sur Ebi3" %}',
+            url: url,
+        });
+    } else {
+        navigator.clipboard.writeText(url).then(() => {
+            alert('{% trans "Lien copié dans le presse-papier !" %}');
+        });
+    }
+}
+
+$(document).ready(function() {
+    // Initialiser la carte
+    if ($('#routeMap').length) {
+        initMap();
+    }
+
+    // Gestion des favoris
+    $('.favorite-btn').click(function(e) {
+        e.preventDefault();
+        const btn = $(this);
+        const url = btn.data('url');
+
+        if (!{{ user.is_authenticated|yesno:"true,false" }}) {
+            $('#loginModal').modal('show');
+            return;
+        }
+
+        $.ajax({
+            url: url,
+            type: 'POST',
+            data: {
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            },
+            success: function(data) {
+                if (data.status === 'success') {
+                    if (data.action === 'added') {
+                        btn.removeClass('btn-outline-danger').addClass('btn-danger');
+                        btn.find('i').removeClass('far').addClass('fas');
+                        btn.html('<i class="fas fa-heart"></i> {% trans "Retirer des favoris" %}');
+                    } else {
+                        btn.removeClass('btn-danger').addClass('btn-outline-danger');
+                        btn.find('i').removeClass('fas').addClass('far');
+                        btn.html('<i class="far fa-heart"></i> {% trans "Ajouter aux favoris" %}');
+                    }
+
+                    // Afficher notification
+                    const toast = new bootstrap.Toast(document.getElementById('actionToast'));
+                    document.getElementById('toastMessage').textContent =
+                        data.action === 'added' ?
+                        '{% trans "Colis ajouté aux favoris" %}' :
+                        '{% trans "Colis retiré des favoris" %}';
+                    toast.show();
+                }
+            }
+        });
+    });
+});
+</script>
+
+<!-- Toast pour notifications -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="actionToast" class="toast" role="alert">
+        <div class="toast-header">
+            <strong class="me-auto">Ebi3</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body">
+            <span id="toastMessage"></span>
+        </div>
+    </div>
+</div>
+
+<style>
+.avatar-circle {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.description-content {
+    line-height: 1.8;
+    font-size: 1.05rem;
+}
+
+.description-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin: 1rem 0;
+}
+</style>
+{% endblock %}

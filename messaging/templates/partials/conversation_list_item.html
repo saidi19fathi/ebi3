@@ -1,0 +1,92 @@
+{# ~/ebi3/messaging/templates/messaging/partials/conversation_list_item.html #}
+<div class="list-group-item conversation-item
+            {% if conversation.unread_count > 0 %}unread{% endif %}
+            {% if conversation.uuid == active_conversation.uuid|default:'' %}active{% endif %}"
+     onclick="location.href='{% url 'messaging:conversation_detail' conversation.uuid %}'">
+
+    <div class="d-flex align-items-center">
+        <!-- Avatar -->
+        <div class="flex-shrink-0 position-relative">
+            <div class="conversation-avatar bg-primary text-white d-flex align-items-center justify-content-center">
+                {% with other=conversation.get_other_participant request.user %}
+                    {% if other %}
+                        {{ other.username|first|upper }}
+                    {% else %}
+                        <i class="fas fa-users"></i>
+                    {% endif %}
+                {% endwith %}
+            </div>
+
+            <!-- Statut en ligne -->
+            {% with other=conversation.get_other_participant request.user %}
+                {% if other and other.profile.is_online %}
+                    <span class="online-status online position-absolute"
+                          style="bottom: 0; right: 0;"></span>
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <!-- Contenu -->
+        <div class="flex-grow-1 ms-3 overflow-hidden">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h6 class="mb-0 text-truncate">
+                        {% if conversation.subject %}
+                            {{ conversation.subject }}
+                        {% else %}
+                            {% with other=conversation.get_other_participant request.user %}
+                                {% if other %}
+                                    {{ other.username }}
+                                {% else %}
+                                    {% trans "Groupe" %}
+                                {% endif %}
+                            {% endwith %}
+                        {% endif %}
+                    </h6>
+
+                    <div class="small text-muted">
+                        {% with other=conversation.get_other_participant request.user %}
+                            {% if other %}
+                                {{ other.get_role_display }}
+                            {% endif %}
+                        {% endwith %}
+                        {% if conversation.related_ad %}
+                            • <i class="fas fa-ad"></i> {{ conversation.related_ad.title|truncatechars:20 }}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="text-end">
+                    <small class="conversation-time">
+                        {% if conversation.last_message_at %}
+                            {{ conversation.last_message_at|timesince }}
+                        {% endif %}
+                    </small>
+
+                    {% if conversation.unread_count > 0 %}
+                        <div>
+                            <span class="unread-badge">{{ conversation.unread_count }}</span>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Dernier message -->
+            <div class="conversation-preview mt-1">
+                {% with last_msg=conversation.messages.last %}
+                    {% if last_msg %}
+                        {% if last_msg.sender == request.user %}
+                            <i class="fas fa-reply text-muted me-1"></i>
+                        {% endif %}
+                        {% if last_msg.attachment %}
+                            <i class="fas fa-paperclip text-muted me-1"></i>
+                        {% endif %}
+                        {{ last_msg.content|truncatechars:50 }}
+                    {% else %}
+                        <span class="text-muted">{% trans "Aucun message" %}</span>
+                    {% endif %}
+                {% endwith %}
+            </div>
+        </div>
+    </div>
+</div>

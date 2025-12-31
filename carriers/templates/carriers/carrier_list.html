@@ -1,0 +1,177 @@
+{# ~/ebi3/carriers/templates/carriers/carrier_list.html #}
+{% extends 'carriers/base_carriers.html' %}
+{% load i18n crispy_forms_tags %}
+
+{% block title %}{% trans "Transporteurs" %} - Ebi3{% endblock %}
+
+{% block carriers_content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1>{% trans "Transporteurs disponibles" %}</h1>
+            <div>
+                <a href="{% url 'carriers:search' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-search"></i> {% trans "Recherche avancée" %}
+                </a>
+                {% if user.is_authenticated and not user.carrier_profile %}
+                    <a href="{% url 'carriers:apply' %}" class="btn btn-primary">
+                        <i class="fas fa-truck"></i> {% trans "Devenir transporteur" %}
+                    </a>
+                {% elif user.is_authenticated and user.carrier_profile %}
+                    <a href="{% url 'carriers:carrier_dashboard' %}" class="btn btn-success">
+                        <i class="fas fa-tachometer-alt"></i> {% trans "Tableau de bord" %}
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+        <p class="text-muted">
+            {% blocktranslate count total_carriers=total_carriers %}
+                {{ total_carriers }} transporteur disponible
+            {% plural %}
+                {{ total_carriers }} transporteurs disponibles
+            {% endblocktranslate %}
+            ({{ professional_count }} {% trans "professionnels" %}, {{ personal_count }} {% trans "particuliers" %})
+        </p>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Sidebar de filtres -->
+    <div class="col-md-3 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-filter"></i> {% trans "Filtres" %}</h5>
+            </div>
+            <div class="card-body">
+                <form method="get" id="filter-form">
+                    {{ search_form|crispy }}
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-filter"></i> {% trans "Filtrer" %}
+                        </button>
+                        <a href="{% url 'carriers:carrier_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times"></i> {% trans "Effacer" %}
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Statistiques -->
+        <div class="card shadow-sm mt-3">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-chart-bar"></i> {% trans "Statistiques" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center">
+                    <div class="stats-number">{{ professional_count }}</div>
+                    <p class="text-muted">{% trans "Transporteurs professionnels" %}</p>
+
+                    <div class="stats-number">{{ personal_count }}</div>
+                    <p class="text-muted">{% trans "Transporteurs particuliers" %}</p>
+
+                    <div class="stats-number">{{ carriers|length|default:"0" }}</div>
+                    <p class="text-muted">{% trans "Résultats trouvés" %}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des transporteurs -->
+    <div class="col-md-9">
+        <!-- Tri -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <span class="text-muted">
+                            {% blocktranslate with count=page_obj.paginator.count %}
+                                {{ count }} résultats
+                            {% endblocktranslate %}
+                        </span>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary dropdown-toggle" type="button"
+                                    data-bs-toggle="dropdown">
+                                <i class="fas fa-sort"></i> {% trans "Trier par" %}
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="?sort_by=rating">{% trans "Meilleure note" %}</a></li>
+                                <li><a class="dropdown-item" href="?sort_by=price">{% trans "Prix le plus bas" %}</a></li>
+                                <li><a class="dropdown-item" href="?sort_by=experience">{% trans "Plus d'expérience" %}</a></li>
+                                <li><a class="dropdown-item" href="?sort_by=newest">{% trans "Plus récent" %}</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transporteurs -->
+        {% if carriers %}
+            <div class="row">
+                {% for carrier in carriers %}
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        {% include 'carriers/partials/carrier_card.html' with carrier=carrier %}
+                    </div>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination -->
+            {% if page_obj.has_other_pages %}
+                <nav aria-label="Page navigation" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                    <i class="fas fa-chevron-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                        {{ num }}
+                                    </a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="card shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-truck fa-4x text-muted mb-3"></i>
+                    <h3>{% trans "Aucun transporteur trouvé" %}</h3>
+                    <p class="text-muted">
+                        {% trans "Essayez de modifier vos critères de recherche ou" %}
+                        <a href="{% url 'carriers:carrier_list' %}">{% trans "consultez tous les transporteurs" %}</a>.
+                    </p>
+                    {% if user.is_authenticated and not user.carrier_profile %}
+                        <a href="{% url 'carriers:apply' %}" class="btn btn-primary mt-3">
+                            <i class="fas fa-truck"></i> {% trans "Devenir le premier transporteur" %}
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

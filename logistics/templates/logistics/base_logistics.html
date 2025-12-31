@@ -1,0 +1,367 @@
+{# ~/ebi3/logistics/templates/logistics/base_logistics.html #}
+
+{% extends 'core/base.html' %}
+{% load i18n static %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    .logistics-dashboard {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        min-height: calc(100vh - 200px);
+    }
+
+    .logistics-card {
+        transition: all 0.3s ease;
+        border: 1px solid #e0e0e0;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .logistics-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        border-color: #667eea;
+    }
+
+    .logistics-nav {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        padding: 1rem 0;
+    }
+
+    .logistics-nav .nav-link {
+        color: #666;
+        padding: 0.75rem 1.5rem;
+        border-left: 3px solid transparent;
+        transition: all 0.3s ease;
+    }
+
+    .logistics-nav .nav-link:hover {
+        color: #667eea;
+        background-color: #f8f9fa;
+    }
+
+    .logistics-nav .nav-link.active {
+        color: #667eea;
+        background-color: #f0f5ff;
+        border-left-color: #667eea;
+        font-weight: 600;
+    }
+
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .status-pending { background-color: #fff3cd; color: #856404; }
+    .status-confirmed { background-color: #d1ecf1; color: #0c5460; }
+    .status-in-transit { background-color: #cce5ff; color: #004085; }
+    .status-delivered { background-color: #d4edda; color: #155724; }
+    .status-cancelled { background-color: #f8d7da; color: #721c24; }
+
+    .progress-bar-logistics {
+        height: 10px;
+        border-radius: 5px;
+        background-color: #e9ecef;
+        overflow: hidden;
+    }
+
+    .progress-fill {
+        height: 100%;
+        border-radius: 5px;
+        transition: width 0.3s ease;
+    }
+
+    .tracking-timeline {
+        position: relative;
+        padding-left: 2.5rem;
+        margin-left: 1rem;
+    }
+
+    .tracking-timeline::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: linear-gradient(to bottom, #667eea, #764ba2);
+    }
+
+    .tracking-event {
+        position: relative;
+        margin-bottom: 2rem;
+    }
+
+    .tracking-event::before {
+        content: '';
+        position: absolute;
+        left: -2.5rem;
+        top: 0;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #667eea;
+        border: 3px solid white;
+        box-shadow: 0 0 0 2px #667eea;
+    }
+
+    .tracking-event.completed::before {
+        background: #28a745;
+        box-shadow: 0 0 0 2px #28a745;
+    }
+
+    .tracking-event.current::before {
+        background: #ffc107;
+        box-shadow: 0 0 0 2px #ffc107;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+    }
+
+    .map-container {
+        height: 300px;
+        border-radius: 10px;
+        overflow: hidden;
+        background-color: #f8f9fa;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .stats-card {
+        border: none;
+        border-radius: 10px;
+        overflow: hidden;
+        transition: transform 0.3s ease;
+    }
+
+    .stats-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .stats-card .card-body {
+        padding: 1.5rem;
+    }
+
+    .stats-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        line-height: 1;
+        margin-bottom: 0.5rem;
+    }
+
+    .stats-icon {
+        font-size: 2.5rem;
+        opacity: 0.7;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .logistics-nav {
+            margin-bottom: 1.5rem;
+        }
+
+        .action-buttons {
+            flex-direction: column;
+        }
+
+        .action-buttons .btn {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="logistics-dashboard py-4">
+    <div class="container">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h1 class="h2 mb-2">{% block logistics_title %}{% trans "Logistique" %}{% endblock %}</h1>
+                        <p class="text-muted mb-0">{% block logistics_subtitle %}{% trans "Gestion de vos transports et réservations" %}{% endblock %}</p>
+                    </div>
+                    <div class="d-flex gap-2">
+                        {% block logistics_header_actions %}
+                        <a href="{% url 'logistics:reservation_create' %}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i> {% trans "Nouvelle réservation" %}
+                        </a>
+                        {% if user.role == 'CARRIER' and user.carrier_profile %}
+                        <a href="{% url 'logistics:route_create' %}" class="btn btn-success">
+                            <i class="fas fa-route me-2"></i> {% trans "Publier une route" %}
+                        </a>
+                        {% endif %}
+                        {% endblock %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Sidebar Navigation -->
+            <div class="col-lg-3 col-xl-2 mb-4">
+                {% include 'logistics/includes/logistics_nav.html' %}
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-lg-9 col-xl-10">
+                <!-- Messages -->
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-4" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                <!-- Breadcrumb -->
+                {% block logistics_breadcrumb %}
+                <nav aria-label="breadcrumb" class="mb-4">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'logistics:dashboard' %}">{% trans "Logistique" %}</a>
+                        </li>
+                        {% block logistics_breadcrumb_items %}{% endblock %}
+                    </ol>
+                </nav>
+                {% endblock %}
+
+                <!-- Content -->
+                <div class="card logistics-card">
+                    <div class="card-body">
+                        {% block logistics_content %}{% endblock %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+    // Logistics-specific JavaScript
+    $(document).ready(function() {
+        // Initialize tooltips
+        $('[data-bs-toggle="tooltip"]').tooltip();
+
+        // Initialize popovers
+        $('[data-bs-toggle="popover"]').popover();
+
+        // Confirm actions
+        $('.confirm-action').click(function(e) {
+            if (!confirm($(this).data('confirm-message') || '{% trans "Êtes-vous sûr ?" %}')) {
+                e.preventDefault();
+            }
+        });
+
+        // Dynamic status updates
+        $('.status-update-form').submit(function(e) {
+            e.preventDefault();
+            const form = $(this);
+            const url = form.attr('action');
+            const data = form.serialize();
+
+            $.ajax({
+                url: url,
+                type: 'POST',
+                data: data,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': form.find('[name=csrfmiddlewaretoken]').val()
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Update status badge
+                        const statusBadge = form.closest('.card').find('.status-badge');
+                        statusBadge.text(response.new_status_display);
+                        statusBadge.removeClass().addClass('status-badge status-' + response.new_status.toLowerCase());
+
+                        // Show success message
+                        showToast('{% trans "Statut mis à jour avec succès" %}', 'success');
+                    }
+                },
+                error: function() {
+                    showToast('{% trans "Une erreur est survenue" %}', 'error');
+                }
+            });
+        });
+
+        // Tracking map initialization
+        if ($('#tracking-map').length) {
+            initTrackingMap();
+        }
+
+        // Progress bar animation
+        $('.progress-fill').each(function() {
+            const width = $(this).data('width') || 0;
+            $(this).css('width', width + '%');
+        });
+    });
+
+    function initTrackingMap() {
+        // Initialize map for tracking
+        const map = L.map('tracking-map').setView([48.8566, 2.3522], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Add markers from data attributes
+        $('.tracking-marker').each(function() {
+            const lat = $(this).data('lat');
+            const lng = $(this).data('lng');
+            const title = $(this).data('title');
+
+            if (lat && lng) {
+                L.marker([lat, lng])
+                    .addTo(map)
+                    .bindPopup(title);
+            }
+        });
+    }
+
+    function showToast(message, type) {
+        const toastHtml = `
+            <div class="toast align-items-center text-white bg-${type} border-0" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        `;
+
+        $('#toast-container').append(toastHtml);
+        $('.toast').toast('show');
+
+        setTimeout(function() {
+            $('.toast').toast('hide');
+        }, 3000);
+    }
+</script>
+
+<!-- Leaflet for maps -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+{% block logistics_extra_js %}{% endblock %}
+{% endblock %}

@@ -1,0 +1,200 @@
+{# ~/ebi3/colis/templates/colis/partials/search_filters.html #}
+{% load i18n crispy_forms_tags %}
+<div class="card shadow-sm">
+    <div class="card-body">
+        <form method="get" action="{% url 'colis:search' %}" id="search-form">
+            <div class="row g-3">
+                <!-- Recherche texte -->
+                <div class="col-md-12">
+                    <div class="input-group">
+                        <input type="text"
+                               name="q"
+                               class="form-control"
+                               placeholder="{% trans 'Que cherchez-vous à transporter ?' %}"
+                               value="{{ request.GET.q|default:'' }}">
+                        <button class="btn btn-primary" type="submit">
+                            <i class="fas fa-search"></i> {% trans "Rechercher" %}
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filtres avancés (toggle) -->
+                <div class="col-12">
+                    <button class="btn btn-outline-secondary btn-sm w-100" type="button"
+                            data-bs-toggle="collapse" data-bs-target="#advancedFilters"
+                            aria-expanded="false" aria-controls="advancedFilters">
+                        <i class="fas fa-filter"></i> {% trans "Filtres avancés" %}
+                    </button>
+                </div>
+
+                <!-- Filtres avancés (contenu) -->
+                <div class="collapse mt-3" id="advancedFilters">
+                    <div class="row g-3">
+                        <!-- Origine -->
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans "Départ" %}</label>
+                            <input type="text"
+                                   name="pickup_city"
+                                   class="form-control"
+                                   placeholder="{% trans 'Ville de départ' %}"
+                                   value="{{ request.GET.pickup_city|default:'' }}">
+                        </div>
+
+                        <!-- Destination -->
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans "Destination" %}</label>
+                            <input type="text"
+                                   name="delivery_city"
+                                   class="form-control"
+                                   placeholder="{% trans 'Ville d\'arrivée' %}"
+                                   value="{{ request.GET.delivery_city|default:'' }}">
+                        </div>
+
+                        <!-- Catégorie -->
+                        <div class="col-md-4">
+                            <label class="form-label">{% trans "Catégorie" %}</label>
+                            <select name="category" class="form-select">
+                                <option value="">{% trans "Toutes catégories" %}</option>
+                                {% for category in categories %}
+                                    <option value="{{ category.slug }}"
+                                            {% if request.GET.category == category.slug %}selected{% endif %}>
+                                        {{ category.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Type de colis -->
+                        <div class="col-md-4">
+                            <label class="form-label">{% trans "Type" %}</label>
+                            <select name="package_type" class="form-select">
+                                <option value="">{% trans "Tous types" %}</option>
+                                <option value="SMALL_PACKAGE" {% if request.GET.package_type == 'SMALL_PACKAGE' %}selected{% endif %}>
+                                    {% trans "Petit colis (< 30kg)" %}
+                                </option>
+                                <option value="MEDIUM_PACKAGE" {% if request.GET.package_type == 'MEDIUM_PACKAGE' %}selected{% endif %}>
+                                    {% trans "Colis moyen (30-100kg)" %}
+                                </option>
+                                <option value="LARGE_PACKAGE" {% if request.GET.package_type == 'LARGE_PACKAGE' %}selected{% endif %}>
+                                    {% trans "Gros colis (100-500kg)" %}
+                                </option>
+                                <option value="FURNITURE" {% if request.GET.package_type == 'FURNITURE' %}selected{% endif %}>
+                                    {% trans "Meuble" %}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Poids max -->
+                        <div class="col-md-4">
+                            <label class="form-label">{% trans "Poids max (kg)" %}</label>
+                            <input type="number"
+                                   name="max_weight"
+                                   class="form-control"
+                                   min="0"
+                                   step="0.001"
+                                   placeholder="{% trans 'Ex: 50' %}"
+                                   value="{{ request.GET.max_weight|default:'' }}">
+                        </div>
+
+                        <!-- Dates -->
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans "Départ à partir du" %}</label>
+                            <input type="date"
+                                   name="pickup_date_from"
+                                   class="form-control"
+                                   value="{{ request.GET.pickup_date_from|default:'' }}">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans "Départ jusqu'au" %}</label>
+                            <input type="date"
+                                   name="pickup_date_to"
+                                   class="form-control"
+                                   value="{{ request.GET.pickup_date_to|default:'' }}">
+                        </div>
+
+                        <!-- Prix -->
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans "Prix min" %}</label>
+                            <div class="input-group">
+                                <input type="number"
+                                       name="min_price"
+                                       class="form-control"
+                                       min="0"
+                                       step="0.01"
+                                       placeholder="{% trans 'Min' %}"
+                                       value="{{ request.GET.min_price|default:'' }}">
+                                <span class="input-group-text">€</span>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans "Prix max" %}</label>
+                            <div class="input-group">
+                                <input type="number"
+                                       name="max_price"
+                                       class="form-control"
+                                       min="0"
+                                       step="0.01"
+                                       placeholder="{% trans 'Max' %}"
+                                       value="{{ request.GET.max_price|default:'' }}">
+                                <span class="input-group-text">€</span>
+                            </div>
+                        </div>
+
+                        <!-- Options -->
+                        <div class="col-md-12">
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       name="flexible_dates"
+                                       id="flexibleDates"
+                                       {% if request.GET.flexible_dates %}checked{% endif %}>
+                                <label class="form-check-label" for="flexibleDates">
+                                    {% trans "Dates flexibles" %}
+                                </label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       name="is_fragile"
+                                       id="fragileOnly"
+                                       {% if request.GET.is_fragile %}checked{% endif %}>
+                                <label class="form-check-label" for="fragileOnly">
+                                    {% trans "Fragile seulement" %}
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Boutons -->
+                        <div class="col-md-12">
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary flex-grow-1">
+                                    <i class="fas fa-filter"></i> {% trans "Appliquer les filtres" %}
+                                </button>
+                                <a href="{% url 'colis:package_list' %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times"></i> {% trans "Effacer" %}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    // Auto-submit sur changement de certains filtres
+    $('select[name="category"], select[name="package_type"]').change(function() {
+        $('#search-form').submit();
+    });
+
+    // Pré-remplir la date de départ à partir d'aujourd'hui
+    if (!$('input[name="pickup_date_from"]').val()) {
+        const today = new Date().toISOString().split('T')[0];
+        $('input[name="pickup_date_from"]').val(today);
+    }
+});
+</script>

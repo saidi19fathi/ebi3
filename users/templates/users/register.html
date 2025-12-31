@@ -1,0 +1,59 @@
+{# ~/ebi3/users/templates/users/register.html #}
+{% extends 'users/base_auth.html' %}
+{% load i18n crispy_forms_tags %}
+
+{% block title %}{% trans "Inscription - Ebi3" %}{% endblock %}
+
+{% block content %}
+<h2 class="text-center mb-4">{% trans "Créer un compte" %}</h2>
+
+<form method="post" novalidate>
+    {% csrf_token %}
+
+    {{ form|crispy }}
+
+    <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" id="terms" required>
+        <label class="form-check-label" for="terms">
+            {% trans "J'accepte les" %}
+            <a href="{% url 'core:terms' %}">{% trans "conditions d'utilisation" %}</a>
+            {% trans "et la" %}
+            <a href="{% url 'core:privacy' %}">{% trans "politique de confidentialité" %}</a>
+        </label>
+    </div>
+
+    <div class="d-grid gap-2">
+        <button type="submit" class="btn btn-primary btn-lg">
+            {% trans "S'inscrire" %}
+        </button>
+    </div>
+</form>
+
+<hr class="my-4">
+
+<div class="text-center">
+    <p class="mb-0">
+        {% trans "Déjà un compte ?" %}
+        <a href="{% url 'users:login' %}" class="text-decoration-none">
+            {% trans "Connectez-vous" %}
+        </a>
+    </p>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="d-grid">
+            <a href="#" class="btn btn-outline-dark">
+                <i class="fab fa-google"></i> {% trans "Google" %}
+            </a>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="d-grid">
+            <a href="#" class="btn btn-outline-primary">
+                <i class="fab fa-facebook"></i> {% trans "Facebook" %}
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

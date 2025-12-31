@@ -1,0 +1,39 @@
+{# ~/ebi3/messaging/templates/messaging/partials/attachment_preview.html #}
+<div class="attachment-preview mt-2">
+    {% with ext=attachment.name|lower|slice:"-4:" %}
+        <div class="d-flex align-items-center">
+            <div class="flex-shrink-0">
+                {% if ext in '.jpg.jpeg.png.gif.webp' %}
+                    <i class="fas fa-file-image fa-2x text-primary"></i>
+                {% elif ext in '.pdf' %}
+                    <i class="fas fa-file-pdf fa-2x text-danger"></i>
+                {% elif ext in '.doc.docx' %}
+                    <i class="fas fa-file-word fa-2x text-info"></i>
+                {% elif ext in '.xls.xlsx' %}
+                    <i class="fas fa-file-excel fa-2x text-success"></i>
+                {% elif ext in '.zip.rar.7z' %}
+                    <i class="fas fa-file-archive fa-2x text-warning"></i>
+                {% else %}
+                    <i class="fas fa-file fa-2x text-secondary"></i>
+                {% endif %}
+            </div>
+            <div class="flex-grow-1 ms-3">
+                <div class="fw-bold text-truncate">{{ attachment.name }}</div>
+                <div class="small text-muted">
+                    {% if attachment.size %}
+                        {{ attachment.size|filesizeformat }}
+                    {% endif %}
+                    {% if ext %}
+                        • {{ ext|upper }}
+                    {% endif %}
+                </div>
+            </div>
+            <div class="flex-shrink-0">
+                <a href="{{ attachment.url }}" class="btn btn-sm btn-outline-primary"
+                   target="_blank" title="{% trans 'Télécharger' %}">
+                    <i class="fas fa-download"></i>
+                </a>
+            </div>
+        </div>
+    {% endwith %}
+</div>

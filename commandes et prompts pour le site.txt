@@ -1,0 +1,11 @@
+copier les fichiers des dossiers
+
+{
+  for dir in ads carriers colis core dashboard ebi3 logistics messaging payments reviews static staticfiles tracking users; do
+    find "$dir" \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" \) -type f -print0 | while IFS= read -r -d '' file; do
+      echo "========== $file =========="
+      cat "$file"
+      echo -e "\n\n"
+    done
+  done
+} > uuuu.txt

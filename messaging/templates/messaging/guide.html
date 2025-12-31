@@ -1,0 +1,128 @@
+{# ~/ebi3/messaging/templates/messaging/guide.html #}
+{% extends 'messaging/base_messaging.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Guide de la messagerie" %} - Ebi3{% endblock %}
+
+{% block messaging_content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-lg">
+            <div class="card-header bg-primary text-white">
+                <h1 class="mb-0">
+                    <i class="fas fa-book"></i> {% trans "Guide de la messagerie Ebi3" %}
+                </h1>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <!-- Navigation -->
+                    <div class="col-md-3">
+                        <div class="sticky-top" style="top: 20px;">
+                            <nav id="guide-nav" class="nav flex-column">
+                                <a class="nav-link" href="#basics">{% trans "Les bases" %}</a>
+                                <a class="nav-link" href="#sending">{% trans "Envoyer des messages" %}</a>
+                                <a class="nav-link" href="#attachments">{% trans "Pièces jointes" %}</a>
+                                <a class="nav-link" href="#privacy">{% trans "Confidentialité" %}</a>
+                                <a class="nav-link" href="#troubleshooting">{% trans "Dépannage" %}</a>
+                            </nav>
+                        </div>
+                    </div>
+
+                    <!-- Contenu -->
+                    <div class="col-md-9">
+                        <!-- Les bases -->
+                        <section id="basics" class="mb-5">
+                            <h2 class="border-bottom pb-2">
+                                <i class="fas fa-graduation-cap text-primary"></i> {% trans "Les bases" %}
+                            </h2>
+                            <p>{% trans "La messagerie Ebi3 vous permet de communiquer avec d'autres membres de la plateforme." %}</p>
+
+                            <h4>{% trans "Boîte de réception" %}</h4>
+                            <p>{% trans "Votre boîte de réception affiche toutes vos conversations. Vous pouvez :" %}</p>
+                            <ul>
+                                <li>{% trans "Filtrer par type de conversation" %}</li>
+                                <li>{% trans "Rechercher dans les messages" %}</li>
+                                <li>{% trans "Archiver les anciennes conversations" %}</li>
+                                <li>{% trans "Marquer les messages comme lus/non lus" %}</li>
+                            </ul>
+
+                            <h4>{% trans "Conversations" %}</h4>
+                            <p>{% trans "Une conversation regroupe tous les messages échangés avec une ou plusieurs personnes." %}</p>
+                        </section>
+
+                        <!-- Envoyer des messages -->
+                        <section id="sending" class="mb-5">
+                            <h2 class="border-bottom pb-2">
+                                <i class="fas fa-paper-plane text-primary"></i> {% trans "Envoyer des messages" %}
+                            </h2>
+
+                            <h4>{% trans "Nouvelle conversation" %}</h4>
+                            <p>{% trans "Pour démarrer une nouvelle conversation :" %}</p>
+                            <ol>
+                                <li>{% trans "Cliquez sur 'Nouveau message'" %}</li>
+                                <li>{% trans "Entrez le nom d'utilisateur du destinataire" %}</li>
+                                <li>{% trans "Ajoutez un sujet (optionnel)" %}</li>
+                                <li>{% trans "Rédigez votre message" %}</li>
+                                <li>{% trans "Cliquez sur 'Envoyer'" %}</li>
+                            </ol>
+
+                            <h4>{% trans "Répondre à un message" %}</h4>
+                            <p>{% trans "Pour répondre à un message existant :" %}</p>
+                            <ul>
+                                <li>{% trans "Cliquez sur une conversation" %}</li>
+                                <li>{% trans "Tapez votre message dans la zone de texte" %}</li>
+                                <li>{% trans "Appuyez sur Entrée ou cliquez sur l'icône d'envoi" %}</li>
+                            </ul>
+                        </section>
+
+                        <!-- Plus de sections... -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    #guide-nav .nav-link {
+        color: #666;
+        border-left: 3px solid transparent;
+        padding-left: 15px;
+        margin-bottom: 5px;
+    }
+
+    #guide-nav .nav-link:hover,
+    #guide-nav .nav-link.active {
+        color: #2196f3;
+        border-left-color: #2196f3;
+        background: #f8f9fa;
+    }
+
+    section {
+        scroll-margin-top: 20px;
+    }
+</style>
+
+<script>
+    $(document).ready(function() {
+        // Navigation active
+        const sections = $('section');
+        const navLinks = $('#guide-nav .nav-link');
+
+        $(window).scroll(function() {
+            const currentPos = $(this).scrollTop();
+
+            sections.each(function() {
+                const top = $(this).offset().top - 100;
+                const bottom = top + $(this).outerHeight();
+
+                if (currentPos >= top && currentPos <= bottom) {
+                    const id = $(this).attr('id');
+                    navLinks.removeClass('active');
+                    $(`#guide-nav .nav-link[href="#${id}"]`).addClass('active');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

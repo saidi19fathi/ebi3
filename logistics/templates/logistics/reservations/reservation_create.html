@@ -1,0 +1,306 @@
+{# ~/ebi3/logistics/templates/logistics/reservations/reservation_create.html #}
+
+{% extends 'logistics/base_logistics.html' %}
+{% load i18n crispy_forms_tags %}
+
+{% block logistics_title %}{% trans "Nouvelle réservation" %}{% endblock %}
+
+{% block logistics_subtitle %}{{ ad.title }}{% endblock %}
+
+{% block logistics_breadcrumb_items %}
+<li class="breadcrumb-item">
+    <a href="{% url 'ads:ad_detail' ad.slug %}">{{ ad.title|truncatechars:30 }}</a>
+</li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Réserver" %}</li>
+{% endblock %}
+
+{% block logistics_content %}
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-shopping-cart me-2"></i> {% trans "Réserver cette annonce" %}</h5>
+            </div>
+            <div class="card-body">
+                <!-- Annonce Summary -->
+                <div class="alert alert-info mb-4">
+                    <div class="d-flex">
+                        <div class="flex-shrink-0">
+                            {% with ad.images.first as main_image %}
+                                {% if main_image %}
+                                    <img src="{{ main_image.thumbnail.url|default:main_image.image.url }}"
+                                         class="rounded"
+                                         style="width: 80px; height: 80px; object-fit: cover;"
+                                         alt="{{ ad.title }}">
+                                {% else %}
+                                    <div class="bg-light rounded d-flex align-items-center justify-content-center"
+                                         style="width: 80px; height: 80px;">
+                                        <i class="fas fa-image text-muted"></i>
+                                    </div>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="alert-heading">{{ ad.title }}</h6>
+                            <p class="mb-1">
+                                <strong>{% trans "Prix :" %}</strong> {{ ad.get_price_with_currency }}
+                                {% if ad.is_negotiable %}
+                                    <small class="text-muted">{% trans "(Négociable)" %}</small>
+                                {% endif %}
+                            </p>
+                            <p class="mb-1">
+                                <strong>{% trans "Vendeur :" %}</strong>
+                                <a href="{% url 'users:profile' ad.seller.username %}">{{ ad.seller.username }}</a>
+                            </p>
+                            <p class="mb-0">
+                                <strong>{% trans "Localisation :" %}</strong>
+                                {{ ad.city_from }} → {{ ad.city_to }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reservation Form -->
+                <form method="post" novalidate>
+                    {% csrf_token %}
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            {{ form.logistics_option|as_crispy_field }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            {{ form.carrier|as_crispy_field }}
+                        </div>
+                    </div>
+
+                    <!-- Carrier field will be shown/hidden based on logistics option -->
+                    <script>
+                        function toggleCarrierField() {
+                            const logisticsOption = document.getElementById('id_logistics_option').value;
+                            const carrierField = document.getElementById('carrier-select').closest('.mb-3');
+
+                            if (logisticsOption === 'WITH_CARRIER') {
+                                carrierField.style.display = 'block';
+                            } else {
+                                carrierField.style.display = 'none';
+                            }
+                        }
+
+                        // Initial toggle
+                        document.addEventListener('DOMContentLoaded', toggleCarrierField);
+                    </script>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            {{ form.pickup_address|as_crispy_field }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            {{ form.delivery_address|as_crispy_field }}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            {{ form.pickup_date|as_crispy_field }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            {{ form.delivery_date|as_crispy_field }}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            {{ form.shipping_cost|as_crispy_field }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            {{ form.insurance_cost|as_crispy_field }}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            {{ form.requires_insurance }}
+                            <label class="form-check-label" for="{{ form.requires_insurance.id_for_label }}">
+                                {{ form.requires_insurance.label }}
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3" id="insurance-value-field" style="display: none;">
+                        {{ form.insurance_value|as_crispy_field }}
+                    </div>
+
+                    <script>
+                        document.getElementById('{{ form.requires_insurance.id_for_label }}').addEventListener('change', function() {
+                            const insuranceValueField = document.getElementById('insurance-value-field');
+                            insuranceValueField.style.display = this.checked ? 'block' : 'none';
+                        });
+                    </script>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            {{ form.requires_packaging }}
+                            <label class="form-check-label" for="{{ form.requires_packaging.id_for_label }}">
+                                {{ form.requires_packaging.label }}
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3" id="packaging-details-field" style="display: none;">
+                        {{ form.packaging_details|as_crispy_field }}
+                    </div>
+
+                    <script>
+                        document.getElementById('{{ form.requires_packaging.id_for_label }}').addEventListener('change', function() {
+                            const packagingDetailsField = document.getElementById('packaging-details-field');
+                            packagingDetailsField.style.display = this.checked ? 'block' : 'none';
+                        });
+                    </script>
+
+                    <div class="mb-4">
+                        {{ form.buyer_notes|as_crispy_field }}
+                    </div>
+
+                    <!-- Price Summary -->
+                    <div class="card bg-light mb-4">
+                        <div class="card-body">
+                            <h6 class="card-title">{% trans "Récapitulatif du prix" %}</h6>
+                            <table class="table table-sm mb-0">
+                                <tr>
+                                    <td>{% trans "Prix de l'objet" %}</td>
+                                    <td class="text-end">{{ ad.price }} €</td>
+                                </tr>
+                                <tr>
+                                    <td>{% trans "Frais de transport" %}</td>
+                                    <td class="text-end">
+                                        <span id="shipping-cost-display">0</span> €
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>{% trans "Assurance" %}</td>
+                                    <td class="text-end">
+                                        <span id="insurance-cost-display">0</span> €
+                                    </td>
+                                </tr>
+                                <tr class="table-active fw-bold">
+                                    <td>{% trans "Total" %}</td>
+                                    <td class="text-end">
+                                        <span id="total-price-display">{{ ad.price }}</span> €
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <script>
+                        function updatePriceSummary() {
+                            const itemPrice = {{ ad.price }};
+                            const shippingCost = parseFloat(document.getElementById('id_shipping_cost').value) || 0;
+                            const insuranceCost = parseFloat(document.getElementById('id_insurance_cost').value) || 0;
+
+                            document.getElementById('shipping-cost-display').textContent = shippingCost.toFixed(2);
+                            document.getElementById('insurance-cost-display').textContent = insuranceCost.toFixed(2);
+
+                            const totalPrice = itemPrice + shippingCost + insuranceCost;
+                            document.getElementById('total-price-display').textContent = totalPrice.toFixed(2);
+                        }
+
+                        // Update price summary when shipping or insurance costs change
+                        document.getElementById('id_shipping_cost').addEventListener('input', updatePriceSummary);
+                        document.getElementById('id_insurance_cost').addEventListener('input', updatePriceSummary);
+
+                        // Initial update
+                        updatePriceSummary();
+                    </script>
+
+                    <!-- Terms and Conditions -->
+                    <div class="mb-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="agreeTerms" required>
+                            <label class="form-check-label" for="agreeTerms">
+                                {% trans "J'accepte les" %}
+                                <a href="{% url 'core:terms' %}" target="_blank">{% trans "conditions générales" %}</a>
+                                {% trans "et la" %}
+                                <a href="{% url 'core:privacy' %}" target="_blank">{% trans "politique de confidentialité" %}</a>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-check-circle me-2"></i> {% trans "Confirmer la réservation" %}
+                        </button>
+                        <a href="{% url 'ads:ad_detail' ad.slug %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-2"></i> {% trans "Annuler" %}
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <!-- Recommended Carriers -->
+        {% if recommended_carriers %}
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-truck me-2"></i> {% trans "Transporteurs recommandés" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group">
+                    {% for carrier in recommended_carriers %}
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">{{ carrier.user.username }}</h6>
+                            <small>{{ carrier.base_price_per_kg }} €/kg</small>
+                        </div>
+                        <p class="mb-1 small">
+                            <i class="fas fa-star text-warning"></i> {{ carrier.average_rating|default:"0.0" }}
+                            • {{ carrier.completed_missions }} {% trans "missions" %}
+                        </p>
+                        <small class="text-muted">
+                            <i class="fas fa-weight-hanging"></i> {{ carrier.max_weight }} kg
+                            • <i class="fas fa-arrows-alt"></i> {{ carrier.max_volume }} m³
+                        </small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Help Information -->
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i> {% trans "Informations importantes" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning mb-3">
+                    <h6><i class="fas fa-exclamation-triangle me-2"></i> {% trans "À savoir" %}</h6>
+                    <ul class="mb-0 small">
+                        <li>{% trans "La réservation engage votre achat" %}</li>
+                        <li>{% trans "Vous pouvez annuler sous certaines conditions" %}</li>
+                        <li>{% trans "Le paiement est sécurisé" %}</li>
+                    </ul>
+                </div>
+
+                <h6>{% trans "Options logistiques" %}</h6>
+                <div class="small">
+                    <p class="mb-2">
+                        <strong>P2P Direct :</strong>
+                        {% trans "Vous organisez le transport directement avec le vendeur" %}
+                    </p>
+                    <p class="mb-2">
+                        <strong>Avec transporteur :</strong>
+                        {% trans "Un transporteur professionnel s'occupe de tout" %}
+                    </p>
+                    <p class="mb-0">
+                        <strong>Avec expatrié-transporteur :</strong>
+                        {% trans "Un particulier qui voyage transporte votre objet" %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

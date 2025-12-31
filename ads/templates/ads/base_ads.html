@@ -1,0 +1,175 @@
+{# ~/ebi3/ads/templates/ads/base_ads.html #}
+{% extends 'core/base.html' %}
+{% load i18n %}
+
+{% block extra_css %}
+<style>
+    /* Styles spécifiques aux annonces */
+    .ad-card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border: 1px solid #e0e0e0;
+    }
+
+    .ad-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+
+    .ad-image {
+        height: 200px;
+        object-fit: cover;
+        width: 100%;
+    }
+
+    .ad-price {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #28a745;
+    }
+
+    .badge-logistics {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .featured-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 10;
+    }
+
+    .carousel-item img {
+        height: 400px;
+        object-fit: cover;
+    }
+
+    .condition-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    /* Pagination */
+    .pagination .page-link {
+        color: #667eea;
+        border: 1px solid #dee2e6;
+    }
+
+    .pagination .page-item.active .page-link {
+        background-color: #667eea;
+        border-color: #667eea;
+    }
+
+    /* RTL support */
+    [dir="rtl"] .featured-badge {
+        right: auto;
+        left: 10px;
+    }
+
+    [dir="rtl"] .carousel-control-prev {
+        right: 0;
+        left: auto;
+    }
+
+    [dir="rtl"] .carousel-control-next {
+        left: 0;
+        right: auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    {% block ads_content %}{% endblock %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Scripts spécifiques aux annonces
+    $(document).ready(function() {
+        // Tooltips
+        $('[data-bs-toggle="tooltip"]').tooltip();
+
+        // Favoris AJAX
+        $('.favorite-btn').click(function(e) {
+            e.preventDefault();
+            const btn = $(this);
+            const url = btn.data('url');
+            const adSlug = btn.data('ad-slug');
+
+            $.ajax({
+                url: url,
+                type: 'POST',
+                data: {
+                    csrfmiddlewaretoken: '{{ csrf_token }}'
+                },
+                success: function(data) {
+                    if (data.status === 'success') {
+                        if (data.action === 'added') {
+                            btn.removeClass('btn-outline-danger').addClass('btn-danger');
+                            btn.find('i').removeClass('far').addClass('fas');
+                            btn.attr('title', '{% trans "Retirer des favoris" %}');
+                        } else {
+                            btn.removeClass('btn-danger').addClass('btn-outline-danger');
+                            btn.find('i').removeClass('fas').addClass('far');
+                            btn.attr('title', '{% trans "Ajouter aux favoris" %}');
+                        }
+
+                        // Mettre à jour le compteur si présent
+                        const countSpan = $('#favorite-count-' + adSlug);
+                        if (countSpan.length) {
+                            countSpan.text(data.favorite_count);
+                        }
+
+                        // Afficher un toast
+                        showToast(data.action === 'added' ?
+                            '{% trans "Annonce ajoutée aux favoris" %}' :
+                            '{% trans "Annonce retirée des favoris" %}',
+                            'success'
+                        );
+                    }
+                },
+                error: function() {
+                    showToast('{% trans "Une erreur est survenue" %}', 'error');
+                }
+            });
+        });
+
+        // Image gallery navigation
+        $('.image-thumbnail').click(function() {
+            const imgSrc = $(this).data('full');
+            $('.main-image').attr('src', imgSrc);
+            $('.image-thumbnail').removeClass('active');
+            $(this).addClass('active');
+        });
+
+        // Helper function for toasts
+        function showToast(message, type) {
+            const toastHtml = `
+                <div class="toast align-items-center text-white bg-${type === 'success' ? 'success' : 'danger'} border-0" role="alert">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            ${message}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                </div>
+            `;
+
+            $('#toast-container').append(toastHtml);
+            $('.toast').toast('show');
+
+            // Remove toast after hiding
+            $('.toast').on('hidden.bs.toast', function() {
+                $(this).remove();
+            });
+        }
+
+        // Initialize toast container if not exists
+        if ($('#toast-container').length === 0) {
+            $('body').append('<div id="toast-container" class="toast-container position-fixed top-0 end-0 p-3"></div>');
+        }
+    });
+</script>
+{% endblock %}

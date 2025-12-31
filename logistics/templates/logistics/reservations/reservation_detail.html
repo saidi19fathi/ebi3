@@ -1,0 +1,436 @@
+{# ~/ebi3/logistics/templates/logistics/reservations/reservation_detail.html #}
+
+{% extends 'logistics/base_logistics.html' %}
+{% load i18n %}
+
+{% block logistics_title %}{% trans "Réservation" %} #{{ reservation.id }}{% endblock %}
+
+{% block logistics_subtitle %}{{ reservation.ad.title }}{% endblock %}
+
+{% block logistics_breadcrumb_items %}
+<li class="breadcrumb-item">
+    <a href="{% url 'logistics:reservation_list' %}">{% trans "Réservations" %}</a>
+</li>
+<li class="breadcrumb-item active" aria-current="page">#{{ reservation.id }}</li>
+{% endblock %}
+
+{% block logistics_content %}
+<div class="row">
+    <!-- Main Content -->
+    <div class="col-lg-8">
+        <!-- Status and Actions -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="mb-0">
+                            {% trans "Statut :" %}
+                            <span class="status-badge status-{{ reservation.status|lower }}">
+                                {{ reservation.get_status_display }}
+                            </span>
+                        </h5>
+                        <small class="text-muted">
+                            {% trans "Créée le" %} {{ reservation.created_at|date:"d/m/Y à H:i" }}
+                        </small>
+                    </div>
+
+                    <div class="action-buttons">
+                        {% if can_edit %}
+                        <a href="{% url 'logistics:reservation_update' reservation.pk %}" class="btn btn-primary">
+                            <i class="fas fa-edit me-2"></i> {% trans "Modifier" %}
+                        </a>
+                        {% endif %}
+
+                        {% if can_cancel %}
+                        <form method="post" action="{% url 'logistics:reservation_cancel' reservation.pk %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger confirm-action"
+                                    data-confirm-message="{% trans 'Êtes-vous sûr de vouloir annuler cette réservation ?' %}">
+                                <i class="fas fa-times me-2"></i> {% trans "Annuler" %}
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Annonce Details -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-box me-2"></i> {% trans "Détails de l'annonce" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p>
+                            <strong>{% trans "Titre :" %}</strong>
+                            <a href="{{ reservation.ad.get_absolute_url }}">{{ reservation.ad.title }}</a>
+                        </p>
+                        <p>
+                            <strong>{% trans "Catégorie :" %}</strong>
+                            {{ reservation.ad.category.name }}
+                        </p>
+                        <p>
+                            <strong>{% trans "Prix de l'objet :" %}</strong>
+                            {{ reservation.ad.get_price_with_currency }}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <p>
+                            <strong>{% trans "Vendeur :" %}</strong>
+                            <a href="{% url 'users:profile' reservation.ad.seller.username %}">
+                                {{ reservation.ad.seller.username }}
+                            </a>
+                        </p>
+                        <p>
+                            <strong>{% trans "Condition :" %}</strong>
+                            {{ reservation.ad.get_condition_display }}
+                        </p>
+                        <p>
+                            <strong>{% trans "Poids :" %}</strong>
+                            {{ reservation.ad.weight|default:"0" }} kg
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logistics Information -->
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-shipping-fast me-2"></i> {% trans "Informations logistiques" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h6>{% trans "Option logistique" %}</h6>
+                        <p>
+                            <span class="badge bg-primary">{{ reservation.get_logistics_option_display }}</span>
+                            {% if reservation.carrier %}
+                                <br>
+                                <small class="text-muted">
+                                    {% trans "Transporteur :" %}
+                                    <a href="{% url 'carriers:carrier_detail' reservation.carrier.user.username %}">
+                                        {{ reservation.carrier.user.username }}
+                                    </a>
+                                </small>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>{% trans "Adresses" %}</h6>
+                        <p class="mb-1">
+                            <strong>{% trans "Départ :" %}</strong><br>
+                            {{ reservation.pickup_address|default:reservation.ad.address_from|truncatechars:100 }}
+                        </p>
+                        <p class="mb-0">
+                            <strong>{% trans "Arrivée :" %}</strong><br>
+                            {{ reservation.delivery_address|default:reservation.ad.address_to|truncatechars:100 }}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>{% trans "Dates" %}</h6>
+                        <p class="mb-1">
+                            <strong>{% trans "Prise en charge :" %}</strong><br>
+                            {% if reservation.pickup_date %}
+                                {{ reservation.pickup_date|date:"d/m/Y" }}
+                            {% else %}
+                                <span class="text-muted">{% trans "À définir" %}</span>
+                            {% endif %}
+                        </p>
+                        <p class="mb-0">
+                            <strong>{% trans "Livraison estimée :" %}</strong><br>
+                            {% if reservation.delivery_date %}
+                                {{ reservation.delivery_date|date:"d/m/Y" }}
+                            {% else %}
+                                <span class="text-muted">{% trans "À définir" %}</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>{% trans "Services additionnels" %}</h6>
+                        <ul class="list-unstyled">
+                            {% if reservation.requires_insurance %}
+                            <li>
+                                <i class="fas fa-check text-success me-2"></i>
+                                {% trans "Assurance" %}
+                                {% if reservation.insurance_value %}
+                                    ({{ reservation.insurance_value }} €)
+                                {% endif %}
+                            </li>
+                            {% endif %}
+                            {% if reservation.requires_packaging %}
+                            <li>
+                                <i class="fas fa-check text-success me-2"></i>
+                                {% trans "Emballage professionnel" %}
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mission Tracking -->
+        {% if mission %}
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-truck me-2"></i> {% trans "Suivi de la mission" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <a href="{% url 'logistics:mission_detail' mission.pk %}" class="btn btn-info">
+                        <i class="fas fa-external-link-alt me-2"></i> {% trans "Voir le suivi détaillé" %}
+                    </a>
+                </div>
+
+                <!-- Quick Status -->
+                <div class="row mb-4">
+                    <div class="col-md-4 text-center">
+                        <div class="display-6 fw-bold text-info">{{ mission.progress_percentage }}%</div>
+                        <small class="text-muted">{% trans "Progression" %}</small>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <div class="display-6 fw-bold">
+                            {% if mission.current_location %}
+                                {{ mission.current_location|truncatechars:20 }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </div>
+                        <small class="text-muted">{% trans "Localisation actuelle" %}</small>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <div class="display-6 fw-bold">
+                            {% if mission.estimated_delivery %}
+                                {{ mission.estimated_delivery|date:"d/m" }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </div>
+                        <small class="text-muted">{% trans "Livraison estimée" %}</small>
+                    </div>
+                </div>
+
+                <!-- Recent Tracking Events -->
+                {% if tracking_events %}
+                <h6 class="mb-3">{% trans "Derniers événements" %}</h6>
+                <div class="tracking-timeline">
+                    {% for event in tracking_events|slice:":3" %}
+                    <div class="tracking-event {% if forloop.first %}current{% else %}completed{% endif %}">
+                        <h6 class="mb-1">{{ event.get_event_type_display }}</h6>
+                        <p class="mb-1">{{ event.description }}</p>
+                        <small class="text-muted">
+                            <i class="fas fa-map-marker-alt me-1"></i>
+                            {{ event.location|default:"Localisation inconnue" }}
+                            •
+                            <i class="fas fa-clock me-1"></i>
+                            {{ event.created_at|date:"d/m/Y H:i" }}
+                        </small>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Payment Information -->
+        <div class="card">
+            <div class="card-header bg-warning text-white">
+                <h5 class="mb-0"><i class="fas fa-euro-sign me-2"></i> {% trans "Informations de paiement" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-sm">
+                            <tr>
+                                <td>{% trans "Prix de l'objet :" %}</td>
+                                <td class="text-end">{{ reservation.price_agreed }} €</td>
+                            </tr>
+                            <tr>
+                                <td>{% trans "Frais de transport :" %}</td>
+                                <td class="text-end">{{ reservation.shipping_cost }} €</td>
+                            </tr>
+                            {% if reservation.insurance_cost %}
+                            <tr>
+                                <td>{% trans "Assurance :" %}</td>
+                                <td class="text-end">{{ reservation.insurance_cost }} €</td>
+                            </tr>
+                            {% endif %}
+                            <tr class="table-active fw-bold">
+                                <td>{% trans "Total :" %}</td>
+                                <td class="text-end">{{ reservation.total_price }} €</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex flex-column h-100 justify-content-center">
+                            <div class="mb-3">
+                                <strong>{% trans "Statut du paiement :" %}</strong>
+                                <span class="badge {% if reservation.is_paid %}bg-success{% else %}bg-warning{% endif %} ms-2">
+                                    {% if reservation.is_paid %}
+                                        {% trans "Payé" %}
+                                    {% else %}
+                                        {% trans "En attente" %}
+                                    {% endif %}
+                                </span>
+                            </div>
+
+                            {% if not reservation.is_paid and reservation.status == 'PAYMENT_PENDING' %}
+                            <div>
+                                <a href="#" class="btn btn-success w-100">
+                                    <i class="fas fa-credit-card me-2"></i> {% trans "Procéder au paiement" %}
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Status Update -->
+        {% if can_update_status %}
+        <div class="card mb-4">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="fas fa-sync-alt me-2"></i> {% trans "Mettre à jour le statut" %}</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" action="{% url 'logistics:reservation_update_status' reservation.pk %}" class="status-update-form">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        {{ status_form.status }}
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-save me-2"></i> {% trans "Mettre à jour" %}
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Contact Information -->
+        <div class="card mb-4">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="fas fa-users me-2"></i> {% trans "Contacts" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <h6>{% trans "Acheteur" %}</h6>
+                    <div class="d-flex align-items-center">
+                        <div class="avatar-circle bg-primary me-3">
+                            <span class="avatar-text">{{ reservation.buyer.username|first|upper }}</span>
+                        </div>
+                        <div>
+                            <a href="{% url 'users:profile' reservation.buyer.username %}" class="text-decoration-none">
+                                <strong>{{ reservation.buyer.username }}</strong>
+                            </a>
+                            <br>
+                            <small class="text-muted">{{ reservation.buyer.email }}</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <h6>{% trans "Vendeur" %}</h6>
+                    <div class="d-flex align-items-center">
+                        <div class="avatar-circle bg-success me-3">
+                            <span class="avatar-text">{{ reservation.ad.seller.username|first|upper }}</span>
+                        </div>
+                        <div>
+                            <a href="{% url 'users:profile' reservation.ad.seller.username %}" class="text-decoration-none">
+                                <strong>{{ reservation.ad.seller.username }}</strong>
+                            </a>
+                            <br>
+                            <small class="text-muted">{{ reservation.ad.seller.email }}</small>
+                        </div>
+                    </div>
+                </div>
+
+                {% if reservation.carrier %}
+                <div class="mb-3">
+                    <h6>{% trans "Transporteur" %}</h6>
+                    <div class="d-flex align-items-center">
+                        <div class="avatar-circle bg-info me-3">
+                            <span class="avatar-text">{{ reservation.carrier.user.username|first|upper }}</span>
+                        </div>
+                        <div>
+                            <a href="{% url 'carriers:carrier_detail' reservation.carrier.user.username %}" class="text-decoration-none">
+                                <strong>{{ reservation.carrier.user.username }}</strong>
+                            </a>
+                            <br>
+                            <small class="text-muted">{{ reservation.carrier.user.email }}</small>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="mt-3">
+                    {% if can_message_seller %}
+                    <a href="{% url 'messaging:new_conversation' reservation.ad.seller.username %}" class="btn btn-outline-primary w-100 mb-2">
+                        <i class="fas fa-envelope me-2"></i> {% trans "Contacter le vendeur" %}
+                    </a>
+                    {% endif %}
+
+                    {% if reservation.carrier and can_message_carrier %}
+                    <a href="{% url 'messaging:new_conversation' reservation.carrier.user.username %}" class="btn btn-outline-info w-100 mb-2">
+                        <i class="fas fa-truck me-2"></i> {% trans "Contacter le transporteur" %}
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Important Dates -->
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i> {% trans "Dates importantes" %}</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-3">
+                        <small class="text-muted d-block">{% trans "Création" %}</small>
+                        <strong>{{ reservation.created_at|date:"d/m/Y H:i" }}</strong>
+                    </li>
+                    {% if reservation.pickup_date %}
+                    <li class="mb-3">
+                        <small class="text-muted d-block">{% trans "Prise en charge" %}</small>
+                        <strong>{{ reservation.pickup_date|date:"d/m/Y" }}</strong>
+                    </li>
+                    {% endif %}
+                    {% if reservation.delivery_date %}
+                    <li class="mb-3">
+                        <small class="text-muted d-block">{% trans "Livraison estimée" %}</small>
+                        <strong>{{ reservation.delivery_date|date:"d/m/Y" }}</strong>
+                    </li>
+                    {% endif %}
+                    {% if reservation.actual_delivery_date %}
+                    <li class="mb-3">
+                        <small class="text-muted d-block">{% trans "Livraison réelle" %}</small>
+                        <strong>{{ reservation.actual_delivery_date|date:"d/m/Y" }}</strong>
+                    </li>
+                    {% endif %}
+                    {% if reservation.cancelled_at %}
+                    <li class="mb-3">
+                        <small class="text-muted d-block">{% trans "Annulation" %}</small>
+                        <strong>{{ reservation.cancelled_at|date:"d/m/Y H:i" }}</strong>
+                        {% if reservation.cancellation_reason %}
+                            <br>
+                            <small class="text-muted">{{ reservation.cancellation_reason }}</small>
+                        {% endif %}
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,437 @@
+{# ~/ebi3/payments/templates/payments/base_payments.html #}
+{% extends 'core/base.html' %}
+{% load i18n static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'payments/css/payments.css' %}">
+<style>
+.payment-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.payment-card {
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    border: none;
+}
+
+.payment-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 10px 10px 0 0 !important;
+}
+
+.payment-status {
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-weight: bold;
+}
+
+.status-pending { background-color: #ffc107; color: #000; }
+.status-completed { background-color: #28a745; color: white; }
+.status-failed { background-color: #dc3545; color: white; }
+.status-refunded { background-color: #17a2b8; color: white; }
+
+.payment-method-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: #f8f9fa;
+    color: #667eea;
+    font-size: 1.5rem;
+}
+
+.amount-display {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #28a745;
+}
+
+.currency-symbol {
+    font-size: 1.5rem;
+    color: #6c757d;
+}
+
+.payment-timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.payment-timeline::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #dee2e6;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -23px;
+    top: 5px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #667eea;
+    border: 3px solid white;
+    box-shadow: 0 0 0 3px #dee2e6;
+}
+
+.timeline-item.completed::before {
+    background: #28a745;
+}
+
+.timeline-item.failed::before {
+    background: #dc3545;
+}
+
+.invoice-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.invoice-table th {
+    background-color: #f8f9fa;
+    padding: 12px;
+    text-align: left;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.invoice-table td {
+    padding: 12px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.invoice-table tr:last-child td {
+    border-bottom: none;
+}
+
+.total-row {
+    background-color: #f8f9fa;
+    font-weight: bold;
+}
+
+.security-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 10px;
+    background: #28a745;
+    color: white;
+    border-radius: 15px;
+    font-size: 0.85rem;
+}
+
+.security-badge i {
+    margin-right: 5px;
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.qr-code-container {
+    text-align: center;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    margin: 20px 0;
+}
+
+.countdown-timer {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #dc3545;
+    text-align: center;
+    padding: 10px;
+    background: #fff3cd;
+    border-radius: 5px;
+    margin: 10px 0;
+}
+
+.payment-steps {
+    display: flex;
+    justify-content: space-between;
+    margin: 30px 0;
+    position: relative;
+}
+
+.payment-steps::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: 10%;
+    right: 10%;
+    height: 2px;
+    background: #dee2e6;
+    z-index: 1;
+}
+
+.step {
+    text-align: center;
+    position: relative;
+    z-index: 2;
+    flex: 1;
+}
+
+.step-number {
+    width: 40px;
+    height: 40px;
+    background: #6c757d;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    margin: 0 auto 10px;
+}
+
+.step.active .step-number {
+    background: #667eea;
+}
+
+.step.completed .step-number {
+    background: #28a745;
+}
+
+.step-content {
+    max-width: 150px;
+    margin: 0 auto;
+}
+
+.payment-methods-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.payment-method-card {
+    padding: 20px;
+    border: 2px solid #dee2e6;
+    border-radius: 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.payment-method-card:hover {
+    border-color: #667eea;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(102, 126, 234, 0.2);
+}
+
+.payment-method-card.selected {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.05);
+}
+
+.payment-method-card i {
+    font-size: 2rem;
+    color: #667eea;
+    margin-bottom: 10px;
+}
+
+.receipt-container {
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.receipt-header {
+    background: #667eea;
+    color: white;
+    padding: 20px;
+    text-align: center;
+}
+
+.receipt-body {
+    padding: 30px;
+}
+
+.receipt-footer {
+    background: #f8f9fa;
+    padding: 20px;
+    text-align: center;
+    border-top: 1px solid #dee2e6;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .payment-steps {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .payment-steps::before {
+        display: none;
+    }
+
+    .step {
+        margin-bottom: 20px;
+    }
+
+    .payment-methods-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .amount-display {
+        font-size: 2rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="payment-container">
+    {% block payments_content %}{% endblock %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'payments/js/payments.js' %}"></script>
+<script>
+$(document).ready(function() {
+    // Initialisation des tooltips
+    $('[data-bs-toggle="tooltip"]').tooltip();
+
+    // Gestion des méthodes de paiement
+    $('.payment-method-card').click(function() {
+        $('.payment-method-card').removeClass('selected');
+        $(this).addClass('selected');
+        $('#selected_payment_method').val($(this).data('method'));
+    });
+
+    // Validation des formulaires de paiement
+    $('.payment-form').submit(function(e) {
+        const amount = parseFloat($('#amount').val());
+        const minAmount = parseFloat($('#amount').data('min'));
+        const maxAmount = parseFloat($('#amount').data('max'));
+
+        if (amount < minAmount) {
+            e.preventDefault();
+            showToast('{% trans "Le montant minimum est" %} ' + minAmount + ' €', 'error');
+            return false;
+        }
+
+        if (amount > maxAmount) {
+            e.preventDefault();
+            showToast('{% trans "Le montant maximum est" %} ' + maxAmount + ' €', 'error');
+            return false;
+        }
+
+        // Afficher le loader
+        $('#submit-btn').prop('disabled', true);
+        $('#submit-btn').html('<span class="loading-spinner"></span> {% trans "Traitement en cours..." %}');
+    });
+
+    // Fonction pour afficher les toasts
+    function showToast(message, type) {
+        const toastHtml = `
+            <div class="toast align-items-center text-white bg-${type} border-0" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        `;
+
+        const container = $('#toast-container');
+        if (container.length === 0) {
+            $('body').append('<div id="toast-container" class="toast-container position-fixed top-0 end-0 p-3"></div>');
+        }
+
+        $('#toast-container').append(toastHtml);
+        $('.toast').toast('show');
+
+        // Supprimer le toast après disparition
+        $('.toast').on('hidden.bs.toast', function() {
+            $(this).remove();
+        });
+    }
+
+    // Compte à rebours pour les sessions de paiement
+    function startCountdown(seconds) {
+        const timerElement = $('#countdown-timer');
+        if (timerElement.length === 0) return;
+
+        let timeLeft = seconds;
+
+        const timer = setInterval(function() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+
+            timerElement.text(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+
+            if (timeLeft <= 0) {
+                clearInterval(timer);
+                timerElement.html('<i class="fas fa-exclamation-triangle"></i> {% trans "Session expirée" %}');
+                $('.payment-form').find('button').prop('disabled', true);
+                showToast('{% trans "Votre session a expiré. Veuillez recommencer." %}', 'error');
+            }
+
+            timeLeft--;
+        }, 1000);
+    }
+
+    // Démarrer le compte à rebours si présent
+    const countdownSeconds = $('#countdown-timer').data('seconds');
+    if (countdownSeconds) {
+        startCountdown(countdownSeconds);
+    }
+
+    // Copier le lien de paiement
+    $('.copy-payment-link').click(function() {
+        const link = $(this).data('link');
+        navigator.clipboard.writeText(link).then(() => {
+            showToast('{% trans "Lien copié dans le presse-papier" %}', 'success');
+        });
+    });
+
+    // Générer QR Code
+    $('.generate-qr').click(function() {
+        const data = $(this).data('qr-data');
+        const size = $(this).data('qr-size') || 200;
+
+        $.ajax({
+            url: '{% url "payments:generate_qr_code" %}',
+            method: 'POST',
+            data: {
+                data: data,
+                size: size,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            },
+            success: function(response) {
+                $('#qr-code-container').html(`<img src="${response.qr_code}" alt="QR Code">`);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

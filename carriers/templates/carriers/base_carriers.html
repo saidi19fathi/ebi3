@@ -1,0 +1,100 @@
+{# ~/ebi3/carriers/templates/carriers/base_carriers.html #}
+{% extends 'core/base.html' %}
+{% load i18n %}
+
+{% block extra_css %}
+<style>
+    .carrier-card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border: 1px solid #e0e0e0;
+    }
+
+    .carrier-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+
+    .carrier-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid #fff;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .carrier-type-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .rating-stars {
+        color: #ffc107;
+    }
+
+    .capacity-badge {
+        background-color: #e3f2fd;
+        color: #1976d2;
+        font-size: 0.8rem;
+    }
+
+    .route-item {
+        border-left: 3px solid #667eea;
+        padding-left: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .document-card {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .verified-badge {
+        background-color: #28a745;
+        color: white;
+        font-size: 0.7rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 3px;
+    }
+
+    .dashboard-card {
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        transition: transform 0.3s ease;
+    }
+
+    .dashboard-card:hover {
+        transform: translateY(-3px);
+    }
+
+    .stats-number {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #667eea;
+    }
+
+    .notification-item {
+        border-left: 3px solid;
+        padding-left: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .notification-unread {
+        border-left-color: #667eea;
+        background-color: #f8f9fa;
+    }
+
+    .notification-read {
+        border-left-color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    {% block carriers_content %}{% endblock %}
+</div>
+{% endblock %}

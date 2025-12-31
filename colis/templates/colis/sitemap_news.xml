@@ -1,0 +1,23 @@
+<!-- ~/ebi3/colis/templates/colis/sitemap_news.xml -->
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
+    {% for package in news_packages %}
+    <url>
+        <loc>https://{{ request.get_host }}{% url 'colis:package_detail' slug=package.slug %}</loc>
+        <news:news>
+            <news:publication>
+                <news:name>{{ site_name }}</news:name>
+                <news:language>fr</news:language>
+            </news:publication>
+            <news:publication_date>{{ package.created_at|date:"Y-m-d" }}</news:publication_date>
+            <news:title>{{ package.title|escape }}</news:title>
+            <news:keywords>
+                {% for keyword in package.get_seo_keywords %}
+                {{ keyword }}{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            </news:keywords>
+        </news:news>
+    </url>
+    {% endfor %}
+</urlset>

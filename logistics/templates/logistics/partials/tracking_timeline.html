@@ -1,0 +1,39 @@
+{# ~/ebi3/logistics/templates/logistics/partials/tracking_timeline.html #}
+
+<div class="tracking-timeline">
+    {% for event in events %}
+    <div class="tracking-event {% if forloop.first %}current{% else %}completed{% endif %}">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+            <div>
+                <h6 class="mb-1">{{ event.get_event_type_display }}</h6>
+                <p class="mb-1">{{ event.description }}</p>
+            </div>
+            <small class="text-muted">
+                {{ event.created_at|date:"d/m/Y H:i" }}
+            </small>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center">
+            <small class="text-muted">
+                {% if event.location %}
+                    <i class="fas fa-map-marker-alt me-1"></i>
+                    {{ event.location }}
+                {% endif %}
+            </small>
+
+            {% if event.photo %}
+            <a href="{{ event.photo.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                <i class="fas fa-image me-1"></i> {% trans "Voir photo" %}
+            </a>
+            {% endif %}
+        </div>
+
+        {% if event.created_by %}
+        <small class="text-muted d-block mt-1">
+            <i class="fas fa-user me-1"></i>
+            {{ event.created_by.username }}
+        </small>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>

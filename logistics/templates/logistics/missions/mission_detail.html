@@ -1,0 +1,417 @@
+{# ~/ebi3/logistics/templates/logistics/missions/mission_detail.html #}
+
+{% extends 'logistics/base_logistics.html' %}
+{% load i18n %}
+
+{% block logistics_title %}{% trans "Mission" %} #{{ mission.id }}{% endblock %}
+
+{% block logistics_subtitle %}{{ mission.reservation.ad.title }}{% endblock %}
+
+{% block logistics_breadcrumb_items %}
+<li class="breadcrumb-item">
+    <a href="{% url 'logistics:mission_list' %}">{% trans "Missions" %}</a>
+</li>
+<li class="breadcrumb-item active" aria-current="page">#{{ mission.id }}</li>
+{% endblock %}
+
+{% block logistics_content %}
+<div class="row">
+    <!-- Main Content -->
+    <div class="col-lg-8">
+        <!-- Mission Header -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5 class="mb-0">
+                            {% trans "Statut :" %}
+                            <span class="status-badge status-{{ mission.status|lower }}">
+                                {{ mission.get_status_display }}
+                            </span>
+                        </h5>
+                        <small class="text-muted">
+                            {% trans "Créée le" %} {{ mission.created_at|date:"d/m/Y à H:i" }}
+                        </small>
+                    </div>
+                    <div class="col-md-6 text-md-end">
+                        <div class="action-buttons">
+                            {% if can_update_tracking %}
+                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTrackingEventModal">
+                                <i class="fas fa-plus me-2"></i> {% trans "Ajouter un événement" %}
+                            </button>
+                            {% endif %}
+                            <a href="{% url 'logistics:mission_update' mission.pk %}" class="btn btn-outline-primary">
+                                <i class="fas fa-edit me-2"></i> {% trans "Modifier" %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tracking Map -->
+        {% if mission.latitude and mission.longitude %}
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-map-marked-alt me-2"></i> {% trans "Suivi en temps réel" %}</h5>
+            </div>
+            <div class="card-body p-0">
+                <div id="tracking-map" class="map-container"></div>
+            </div>
+        </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                // Initialize map
+                const map = L.map('tracking-map').setView([{{ mission.latitude }}, {{ mission.longitude }}], 13);
+
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(map);
+
+                // Add current location marker
+                L.marker([{{ mission.latitude }}, {{ mission.longitude }}])
+                    .addTo(map)
+                    .bindPopup('{% trans "Position actuelle" %}')
+                    .openPopup();
+
+                // Add route markers if available
+                {% for event in tracking_events %}
+                    {% if event.latitude and event.longitude %}
+                    L.marker([{{ event.latitude }}, {{ event.longitude }}])
+                        .addTo(map)
+                        .bindPopup('{{ event.get_event_type_display }}<br>{{ event.created_at|date:"d/m/Y H:i" }}');
+                    {% endif %}
+                {% endfor %}
+            });
+        </script>
+        {% endif %}
+
+        <!-- Tracking Timeline -->
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-history me-2"></i> {% trans "Historique du suivi" %}</h5>
+            </div>
+            <div class="card-body">
+                {% if tracking_events %}
+                    {% include 'logistics/partials/tracking_timeline.html' with events=tracking_events %}
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">{% trans "Aucun événement de suivi pour le moment" %}</p>
+                        {% if can_update_tracking %}
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTrackingEventModal">
+                            <i class="fas fa-plus me-2"></i> {% trans "Ajouter le premier événement" %}
+                        </button>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Mission Details -->
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i> {% trans "Détails de la mission" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>{% trans "Informations de base" %}</h6>
+                        <table class="table table-sm">
+                            <tr>
+                                <td>{% trans "Mission ID :" %}</td>
+                                <td class="text-end">#{{ mission.id }}</td>
+                            </tr>
+                            <tr>
+                                <td>{% trans "Réservation :" %}</td>
+                                <td class="text-end">
+                                    <a href="{% url 'logistics:reservation_detail' mission.reservation.pk %}">
+                                        #{{ mission.reservation.id }}
+                                    </a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>{% trans "Transporteur :" %}</td>
+                                <td class="text-end">
+                                    <a href="{% url 'carriers:carrier_detail' mission.carrier.user.username %}">
+                                        {{ mission.carrier.user.username }}
+                                    </a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>{% trans "Distance :" %}</td>
+                                <td class="text-end">
+                                    {% if mission.distance_km %}
+                                        {{ mission.distance_km }} km
+                                    {% else %}
+                                        <span class="text-muted">{% trans "Non définie" %}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <div class="col-md-6">
+                        <h6>{% trans "Dates" %}</h6>
+                        <table class="table table-sm">
+                            {% if mission.scheduled_pickup %}
+                            <tr>
+                                <td>{% trans "Prise en charge prévue :" %}</td>
+                                <td class="text-end">{{ mission.scheduled_pickup|date:"d/m/Y H:i" }}</td>
+                            </tr>
+                            {% endif %}
+                            {% if mission.actual_pickup %}
+                            <tr>
+                                <td>{% trans "Prise en charge réelle :" %}</td>
+                                <td class="text-end">{{ mission.actual_pickup|date:"d/m/Y H:i" }}</td>
+                            </tr>
+                            {% endif %}
+                            {% if mission.estimated_delivery %}
+                            <tr>
+                                <td>{% trans "Livraison estimée :" %}</td>
+                                <td class="text-end">{{ mission.estimated_delivery|date:"d/m/Y H:i" }}</td>
+                            </tr>
+                            {% endif %}
+                            {% if mission.actual_delivery %}
+                            <tr>
+                                <td>{% trans "Livraison réelle :" %}</td>
+                                <td class="text-end">{{ mission.actual_delivery|date:"d/m/Y H:i" }}</td>
+                            </tr>
+                            {% endif %}
+                        </table>
+                    </div>
+                </div>
+
+                {% if mission.current_location %}
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <h6>{% trans "Localisation actuelle" %}</h6>
+                        <div class="alert alert-info mb-0">
+                            <i class="fas fa-map-marker-alt me-2"></i>
+                            {{ mission.current_location }}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if mission.notes %}
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <h6>{% trans "Notes" %}</h6>
+                        <div class="alert alert-light">
+                            {{ mission.notes|linebreaks }}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if mission.delay_reason %}
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <h6>{% trans "Raison du retard" %}</h6>
+                        <div class="alert alert-warning mb-0">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            {{ mission.delay_reason }}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Progress -->
+        <div class="card mb-4">
+            <div class="card-header bg-warning text-white">
+                <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i> {% trans "Progression" %}</h5>
+            </div>
+            <div class="card-body text-center">
+                <div class="display-1 fw-bold text-primary">{{ mission.progress_percentage }}%</div>
+                <div class="progress-bar-logistics mt-3">
+                    <div class="progress-fill bg-primary" data-width="{{ mission.progress_percentage }}"></div>
+                </div>
+                <div class="mt-3">
+                    {% if mission.is_delayed %}
+                    <div class="alert alert-warning mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        {% trans "Cette mission est en retard" %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-success mb-0">
+                        <i class="fas fa-check-circle me-2"></i>
+                        {% trans "Cette mission est dans les temps" %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Reservation Summary -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-shopping-cart me-2"></i> {% trans "Réservation associée" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <a href="{% url 'logistics:reservation_detail' mission.reservation.pk %}" class="text-decoration-none">
+                        <h6 class="mb-1">#{{ mission.reservation.id }}</h6>
+                    </a>
+                    <p class="mb-2 small text-muted">{{ mission.reservation.ad.title|truncatechars:50 }}</p>
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">{% trans "Prix total" %}</small>
+                        <small class="fw-bold">{{ mission.reservation.total_price }} €</small>
+                    </div>
+                </div>
+
+                <div class="list-group list-group-flush">
+                    <div class="list-group-item px-0">
+                        <div class="d-flex justify-content-between">
+                            <small class="text-muted">{% trans "Acheteur" %}</small>
+                            <small>
+                                <a href="{% url 'users:profile' mission.reservation.buyer.username %}" class="text-decoration-none">
+                                    {{ mission.reservation.buyer.username }}
+                                </a>
+                            </small>
+                        </div>
+                    </div>
+                    <div class="list-group-item px-0">
+                        <div class="d-flex justify-content-between">
+                            <small class="text-muted">{% trans "Vendeur" %}</small>
+                            <small>
+                                <a href="{% url 'users:profile' mission.reservation.ad.seller.username %}" class="text-decoration-none">
+                                    {{ mission.reservation.ad.seller.username }}
+                                </a>
+                            </small>
+                        </div>
+                    </div>
+                    <div class="list-group-item px-0">
+                        <div class="d-flex justify-content-between">
+                            <small class="text-muted">{% trans "Option logistique" %}</small>
+                            <small class="badge bg-secondary">
+                                {{ mission.reservation.get_logistics_option_display }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Carrier Information -->
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-truck me-2"></i> {% trans "Transporteur" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-3">
+                    <div class="avatar-circle bg-info mx-auto mb-3" style="width: 80px; height: 80px;">
+                        <span class="avatar-text" style="font-size: 2rem;">
+                            {{ mission.carrier.user.username|first|upper }}
+                        </span>
+                    </div>
+                    <h5>
+                        <a href="{% url 'carriers:carrier_detail' mission.carrier.user.username %}" class="text-decoration-none">
+                            {% if mission.carrier.company_name %}
+                                {{ mission.carrier.company_name }}
+                            {% else %}
+                                {{ mission.carrier.user.username }}
+                            {% endif %}
+                        </a>
+                    </h5>
+                    <div class="rating-stars mb-2">
+                        {% with rating=mission.carrier.average_rating|default:0 %}
+                            {% for i in "12345" %}
+                                {% if forloop.counter <= rating %}
+                                    <i class="fas fa-star text-warning"></i>
+                                {% else %}
+                                    <i class="far fa-star text-warning"></i>
+                                {% endif %}
+                            {% endfor %}
+                        {% endwith %}
+                        <small class="text-muted ms-1">
+                            ({{ mission.carrier.average_rating|default:"0.0" }})
+                        </small>
+                    </div>
+                    <p class="text-muted small mb-0">
+                        {{ mission.carrier.completed_missions }} {% trans "missions complétées" %}
+                    </p>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <a href="{% url 'carriers:carrier_detail' mission.carrier.user.username %}" class="btn btn-outline-success">
+                        <i class="fas fa-eye me-2"></i> {% trans "Voir le profil" %}
+                    </a>
+                    <a href="{% url 'messaging:new_conversation' mission.carrier.user.username %}" class="btn btn-outline-primary">
+                        <i class="fas fa-envelope me-2"></i> {% trans "Contacter" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Tracking Event Modal -->
+{% if can_update_tracking %}
+<div class="modal fade" id="addTrackingEventModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Ajouter un événement de suivi" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'logistics:tracking_event_create' mission.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Type d'événement" %}</label>
+                        {{ tracking_form.event_type }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Description" %}</label>
+                        {{ tracking_form.description }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Localisation" %}</label>
+                        {{ tracking_form.location }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Photo (optionnel)" %}</label>
+                        {{ tracking_form.photo }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "Annuler" %}
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i> {% trans "Enregistrer" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block logistics_extra_js %}
+{% if can_update_tracking %}
+<script>
+    // Auto-fill location from browser if available
+    document.addEventListener('DOMContentLoaded', function() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                // You could reverse geocode here to get address
+                // For now, just show coordinates
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                document.getElementById('{{ tracking_form.location.id_for_label }}').value =
+                    `Coordonnées: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            });
+        }
+    });
+</script>
+{% endif %}
+{% endblock %}

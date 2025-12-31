@@ -1,0 +1,302 @@
+{# ~/ebi3/colis/templates/colis/package/package_list.html #}
+{% extends 'colis/base_colis.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Colis disponibles" %} - Ebi3{% endblock %}
+
+{% block colis_title %}{% trans "Colis disponibles pour transport" %}{% endblock %}
+
+{% block colis_content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2 class="mb-0">
+                {% blocktranslate count total_packages=total_packages %}
+                    {{ total_packages }} colis disponible
+                {% plural %}
+                    {{ total_packages }} colis disponibles
+                {% endblocktranslate %}
+            </h2>
+            <div class="d-flex gap-2">
+                <div class="dropdown">
+                    <button class="btn btn-outline-secondary dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-sort"></i> {% trans "Trier par" %}
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="?sort_by=-created_at">{% trans "Plus récent" %}</a></li>
+                        <li><a class="dropdown-item" href="?sort_by=pickup_date">{% trans "Départ proche" %}</a></li>
+                        <li><a class="dropdown-item" href="?sort_by=asking_price">{% trans "Prix croissant" %}</a></li>
+                        <li><a class="dropdown-item" href="?sort_by=-asking_price">{% trans "Prix décroissant" %}</a></li>
+                        <li><a class="dropdown-item" href="?sort_by=-view_count">{% trans "Plus populaire" %}</a></li>
+                    </ul>
+                </div>
+                <a href="{% url 'colis:package_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> {% trans "Publier un colis" %}
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtres rapides -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <select class="form-select" id="quickCategoryFilter">
+                            <option value="">{% trans "Toutes catégories" %}</option>
+                            {% for category in categories %}
+                                <option value="{{ category.slug }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="quickTypeFilter">
+                            <option value="">{% trans "Tous types" %}</option>
+                            <option value="SMALL_PACKAGE">{% trans "Petit colis" %}</option>
+                            <option value="MEDIUM_PACKAGE">{% trans "Colis moyen" %}</option>
+                            <option value="LARGE_PACKAGE">{% trans "Gros colis" %}</option>
+                            <option value="FURNITURE">{% trans "Meuble" %}</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <input type="number" class="form-control" id="quickMaxWeight"
+                               placeholder="{% trans 'Poids max (kg)' %}">
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-primary w-100" id="applyQuickFilters">
+                            <i class="fas fa-filter"></i> {% trans "Appliquer" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Liste des colis -->
+{% if packages %}
+    <div class="row" id="packages-container">
+        {% for package in packages %}
+            <div class="col-md-6 col-lg-4 mb-4">
+                {% include 'colis/partials/package_card.html' with package=package %}
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+        <nav aria-label="Page navigation" class="mt-5">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    </li>
+                {% endif %}
+
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                {{ num }}
+                            </a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    {% endif %}
+{% else %}
+    <!-- Aucun résultat -->
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-box-open fa-4x text-muted mb-3"></i>
+            <h3>{% trans "Aucun colis trouvé" %}</h3>
+            <p class="text-muted">
+                {% trans "Essayez de modifier vos critères de recherche ou" %}
+                <a href="{% url 'colis:package_list' %}">{% trans "consultez tous les colis" %}</a>.
+            </p>
+            {% if user.is_authenticated %}
+                <a href="{% url 'colis:package_create' %}" class="btn btn-primary mt-3">
+                    <i class="fas fa-plus"></i> {% trans "Publier le premier colis" %}
+                </a>
+            {% else %}
+                <a href="{% url 'users:register' %}" class="btn btn-primary mt-3">
+                    <i class="fas fa-user-plus"></i> {% trans "Inscrivez-vous pour publier" %}
+                </a>
+            {% endif %}
+        </div>
+    </div>
+{% endif %}
+
+<!-- Statistiques -->
+<div class="row mt-5">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fas fa-chart-bar"></i> {% trans "Statistiques" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <div class="stats-number">{{ total_packages }}</div>
+                        <small class="text-muted">{% trans "Colis disponibles" %}</small>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stats-number">{{ avg_price|floatformat:0 }} €</div>
+                        <small class="text-muted">{% trans "Prix moyen" %}</small>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stats-number">{{ total_senders }}</div>
+                        <small class="text-muted">{% trans "Expéditeurs actifs" %}</small>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stats-number">98%</div>
+                        <small class="text-muted">{% trans "Taux de satisfaction" %}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    // Filtres rapides
+    $('#applyQuickFilters').click(function() {
+        const category = $('#quickCategoryFilter').val();
+        const type = $('#quickTypeFilter').val();
+        const maxWeight = $('#quickMaxWeight').val();
+
+        let url = '?';
+        if (category) url += 'category=' + category + '&';
+        if (type) url += 'package_type=' + type + '&';
+        if (maxWeight) url += 'max_weight=' + maxWeight + '&';
+
+        window.location.href = url.slice(0, -1); // Remove trailing & or ?
+    });
+
+    // Favoris AJAX
+    $('.favorite-btn').click(function(e) {
+        e.preventDefault();
+        const btn = $(this);
+        const url = btn.data('url');
+        const packageSlug = btn.data('package-slug');
+
+        if (!{{ user.is_authenticated|yesno:"true,false" }}) {
+            $('#loginModal').modal('show');
+            return;
+        }
+
+        $.ajax({
+            url: url,
+            type: 'POST',
+            data: {
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            },
+            success: function(data) {
+                if (data.status === 'success') {
+                    if (data.action === 'added') {
+                        btn.removeClass('btn-outline-danger').addClass('btn-danger');
+                        btn.find('i').removeClass('far').addClass('fas');
+                        btn.attr('title', '{% trans "Retirer des favoris" %}');
+                    } else {
+                        btn.removeClass('btn-danger').addClass('btn-outline-danger');
+                        btn.find('i').removeClass('fas').addClass('far');
+                        btn.attr('title', '{% trans "Ajouter aux favoris" %}');
+                    }
+
+                    // Mettre à jour le compteur
+                    const countSpan = $('#favorite-count-' + packageSlug);
+                    if (countSpan.length) {
+                        countSpan.text(data.favorite_count);
+                    }
+
+                    // Afficher un toast
+                    showToast(data.action === 'added' ?
+                        '{% trans "Colis ajouté aux favoris" %}' :
+                        '{% trans "Colis retiré des favoris" %}',
+                        'success'
+                    );
+                }
+            },
+            error: function() {
+                showToast('{% trans "Une erreur est survenue" %}', 'error');
+            }
+        });
+    });
+
+    // Fonction toast
+    function showToast(message, type) {
+        const toastHtml = `
+            <div class="toast align-items-center text-white bg-${type === 'success' ? 'success' : 'danger'} border-0" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        `;
+
+        if ($('#toast-container').length === 0) {
+            $('body').append('<div id="toast-container" class="toast-container position-fixed top-0 end-0 p-3"></div>');
+        }
+
+        $('#toast-container').append(toastHtml);
+        $('.toast').toast('show');
+
+        $('.toast').on('hidden.bs.toast', function() {
+            $(this).remove();
+        });
+    }
+});
+</script>
+
+<style>
+.stats-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.package-card {
+    border-radius: 10px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.package-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.pagination .page-link {
+    color: #667eea;
+    border: 1px solid #dee2e6;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #667eea;
+    border-color: #667eea;
+    color: white;
+}
+</style>
+{% endblock %}

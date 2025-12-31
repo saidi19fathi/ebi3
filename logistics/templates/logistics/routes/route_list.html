@@ -1,0 +1,187 @@
+{# ~/ebi3/logistics/templates/logistics/routes/route_list.html #}
+
+{% extends 'logistics/base_logistics.html' %}
+{% load i18n %}
+
+{% block logistics_title %}{% trans "Routes disponibles" %}{% endblock %}
+
+{% block logistics_subtitle %}{% trans "Trouvez un transport pour votre objet" %}{% endblock %}
+
+{% block logistics_breadcrumb_items %}
+<li class="breadcrumb-item active" aria-current="page">{% trans "Routes" %}</li>
+{% endblock %}
+
+{% block logistics_header_actions %}
+{% if user.role == 'CARRIER' and user.carrier_profile %}
+<a href="{% url 'logistics:route_create' %}" class="btn btn-success">
+    <i class="fas fa-plus me-2"></i> {% trans "Publier une route" %}
+</a>
+{% endif %}
+{% endblock %}
+
+{% block logistics_content %}
+<!-- Search and Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">{% trans "Ville de départ" %}</label>
+                {{ search_form.start_city }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">{% trans "Ville d'arrivée" %}</label>
+                {{ search_form.end_city }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">{% trans "Date de départ" %}</label>
+                {{ search_form.departure_date_from }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">{% trans "Date de retour" %}</label>
+                {{ search_form.departure_date_to }}
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">{% trans "Prix maximum" %}</label>
+                {{ search_form.max_price }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">{% trans "Poids disponible" %}</label>
+                {{ search_form.min_available_weight }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">{% trans "Volume disponible" %}</label>
+                {{ search_form.min_available_volume }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">{% trans "Trier par" %}</label>
+                {{ search_form.sort_by }}
+            </div>
+
+            <div class="col-12">
+                <div class="form-check form-check-inline">
+                    {{ search_form.includes_insurance }}
+                    <label class="form-check-label" for="{{ search_form.includes_insurance.id_for_label }}">
+                        {{ search_form.includes_insurance.label }}
+                    </label>
+                </div>
+                <div class="form-check form-check-inline">
+                    {{ search_form.includes_packaging }}
+                    <label class="form-check-label" for="{{ search_form.includes_packaging.id_for_label }}">
+                        {{ search_form.includes_packaging.label }}
+                    </label>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search me-2"></i> {% trans "Rechercher" %}
+                        </button>
+                        <a href="{% url 'logistics:route_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-2"></i> {% trans "Effacer" %}
+                        </a>
+                    </div>
+                    <div class="text-muted">
+                        {{ total_count }} {% trans "résultats" %}
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card bg-light">
+            <div class="card-body text-center">
+                <h3 class="text-primary">{{ stats.total_routes|default:"0" }}</h3>
+                <p class="text-muted mb-0">{% trans "Routes disponibles" %}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-light">
+            <div class="card-body text-center">
+                <h3 class="text-success">{{ stats.professional_carriers|default:"0" }}</h3>
+                <p class="text-muted mb-0">{% trans "Transporteurs professionnels" %}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-light">
+            <div class="card-body text-center">
+                <h3 class="text-info">{{ stats.personal_carriers|default:"0" }}</h3>
+                <p class="text-muted mb-0">{% trans "Transporteurs particuliers" %}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Routes List -->
+{% if routes %}
+    <div class="row">
+        {% for route in routes %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            {% include 'logistics/partials/route_card.html' with route=route %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+            </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        {{ num }}
+                    </a>
+                </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+{% else %}
+    <div class="text-center py-5">
+        <i class="fas fa-route fa-4x text-muted mb-3"></i>
+        <h4 class="text-muted mb-3">{% trans "Aucune route disponible" %}</h4>
+        <p class="text-muted mb-4">
+            {% if request.GET %}
+                {% trans "Aucune route ne correspond à vos critères de recherche." %}
+            {% else %}
+                {% trans "Aucune route n'est disponible pour le moment." %}
+            {% endif %}
+        </p>
+        {% if user.role == 'CARRIER' and user.carrier_profile %}
+        <a href="{% url 'logistics:route_create' %}" class="btn btn-success btn-lg">
+            <i class="fas fa-plus me-2"></i> {% trans "Devenir le premier transporteur" %}
+        </a>
+        {% endif %}
+    </div>
+{% endif %}
+{% endblock %}

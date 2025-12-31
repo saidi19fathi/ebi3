@@ -1,0 +1,415 @@
+{# ~/ebi3/ads/templates/ads/ad_detail.html #}
+{% extends 'ads/base_ads.html' %}
+{% load i18n %}
+
+{% block title %}{{ ad.title }} - Ebi3{% endblock %}
+
+{% block ads_content %}
+<div class="row">
+    <!-- Images et galerie -->
+    <div class="col-lg-8">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <!-- Galerie principale -->
+                <div id="adCarousel" class="carousel slide" data-bs-ride="carousel">
+                    {% if ad.images.count > 1 %}
+                        <div class="carousel-indicators">
+                            {% for image in ad.images.all %}
+                                <button type="button" data-bs-target="#adCarousel"
+                                        data-bs-slide-to="{{ forloop.counter0 }}"
+                                        {% if forloop.first %}class="active"{% endif %}></button>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <div class="carousel-inner">
+                        {% for image in ad.images.all %}
+                            <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                <img src="{{ image.image.url }}" class="d-block w-100"
+                                     alt="{{ image.caption|default:ad.title }}">
+                            </div>
+                        {% empty %}
+                            <div class="carousel-item active">
+                                <div class="d-flex align-items-center justify-content-center bg-light"
+                                     style="height: 400px;">
+                                    <i class="fas fa-image fa-5x text-muted"></i>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    {% if ad.images.count > 1 %}
+                        <button class="carousel-control-prev" type="button"
+                                data-bs-target="#adCarousel" data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon"></span>
+                        </button>
+                        <button class="carousel-control-next" type="button"
+                                data-bs-target="#adCarousel" data-bs-slide="next">
+                            <span class="carousel-control-next-icon"></span>
+                        </button>
+                    {% endif %}
+                </div>
+
+                <!-- Miniatures -->
+                {% if ad.images.count > 1 %}
+                    <div class="row mt-3">
+                        {% for image in ad.images.all %}
+                            <div class="col-3 col-md-2">
+                                <img src="{{ image.thumbnail.url|default:image.image.url }}"
+                                     class="img-thumbnail image-thumbnail {% if forloop.first %}active{% endif %}"
+                                     data-full="{{ image.image.url }}"
+                                     alt="{{ image.caption|default:'' }}"
+                                     style="cursor: pointer; height: 80px; object-fit: cover;">
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <!-- Vidéos -->
+                {% if ad.videos.exists %}
+                    <div class="mt-4">
+                        <h5><i class="fas fa-video"></i> {% trans "Vidéos" %}</h5>
+                        <div class="row">
+                            {% for video in ad.videos.all %}
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <video controls class="card-img-top" style="max-height: 200px;">
+                                            <source src="{{ video.video.url }}" type="video/mp4">
+                                            {% trans "Votre navigateur ne supporte pas la vidéo." %}
+                                        </video>
+                                        {% if video.caption %}
+                                            <div class="card-body">
+                                                <p class="card-text small">{{ video.caption }}</p>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Description -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> {% trans "Description" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <p><strong>{% trans "Catégorie:" %}</strong>
+                            <a href="{{ ad.category.get_absolute_url }}">{{ ad.category.name }}</a>
+                        </p>
+                        <p><strong>{% trans "État:" %}</strong>
+                            <span class="badge bg-info">{{ ad.get_condition_display }}</span>
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>{% trans "Poids:" %}</strong>
+                            {% if ad.weight %}
+                                {{ ad.weight }} kg
+                            {% else %}
+                                <span class="text-muted">{% trans "Non spécifié" %}</span>
+                            {% endif %}
+                        </p>
+                        <p><strong>{% trans "Dimensions:" %}</strong>
+                            {% if ad.length and ad.width and ad.height %}
+                                {{ ad.length }} × {{ ad.width }} × {{ ad.height }} cm
+                            {% else %}
+                                <span class="text-muted">{% trans "Non spécifiées" %}</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+
+                <h6>{% trans "Description détaillée" %}</h6>
+                <div class="description-content">
+                    {{ ad.description|linebreaks }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar avec informations et actions -->
+    <div class="col-lg-4">
+        <!-- Prix et actions -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h2 class="ad-price mb-3">
+                    {{ ad.get_price_with_currency }}
+                    {% if ad.is_negotiable %}
+                        <small class="text-muted d-block">{% trans "(Prix négociable)" %}</small>
+                    {% endif %}
+                </h2>
+
+                <!-- Boutons d'action -->
+                <div class="d-grid gap-2 mb-3">
+                    {% if user.is_authenticated %}
+                        {% if user == ad.seller %}
+                            <a href="{% url 'ads:ad_edit' ad.slug %}" class="btn btn-primary">
+                                <i class="fas fa-edit"></i> {% trans "Modifier l'annonce" %}
+                            </a>
+                            <a href="{% url 'ads:ad_delete' ad.slug %}" class="btn btn-outline-danger">
+                                <i class="fas fa-trash"></i> {% trans "Supprimer" %}
+                            </a>
+                        {% else %}
+                            {% if ad.can_be_reserved %}
+                                <button class="btn btn-success" data-bs-toggle="modal"
+                                        data-bs-target="#reservationModal">
+                                    <i class="fas fa-shopping-cart"></i> {% trans "Réserver" %}
+                                </button>
+
+                                {% if ad.is_available_for_carrier %}
+                                    <button class="btn btn-warning" data-bs-toggle="modal"
+                                            data-bs-target="#carrierProposalModal">
+                                        <i class="fas fa-truck"></i> {% trans "Proposer un transport" %}
+                                    </button>
+                                {% endif %}
+                            {% endif %}
+
+                            <!-- Bouton favori -->
+                            <button class="btn favorite-btn
+                                        {% if is_favorite %}btn-danger{% else %}btn-outline-danger{% endif %}"
+                                    data-url="{% url 'ads:toggle_favorite' ad.slug %}"
+                                    data-ad-slug="{{ ad.slug }}">
+                                <i class="{% if is_favorite %}fas{% else %}far{% endif %} fa-heart"></i>
+                                {% if is_favorite %}
+                                    {% trans "Retirer des favoris" %}
+                                {% else %}
+                                    {% trans "Ajouter aux favoris" %}
+                                {% endif %}
+                            </button>
+                        {% endif %}
+                    {% else %}
+                        <a href="{% url 'users:login' %}?next={{ request.path }}"
+                           class="btn btn-primary">
+                            <i class="fas fa-sign-in-alt"></i> {% trans "Se connecter pour réserver" %}
+                        </a>
+                    {% endif %}
+
+                    <!-- Bouton de partage -->
+                    <button class="btn btn-outline-secondary" onclick="shareAd()">
+                        <i class="fas fa-share-alt"></i> {% trans "Partager" %}
+                    </button>
+
+                    <!-- Bouton de signalement -->
+                    {% if can_report %}
+                        <a href="{% url 'ads:ad_report' ad.slug %}" class="btn btn-outline-warning">
+                            <i class="fas fa-flag"></i> {% trans "Signaler" %}
+                        </a>
+                    {% endif %}
+                </div>
+
+                <!-- Statistiques -->
+                <div class="d-flex justify-content-around text-center border-top pt-3">
+                    <div>
+                        <div class="h5">{{ ad.view_count }}</div>
+                        <small class="text-muted">{% trans "Vues" %}</small>
+                    </div>
+                    <div>
+                        <div class="h5">{{ ad.favorite_count }}</div>
+                        <small class="text-muted">{% trans "Favoris" %}</small>
+                    </div>
+                    <div>
+                        <div class="h5">{{ ad.inquiry_count }}</div>
+                        <small class="text-muted">{% trans "Demandes" %}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Informations logistiques -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-shipping-fast"></i> {% trans "Informations logistiques" %}</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>{% trans "Option:" %}</strong>
+                    <span class="badge bg-primary">{{ ad.get_logistics_option_display }}</span>
+                </p>
+
+                <div class="mb-3">
+                    <p class="mb-1"><strong>{% trans "Départ:" %}</strong></p>
+                    <p class="mb-0">
+                        <i class="fas fa-map-marker-alt text-danger"></i>
+                        {{ ad.city_from }}, {{ ad.country_from.name }}
+                    </p>
+                    {% if ad.address_from %}
+                        <small class="text-muted">{{ ad.address_from|truncatechars:50 }}</small>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <p class="mb-1"><strong>{% trans "Destination:" %}</strong></p>
+                    <p class="mb-0">
+                        <i class="fas fa-map-marker-alt text-success"></i>
+                        {{ ad.city_to }}, {{ ad.country_to.name }}
+                    </p>
+                    {% if ad.address_to %}
+                        <small class="text-muted">{{ ad.address_to|truncatechars:50 }}</small>
+                    {% endif %}
+                </div>
+
+                {% if ad.requires_insurance %}
+                    <p><strong>{% trans "Assurance:" %}</strong>
+                        <span class="badge bg-success">{% trans "Requis" %}</span>
+                        {% if ad.insurance_value %}
+                            ({{ ad.insurance_value }} {{ ad.get_currency_display }})
+                        {% endif %}
+                    </p>
+                {% endif %}
+
+                {% if ad.fragile_item %}
+                    <p><strong>{% trans "Fragile:" %}</strong>
+                        <span class="badge bg-warning">{% trans "Oui" %}</span>
+                    </p>
+                {% endif %}
+
+                {% if ad.requires_packaging %}
+                    <p><strong>{% trans "Emballage:" %}</strong>
+                        <span class="badge bg-info">{% trans "Requis" %}</span>
+                    </p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Informations du vendeur -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-user"></i> {% trans "Vendeur" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="avatar-circle bg-primary me-3"
+                         style="width: 60px; height: 60px;">
+                        <span class="avatar-text" style="font-size: 1.5rem;">
+                            {{ ad.seller.username|first|upper }}
+                        </span>
+                    </div>
+                    <div>
+                        <h5 class="mb-0">
+                            <a href="{% url 'users:profile' ad.seller.username %}"
+                               class="text-decoration-none">
+                                {{ ad.seller.username }}
+                            </a>
+                        </h5>
+                        <p class="text-muted mb-0">
+                            <i class="fas fa-user-tag"></i> {{ ad.seller.get_role_display }}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="row text-center">
+                    <div class="col-4">
+                        <div class="h5">{{ ad.seller.profile.successful_transactions|default:0 }}</div>
+                        <small class="text-muted">{% trans "Transactions" %}</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="h5">{{ ad.seller.profile.total_ads|default:0 }}</div>
+                        <small class="text-muted">{% trans "Annonces" %}</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="h5">{{ ad.seller.rating|default:"0.0" }}</div>
+                        <small class="text-muted">{% trans "Note" %}</small>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <a href="{% url 'messaging:new_conversation' ad.seller.username %}"
+                       class="btn btn-outline-primary w-100">
+                        <i class="fas fa-envelope"></i> {% trans "Contacter" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Annonces similaires -->
+{% if similar_ads %}
+    <div class="row mt-5">
+        <div class="col-12">
+            <h3 class="mb-4">{% trans "Annonces similaires" %}</h3>
+            <div class="row">
+                {% for similar_ad in similar_ads %}
+                    <div class="col-md-6 col-lg-3 mb-4">
+                        {% include 'ads/partials/ad_card.html' with ad=similar_ad %}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+<!-- Modals -->
+<div class="modal fade" id="reservationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Réserver cette annonce" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Vous êtes sur le point de réserver cette annonce." %}</p>
+                <p><strong>{% trans "Prix:" %}</strong> {{ ad.get_price_with_currency }}</p>
+                <p><strong>{% trans "Vendeur:" %}</strong> {{ ad.seller.username }}</p>
+                <p class="text-muted">{% trans "Vous serez redirigé vers le processus de paiement." %}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {% trans "Annuler" %}
+                </button>
+                <a href="#" class="btn btn-success">{% trans "Confirmer la réservation" %}</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Script de partage -->
+<script>
+    function shareAd() {
+        const url = window.location.href;
+        const title = '{{ ad.title }}';
+
+        if (navigator.share) {
+            navigator.share({
+                title: title,
+                text: '{% trans "Regardez cette annonce sur Ebi3" %}',
+                url: url,
+            });
+        } else {
+            // Fallback pour les navigateurs qui ne supportent pas Web Share API
+            navigator.clipboard.writeText(url).then(() => {
+                alert('{% trans "Lien copié dans le presse-papier !" %}');
+            });
+        }
+    }
+</script>
+
+<style>
+    .avatar-circle {
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+    }
+
+    .avatar-text {
+        line-height: 1;
+    }
+
+    .description-content {
+        line-height: 1.8;
+        font-size: 1.05rem;
+    }
+
+    .description-content img {
+        max-width: 100%;
+        height: auto;
+    }
+</style>
+{% endblock %}

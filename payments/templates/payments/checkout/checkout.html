@@ -1,0 +1,375 @@
+{# ~/ebi3/payments/templates/payments/checkout/checkout.html #}
+{% extends 'payments/base_payments.html' %}
+{% load i18n crispy_forms_tags %}
+
+{% block title %}{% trans "Paiement" %} - Ebi3{% endblock %}
+
+{% block payments_content %}
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card payment-card mb-4">
+            <div class="card-header payment-header">
+                <h3 class="mb-0">
+                    <i class="fas fa-shopping-cart"></i> {% trans "Finaliser votre paiement" %}
+                </h3>
+            </div>
+
+            <div class="card-body">
+                <!-- Étapes du paiement -->
+                <div class="payment-steps">
+                    <div class="step active">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <small>{% trans "Montant" %}</small>
+                            <br>
+                            <strong>{% trans "Détails" %}</strong>
+                        </div>
+                    </div>
+                    <div class="step {% if step >= 2 %}active{% endif %}">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <small>{% trans "Méthode" %}</small>
+                            <br>
+                            <strong>{% trans "Paiement" %}</strong>
+                        </div>
+                    </div>
+                    <div class="step {% if step >= 3 %}active{% endif %}">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <small>{% trans "Confirmation" %}</small>
+                            <br>
+                            <strong>{% trans "Validation" %}</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Détails de la transaction -->
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="fas fa-receipt"></i> {% trans "Détails de la transaction" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>{% trans "Référence :" %}</strong> {{ transaction.transaction_id }}</p>
+                                <p><strong>{% trans "Date :" %}</strong> {{ transaction.created_at|date:"d/m/Y H:i" }}</p>
+                                <p><strong>{% trans "Statut :" %}</strong>
+                                    <span class="payment-status status-{{ transaction.status|lower }}">
+                                        {{ transaction.get_status_display }}
+                                    </span>
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>{% trans "But :" %}</strong> {{ transaction.get_purpose_display }}</p>
+                                {% if transaction.description %}
+                                    <p><strong>{% trans "Description :" %}</strong> {{ transaction.description }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sélection de la méthode de paiement -->
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="fas fa-credit-card"></i> {% trans "Méthode de paiement" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" class="payment-form" id="payment-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="step" value="2">
+                            <input type="hidden" id="selected_payment_method" name="payment_method" value="">
+
+                            <div class="payment-methods-grid">
+                                {% for method in payment_methods %}
+                                    <div class="payment-method-card" data-method="{{ method.value }}">
+                                        <i class="{{ method.icon }}"></i>
+                                        <h6>{{ method.name }}</h6>
+                                        <small class="text-muted">{{ method.description }}</small>
+                                    </div>
+                                {% endfor %}
+                            </div>
+
+                            <!-- Détails de la carte (affichés si carte sélectionnée) -->
+                            <div id="card-details" style="display: none;" class="mt-4">
+                                <h6>{% trans "Informations de la carte" %}</h6>
+                                <div class="row">
+                                    <div class="col-md-12 mb-3">
+                                        <label class="form-label">{% trans "Numéro de carte" %}</label>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control"
+                                                   placeholder="1234 5678 9012 3456"
+                                                   maxlength="19"
+                                                   data-mask="0000 0000 0000 0000">
+                                            <span class="input-group-text">
+                                                <i class="fas fa-credit-card"></i>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">{% trans "Date d'expiration" %}</label>
+                                        <input type="text" class="form-control"
+                                               placeholder="MM/AA"
+                                               maxlength="5"
+                                               data-mask="00/00">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">CVV</label>
+                                        <div class="input-group">
+                                            <input type="password" class="form-control"
+                                                   placeholder="123"
+                                                   maxlength="4">
+                                            <span class="input-group-text" data-bs-toggle="tooltip"
+                                                  title="{% trans 'Les 3 derniers chiffres au dos de votre carte' %}">
+                                                <i class="fas fa-question-circle"></i>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-12 mb-3">
+                                        <label class="form-label">{% trans "Nom sur la carte" %}</label>
+                                        <input type="text" class="form-control"
+                                               placeholder="{% trans 'Nom complet' %}">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Détails PayPal (affichés si PayPal sélectionné) -->
+                            <div id="paypal-details" style="display: none;" class="mt-4">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i>
+                                    {% trans "Vous serez redirigé vers PayPal pour compléter votre paiement." %}
+                                </div>
+                            </div>
+
+                            <!-- Détails virement bancaire -->
+                            <div id="bank-transfer-details" style="display: none;" class="mt-4">
+                                <div class="alert alert-warning">
+                                    <h6><i class="fas fa-university"></i> {% trans "Virement bancaire" %}</h6>
+                                    <p class="mb-2">{% trans "Veuillez effectuer un virement aux coordonnées suivantes :" %}</p>
+                                    <p class="mb-1"><strong>{% trans "Bénéficiaire :" %}</strong> {{ bank_details.account_holder }}</p>
+                                    <p class="mb-1"><strong>IBAN :</strong> {{ bank_details.iban }}</p>
+                                    <p class="mb-1"><strong>BIC :</strong> {{ bank_details.bic }}</p>
+                                    <p class="mb-0"><strong>{% trans "Référence :" %}</strong> {{ transaction.transaction_id }}</p>
+                                </div>
+                            </div>
+
+                            <div class="mt-4">
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" id="terms" required>
+                                    <label class="form-check-label" for="terms">
+                                        {% trans "J'accepte les" %}
+                                        <a href="{% url 'legal:terms' %}" target="_blank">{% trans "conditions générales" %}</a>
+                                        {% trans "et la" %}
+                                        <a href="{% url 'legal:privacy' %}" target="_blank">{% trans "politique de confidentialité" %}</a>.
+                                    </label>
+                                </div>
+
+                                <div class="d-flex justify-content-between">
+                                    <a href="{% url 'payments:cancel_payment' transaction.id %}"
+                                       class="btn btn-outline-secondary">
+                                        <i class="fas fa-times"></i> {% trans "Annuler" %}
+                                    </a>
+                                    <button type="submit" id="submit-btn" class="btn btn-primary" disabled>
+                                        <i class="fas fa-lock"></i> {% trans "Payer maintenant" %}
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Informations de sécurité -->
+                <div class="card">
+                    <div class="card-body text-center">
+                        <div class="security-badge mb-2">
+                            <i class="fas fa-shield-alt"></i> {% trans "Paiement sécurisé" %}
+                        </div>
+                        <p class="text-muted small mb-0">
+                            <i class="fas fa-lock"></i> {% trans "Vos données sont cryptées et protégées." %}
+                            <br>
+                            <i class="fas fa-credit-card"></i> {% trans "Nous ne stockons pas vos informations de carte." %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar avec récapitulatif -->
+    <div class="col-lg-4">
+        <div class="card payment-card sticky-top" style="top: 20px;">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fas fa-file-invoice-dollar"></i> {% trans "Récapitulatif" %}</h5>
+            </div>
+            <div class="card-body">
+                <!-- Montant total -->
+                <div class="text-center mb-4">
+                    <div class="amount-display">
+                        {{ transaction.amount|floatformat:2 }}
+                        <span class="currency-symbol">{{ transaction.get_currency_display }}</span>
+                    </div>
+                    <p class="text-muted">{% trans "Total à payer" %}</p>
+                </div>
+
+                <!-- Détails des frais -->
+                <div class="mb-4">
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <td>{% trans "Sous-total" %}</td>
+                                <td class="text-end">{{ transaction.amount|floatformat:2 }} {{ transaction.get_currency_display }}</td>
+                            </tr>
+                            {% if transaction.tax_amount %}
+                                <tr>
+                                    <td>{% trans "TVA" %} ({{ transaction.tax_rate }}%)</td>
+                                    <td class="text-end">{{ transaction.tax_amount|floatformat:2 }} {{ transaction.get_currency_display }}</td>
+                                </tr>
+                            {% endif %}
+                            {% if transaction.processing_fee %}
+                                <tr>
+                                    <td>{% trans "Frais de traitement" %}</td>
+                                    <td class="text-end">{{ transaction.processing_fee|floatformat:2 }} {{ transaction.get_currency_display }}</td>
+                                </tr>
+                            {% endif %}
+                            <tr class="total-row">
+                                <td><strong>{% trans "Total" %}</strong></td>
+                                <td class="text-end">
+                                    <strong>{{ transaction.total_amount|floatformat:2 }} {{ transaction.get_currency_display }}</strong>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Compte à rebours -->
+                {% if transaction.status == 'PENDING' %}
+                    <div class="countdown-timer mb-4" data-seconds="{{ session_timeout }}">
+                        <i class="fas fa-clock"></i>
+                        {% trans "Temps restant :" %}
+                        <span id="countdown-timer">{{ session_timeout|divisibleby:60|yesno:"session_timeout|divisibleby:60,?minute(s)" }}</span>
+                    </div>
+                {% endif %}
+
+                <!-- Informations de support -->
+                <div class="alert alert-light border">
+                    <h6><i class="fas fa-headset"></i> {% trans "Besoin d'aide ?" %}</h6>
+                    <p class="small mb-2">{% trans "Notre équipe est disponible pour vous aider." %}</p>
+                    <a href="{% url 'core:contact' %}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-envelope"></i> {% trans "Contactez-nous" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour les conditions -->
+<div class="modal fade" id="termsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Conditions de paiement" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Contenu des conditions -->
+                {% include 'payments/partials/terms_content.html' %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {% trans "Fermer" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    // Gestion de l'affichage des détails selon la méthode de paiement
+    $('.payment-method-card').click(function() {
+        const method = $(this).data('method');
+
+        // Masquer tous les détails
+        $('#card-details, #paypal-details, #bank-transfer-details').hide();
+
+        // Afficher les détails appropriés
+        if (method === 'CREDIT_CARD' || method === 'DEBIT_CARD') {
+            $('#card-details').show();
+        } else if (method === 'PAYPAL') {
+            $('#paypal-details').show();
+        } else if (method === 'BANK_TRANSFER') {
+            $('#bank-transfer-details').show();
+        }
+
+        // Activer le bouton de soumission
+        $('#submit-btn').prop('disabled', false);
+    });
+
+    // Validation du formulaire de carte
+    $('#payment-form').submit(function(e) {
+        const selectedMethod = $('#selected_payment_method').val();
+
+        if (!selectedMethod) {
+            e.preventDefault();
+            showToast('{% trans "Veuillez sélectionner une méthode de paiement." %}', 'error');
+            return false;
+        }
+
+        if (selectedMethod === 'CREDIT_CARD' || selectedMethod === 'DEBIT_CARD') {
+            // Validation des champs de carte
+            const cardNumber = $('input[placeholder*="Numéro de carte"]').val().replace(/\s/g, '');
+            const expiryDate = $('input[placeholder*="MM/AA"]').val();
+            const cvv = $('input[placeholder*="CVV"]').val();
+            const cardName = $('input[placeholder*="Nom complet"]').val();
+
+            if (!cardNumber || cardNumber.length < 13) {
+                e.preventDefault();
+                showToast('{% trans "Veuillez saisir un numéro de carte valide." %}', 'error');
+                return false;
+            }
+
+            if (!expiryDate || !/^\d{2}\/\d{2}$/.test(expiryDate)) {
+                e.preventDefault();
+                showToast('{% trans "Veuillez saisir une date d\'expiration valide (MM/AA)." %}', 'error');
+                return false;
+            }
+
+            if (!cvv || (cvv.length !== 3 && cvv.length !== 4)) {
+                e.preventDefault();
+                showToast('{% trans "Veuillez saisir un code CVV valide." %}', 'error');
+                return false;
+            }
+
+            if (!cardName) {
+                e.preventDefault();
+                showToast('{% trans "Veuillez saisir le nom figurant sur la carte." %}', 'error');
+                return false;
+            }
+        }
+
+        // Vérifier l'acceptation des conditions
+        if (!$('#terms').is(':checked')) {
+            e.preventDefault();
+            showToast('{% trans "Veuillez accepter les conditions générales." %}', 'error');
+            return false;
+        }
+    });
+
+    // Masquage des numéros de carte
+    $('input[placeholder*="Numéro de carte"]').on('input', function() {
+        let value = $(this).val().replace(/\s/g, '');
+        let formatted = '';
+
+        for (let i = 0; i < value.length; i++) {
+            if (i > 0 && i % 4 === 0) {
+                formatted += ' ';
+            }
+            formatted += value[i];
+        }
+
+        $(this).val(formatted);
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,101 @@
+{# ~/ebi3/logistics/templates/logistics/includes/logistics_nav.html #}
+
+<nav class="logistics-nav">
+    <ul class="nav flex-column">
+        <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
+               href="{% url 'logistics:dashboard' %}">
+                <i class="fas fa-tachometer-alt me-2"></i> {% trans "Tableau de bord" %}
+            </a>
+        </li>
+
+        <!-- Réservations -->
+        <li class="nav-item">
+            <a class="nav-link {% if 'reservation' in request.resolver_match.url_name %}active{% endif %}"
+               href="{% url 'logistics:reservation_list' %}">
+                <i class="fas fa-shopping-cart me-2"></i> {% trans "Mes réservations" %}
+                {% if user.reservations_pending %}
+                    <span class="badge bg-warning float-end">{{ user.reservations_pending }}</span>
+                {% endif %}
+            </a>
+        </li>
+
+        <!-- Missions (pour transporteurs et acheteurs) -->
+        {% if user.role == 'CARRIER' or user.reservations.exists %}
+        <li class="nav-item">
+            <a class="nav-link {% if 'mission' in request.resolver_match.url_name %}active{% endif %}"
+               href="{% url 'logistics:mission_list' %}">
+                <i class="fas fa-truck me-2"></i> {% trans "Mes missions" %}
+                {% if user.active_missions %}
+                    <span class="badge bg-info float-end">{{ user.active_missions }}</span>
+                {% endif %}
+            </a>
+        </li>
+        {% endif %}
+
+        <!-- Routes (pour transporteurs) -->
+        {% if user.role == 'CARRIER' and user.carrier_profile %}
+        <li class="nav-item">
+            <a class="nav-link {% if 'route' in request.resolver_match.url_name %}active{% endif %}"
+               href="{% url 'logistics:route_list' %}">
+                <i class="fas fa-route me-2"></i> {% trans "Mes routes" %}
+                {% if user.active_routes %}
+                    <span class="badge bg-success float-end">{{ user.active_routes }}</span>
+                {% endif %}
+            </a>
+        </li>
+        {% endif %}
+
+        <!-- Propositions (pour vendeurs et transporteurs) -->
+        {% if user.role == 'SELLER' or user.role == 'CARRIER' %}
+        <li class="nav-item">
+            <a class="nav-link {% if 'proposal' in request.resolver_match.url_name %}active{% endif %}"
+               href="{% url 'logistics:proposal_list' %}">
+                <i class="fas fa-handshake me-2"></i> {% trans "Propositions" %}
+                {% if user.pending_proposals %}
+                    <span class="badge bg-primary float-end">{{ user.pending_proposals }}</span>
+                {% endif %}
+            </a>
+        </li>
+        {% endif %}
+
+        <li class="nav-item mt-3">
+            <div class="nav-link text-muted small">
+                <i class="fas fa-info-circle me-2"></i> {% trans "Aide" %}
+            </div>
+        </li>
+
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'logistics:faq' %}">
+                <i class="fas fa-question-circle me-2"></i> {% trans "FAQ" %}
+            </a>
+        </li>
+
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'logistics:guide' %}">
+                <i class="fas fa-book me-2"></i> {% trans "Guide" %}
+            </a>
+        </li>
+
+        <!-- Admin links -->
+        {% if user.is_staff %}
+        <li class="nav-item mt-3">
+            <div class="nav-link text-muted small">
+                <i class="fas fa-cog me-2"></i> {% trans "Administration" %}
+            </div>
+        </li>
+
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'logistics:settings' %}">
+                <i class="fas fa-sliders-h me-2"></i> {% trans "Paramètres" %}
+            </a>
+        </li>
+
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'logistics:reports' %}">
+                <i class="fas fa-chart-bar me-2"></i> {% trans "Rapports" %}
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>

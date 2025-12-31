@@ -1,0 +1,135 @@
+{# ~/ebi3/colis/templates/colis/base_colis.html #}
+{% extends 'core/base.html' %}
+{% load i18n static %}
+
+{% block extra_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'colis/css/colis.css' %}">
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script src="{% static 'colis/js/colis.js' %}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Bannière principale -->
+    <div class="colis-banner bg-primary text-white py-5 mb-4">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-8">
+                    <h1 class="display-4 fw-bold">
+                        {% block colis_title %}{% trans "Transportez vos colis en toute confiance" %}{% endblock %}
+                    </h1>
+                    <p class="lead">
+                        {% trans "Des milliers de transporteurs disponibles pour vos envois" %}
+                    </p>
+                </div>
+                <div class="col-lg-4 text-lg-end">
+                    {% if user.is_authenticated %}
+                        <a href="{% url 'colis:package_create' %}" class="btn btn-light btn-lg">
+                            <i class="fas fa-plus-circle"></i> {% trans "Publier un colis" %}
+                        </a>
+                    {% else %}
+                        <a href="{% url 'users:login' %}?next={% url 'colis:package_create' %}" class="btn btn-light btn-lg">
+                            <i class="fas fa-user-plus"></i> {% trans "Commencez gratuitement" %}
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barre de recherche -->
+    <div class="container mb-4">
+        {% include 'colis/partials/search_filters.html' %}
+    </div>
+
+    <!-- Contenu principal -->
+    <div class="container">
+        <div class="row">
+            <!-- Sidebar gauche -->
+            <div class="col-lg-3 d-none d-lg-block">
+                {% include 'colis/layout/sidebar.html' %}
+            </div>
+
+            <!-- Contenu central -->
+            <div class="col-lg-9">
+                <!-- Messages -->
+                {% if messages %}
+                    <div class="messages mb-4">
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <!-- Fil d'Ariane -->
+                {% include 'colis/layout/breadcrumb.html' %}
+
+                <!-- Contenu spécifique -->
+                {% block colis_content %}{% endblock %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Widget d'aide -->
+{% include 'colis/includes/help_widget.html' %}
+
+<!-- Modal de connexion -->
+<div class="modal fade" id="loginModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Connexion requise" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p>{% trans "Vous devez être connecté pour effectuer cette action." %}</p>
+                <div class="d-grid gap-2">
+                    <a href="{% url 'users:login' %}?next={{ request.path }}" class="btn btn-primary">
+                        <i class="fas fa-sign-in-alt"></i> {% trans "Se connecter" %}
+                    </a>
+                    <a href="{% url 'users:register' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-user-plus"></i> {% trans "Créer un compte" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_body_js %}
+<script>
+$(document).ready(function() {
+    // Initialisation des tooltips
+    $('[data-bs-toggle="tooltip"]').tooltip();
+
+    // Gestion des modales de connexion
+    $('.requires-login').click(function(e) {
+        if (!{{ user.is_authenticated|yesno:"true,false" }}) {
+            e.preventDefault();
+            $('#loginModal').modal('show');
+        }
+    });
+
+    // Calcul automatique du volume
+    $('.volume-calculator').on('input', function() {
+        const length = parseFloat($('#id_length').val()) || 0;
+        const width = parseFloat($('#id_width').val()) || 0;
+        const height = parseFloat($('#id_height').val()) || 0;
+
+        if (length > 0 && width > 0 && height > 0) {
+            const volume = (length * width * height) / 1000;
+            $('#volume-preview').text(volume.toFixed(2) + ' L').removeClass('d-none');
+        }
+    });
+});
+</script>
+{% endblock %}

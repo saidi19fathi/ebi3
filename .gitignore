@@ -1,0 +1,59 @@
+# Django
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+pycache/
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Database
+*.sqlite3
+*.db
+db.sqlite3
+
+# Django static/media
+media/
+staticfiles/
+static/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PythonAnywhere
+.pythonanywhere.yaml
+
+# Python
+*.egg-info/
+dist/
+build/
+
+# Settings secrets
+secrets.py
+
+# Migrations (vous pouvez les garder)
+# */migrations/*.py
+# !*/migrations/__init__.py

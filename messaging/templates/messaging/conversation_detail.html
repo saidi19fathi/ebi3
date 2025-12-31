@@ -1,0 +1,466 @@
+{# ~/ebi3/messaging/templates/messaging/conversation_detail.html #}
+{% extends 'messaging/base_messaging.html' %}
+{% load i18n %}
+
+{% block title %}{{ conversation.subject|default:other_participant.username }} - {% trans "Conversation" %} - Ebi3{% endblock %}
+
+{% block messaging_content %}
+<div class="messaging-container">
+    <!-- Sidebar des conversations -->
+    <div class="conversations-sidebar">
+        <div class="search-container">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="text" class="form-control" placeholder="{% trans 'Rechercher...' %}" id="conversation-search">
+            </div>
+        </div>
+
+        <div class="conversation-list">
+            {% for conv in recent_conversations %}
+                <div class="conversation-item {% if conv.uuid == conversation.uuid %}active{% endif %} {% if conv.unread_count > 0 %}unread{% endif %}"
+                     onclick="location.href='{% url 'messaging:conversation_detail' conv.uuid %}'">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 position-relative">
+                            <div class="conversation-avatar bg-primary text-white d-flex align-items-center justify-content-center">
+                                {% with other=conv.get_other_participant request.user %}
+                                    {{ other.username|first|upper }}
+                                {% endwith %}
+                            </div>
+                            {% if conv.get_other_participant request.user.profile.is_online %}
+                                <span class="online-status online position-absolute"
+                                      style="bottom: 0; right: 0;"></span>
+                            {% endif %}
+                        </div>
+                        <div class="flex-grow-1 ms-3 overflow-hidden">
+                            <div class="d-flex justify-content-between">
+                                <h6 class="mb-0 text-truncate">
+                                    {% with other=conv.get_other_participant request.user %}
+                                        {{ other.username }}
+                                    {% endwith %}
+                                </h6>
+                                <small class="conversation-time">
+                                    {% with last_msg=conv.messages.last %}
+                                        {% if last_msg %}
+                                            {{ last_msg.sent_at|date:"H:i" }}
+                                        {% endif %}
+                                    {% endwith %}
+                                </small>
+                            </div>
+                            <div class="conversation-preview">
+                                {% with last_msg=conv.messages.last %}
+                                    {% if last_msg %}
+                                        {% if last_msg.sender == request.user %}
+                                            <i class="fas fa-reply text-muted me-1"></i>
+                                        {% endif %}
+                                        {{ last_msg.content|truncatechars:30 }}
+                                    {% else %}
+                                        {% trans "Aucun message" %}
+                                    {% endif %}
+                                {% endwith %}
+                            </div>
+                            {% if conv.unread_count > 0 %}
+                                <span class="unread-badge">{{ conv.unread_count }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Contenu de la conversation -->
+    <div class="conversation-content">
+        <!-- En-tête de la conversation -->
+        <div class="d-flex align-items-center justify-content-between border-bottom p-3 bg-light">
+            <div class="d-flex align-items-center">
+                <div class="flex-shrink-0 position-relative me-3">
+                    <div class="conversation-avatar bg-primary text-white d-flex align-items-center justify-content-center"
+                         style="width: 50px; height: 50px;">
+                        {{ other_participant.username|first|upper }}
+                    </div>
+                    {% if other_participant.profile.is_online %}
+                        <span class="online-status online position-absolute"
+                              style="bottom: 5px; right: 5px;"></span>
+                    {% endif %}
+                </div>
+                <div>
+                    <h5 class="mb-1">
+                        {% if conversation.subject %}
+                            {{ conversation.subject }}
+                        {% else %}
+                            {{ other_participant.username }}
+                        {% endif %}
+                    </h5>
+                    <small class="text-muted">
+                        {% if other_participant.profile.is_online %}
+                            <span class="text-success">
+                                <i class="fas fa-circle"></i> {% trans "En ligne" %}
+                            </span>
+                        {% else %}
+                            <span class="text-muted">
+                                <i class="fas fa-circle"></i> {% trans "Hors ligne" %}
+                            </span>
+                        {% endif %}
+                        {% if conversation.get_conversation_type_display %}
+                            • {{ conversation.get_conversation_type_display }}
+                        {% endif %}
+                    </small>
+                </div>
+            </div>
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown">
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    {% if conversation.subject %}
+                        <li><a class="dropdown-item" href="#">
+                            <i class="fas fa-edit me-2"></i> {% trans "Modifier le sujet" %}
+                        </a></li>
+                    {% endif %}
+                    <li>
+                        <a class="dropdown-item" href="{% url 'messaging:archive_conversation' conversation.uuid %}">
+                            <i class="fas fa-archive me-2"></i>
+                            {% if conversation.is_archived %}
+                                {% trans "Désarchiver" %}
+                            {% else %}
+                                {% trans "Archiver" %}
+                            {% endif %}
+                        </a>
+                    </li>
+                    {% if not is_blocked %}
+                        <li>
+                            <a class="dropdown-item" href="{% url 'messaging:block_user' other_participant.username %}">
+                                <i class="fas fa-ban me-2"></i> {% trans "Bloquer l'utilisateur" %}
+                            </a>
+                        </li>
+                    {% else %}
+                        <li>
+                            <a class="dropdown-item" href="{% url 'messaging:unblock_user' other_participant.username %}">
+                                <i class="fas fa-check me-2"></i> {% trans "Débloquer l'utilisateur" %}
+                            </a>
+                        </li>
+                    {% endif %}
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <a class="dropdown-item text-danger" href="{% url 'messaging:delete_conversation' conversation.uuid %}"
+                           onclick="return confirm('{% trans 'Êtes-vous sûr de vouloir supprimer cette conversation ?' %}')">
+                            <i class="fas fa-trash me-2"></i> {% trans "Supprimer la conversation" %}
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Messages -->
+        <div class="messages-container" data-conversation-uuid="{{ conversation.uuid }}">
+            {% if messages %}
+                <!-- Date séparateur -->
+                {% for message in messages %}
+                    {% ifchanged message.sent_at.date %}
+                        <div class="text-center my-4">
+                            <span class="badge bg-secondary px-3 py-2">
+                                {{ message.sent_at|date:"d F Y" }}
+                            </span>
+                        </div>
+                    {% endifchanged %}
+
+                    <div class="message-bubble {% if message.sender == request.user %}sent{% else %}received{% endif %}"
+                         data-message-id="{{ message.id }}">
+
+                        {% if message.sender != request.user %}
+                            <div class="message-sender">
+                                {{ message.sender.username }}
+                                {% if message.sender.profile.is_online %}
+                                    <span class="online-status online"></span>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+                        <div class="message-text">
+                            {{ message.content|linebreaks }}
+                        </div>
+
+                        <!-- Pièce jointe -->
+                        {% if message.attachment %}
+                            {% include 'messaging/partials/attachment_preview.html' with attachment=message.attachment %}
+                        {% endif %}
+
+                        <!-- Message parent (réponse) -->
+                        {% if message.parent_message %}
+                            <div class="reply-to mt-2 p-2 border-start border-3 border-primary bg-light rounded">
+                                <small class="text-muted">
+                                    <i class="fas fa-reply"></i> {% trans "Réponse à" %} {{ message.parent_message.sender.username }}
+                                </small>
+                                <div class="small mt-1">
+                                    {{ message.parent_message.content|truncatechars:50 }}
+                                </div>
+                            </div>
+                        {% endif %}
+
+                        <div class="message-time">
+                            {{ message.sent_at|date:"H:i" }}
+                            {% if message.sender == request.user %}
+                                {% if message.is_read %}
+                                    <i class="fas fa-check-double text-success ms-1" title="{% trans 'Lu' %}"></i>
+                                {% else %}
+                                    <i class="fas fa-check text-muted ms-1" title="{% trans 'Envoyé' %}"></i>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+
+                        <!-- Actions du message -->
+                        <div class="message-actions mt-2 opacity-0" style="transition: opacity 0.2s;">
+                            <button class="btn btn-sm btn-outline-secondary reply-btn"
+                                    data-message-id="{{ message.id }}"
+                                    title="{% trans 'Répondre' %}">
+                                <i class="fas fa-reply"></i>
+                            </button>
+                            {% if message.sender == request.user %}
+                                <button class="btn btn-sm btn-outline-warning edit-btn"
+                                        data-message-id="{{ message.id }}"
+                                        title="{% trans 'Modifier' %}">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                            {% endif %}
+                            <button class="btn btn-sm btn-outline-danger delete-btn"
+                                    data-message-id="{{ message.id }}"
+                                    data-url="{% url 'messaging:delete_message' message.uuid %}"
+                                    title="{% trans 'Supprimer' %}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-info report-btn"
+                                    data-message-id="{{ message.id }}"
+                                    data-url="{% url 'messaging:report_message' message.uuid %}"
+                                    title="{% trans 'Signaler' %}">
+                                <i class="fas fa-flag"></i>
+                            </button>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-comments fa-4x text-muted mb-3"></i>
+                    <h4>{% trans "Commencez la conversation" %}</h4>
+                    <p class="text-muted">
+                        {% trans "Envoyez votre premier message à" %} {{ other_participant.username }}
+                    </p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Indicateur de frappe -->
+        <div id="typing-indicator" class="d-none">
+            <div class="typing-indicator">
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+            </div>
+        </div>
+
+        <!-- Formulaire d'envoi de message -->
+        <div class="message-input-container">
+            {% if can_send_message and not is_blocked %}
+                <form method="post" action="{% url 'messaging:send_message' conversation.uuid %}"
+                      id="message-form" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <!-- Prévisualisation du fichier -->
+                    <div id="file-preview" class="mb-3"></div>
+
+                    <div class="input-group">
+                        <button type="button" class="btn btn-outline-secondary emoji-btn"
+                                data-bs-toggle="tooltip" title="{% trans 'Émojis' %}">
+                            <i class="far fa-smile"></i>
+                        </button>
+
+                        <button type="button" class="btn btn-outline-secondary attachment-btn"
+                                onclick="$('#id_attachment').click()"
+                                data-bs-toggle="tooltip" title="{% trans 'Pièce jointe' %}">
+                            <i class="fas fa-paperclip"></i>
+                        </button>
+
+                        <input type="file" name="attachment" id="id_attachment" class="d-none">
+
+                        <textarea name="content" class="form-control message-input"
+                                  placeholder="{% trans 'Tapez votre message ici...' %}"
+                                  rows="1" required></textarea>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+
+                    <div class="mt-2 small text-muted">
+                        <i class="fas fa-info-circle"></i>
+                        {% trans "Appuyez sur Ctrl+Enter pour envoyer" %}
+                    </div>
+                </form>
+            {% elif is_blocked %}
+                <div class="alert alert-warning text-center">
+                    <i class="fas fa-ban"></i>
+                    {% trans "Vous avez bloqué cet utilisateur. Vous ne pouvez pas lui envoyer de messages." %}
+                    <a href="{% url 'messaging:unblock_user' other_participant.username %}" class="alert-link">
+                        {% trans "Débloquer" %}
+                    </a>
+                </div>
+            {% else %}
+                <div class="alert alert-warning text-center">
+                    <i class="fas fa-lock"></i>
+                    {% trans "Cet utilisateur n'accepte pas de messages pour le moment." %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modals -->
+<!-- Modal de réponse -->
+<div class="modal fade" id="replyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Répondre au message" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="original-message" class="mb-3 p-2 bg-light rounded"></div>
+                <textarea class="form-control" rows="3" placeholder="{% trans 'Votre réponse...' %}"
+                          id="reply-content"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {% trans "Annuler" %}
+                </button>
+                <button type="button" class="btn btn-primary" id="send-reply">
+                    <i class="fas fa-paper-plane"></i> {% trans "Envoyer la réponse" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal d'édition -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Modifier le message" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <textarea class="form-control" rows="3" placeholder="{% trans 'Modifier le message...' %}"
+                          id="edit-content"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {% trans "Annuler" %}
+                </button>
+                <button type="button" class="btn btn-primary" id="save-edit">
+                    <i class="fas fa-save"></i> {% trans "Enregistrer" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        // Hover sur les messages pour afficher les actions
+        $('.message-bubble').hover(function() {
+            $(this).find('.message-actions').css('opacity', '1');
+        }, function() {
+            $(this).find('.message-actions').css('opacity', '0');
+        });
+
+        // Répondre à un message
+        $('.reply-btn').click(function() {
+            const messageId = $(this).data('message-id');
+            const messageContent = $(this).closest('.message-bubble').find('.message-text').text();
+
+            $('#original-message').html(`<strong>Message original:</strong><br>${messageContent}`);
+            $('#replyModal').data('message-id', messageId);
+            $('#replyModal').modal('show');
+        });
+
+        // Envoyer la réponse
+        $('#send-reply').click(function() {
+            const messageId = $('#replyModal').data('message-id');
+            const content = $('#reply-content').val();
+
+            $.post(`/messaging/message/${messageId}/reply/`, {
+                csrfmiddlewaretoken: '{{ csrf_token }}',
+                content: content,
+                parent_message_id: messageId
+            }, function(response) {
+                if (response.success) {
+                    $('#replyModal').modal('hide');
+                    $('#reply-content').val('');
+                    // Ajouter le nouveau message à la conversation
+                    location.reload();
+                }
+            });
+        });
+
+        // Supprimer un message
+        $('.delete-btn').click(function() {
+            if (confirm('{% trans "Êtes-vous sûr de vouloir supprimer ce message ?" %}')) {
+                const url = $(this).data('url');
+                $.post(url, {
+                    csrfmiddlewaretoken: '{{ csrf_token }}'
+                }, function() {
+                    location.reload();
+                });
+            }
+        });
+
+        // Signaler un message
+        $('.report-btn').click(function() {
+            const url = $(this).data('url');
+            location.href = url;
+        });
+
+        // Auto-expansion de la zone de texte
+        $('.message-input').on('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+
+        // Envoi du formulaire AJAX
+        $('#message-form').submit(function(e) {
+            e.preventDefault();
+
+            const form = $(this);
+            const formData = new FormData(form[0]);
+
+            $.ajax({
+                url: form.attr('action'),
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    if (response.success) {
+                        // Ajouter le nouveau message
+                        const messageHtml = `
+                            <div class="message-bubble sent message-enter">
+                                <div class="message-text">${response.content}</div>
+                                <div class="message-time">${response.sent_at}</div>
+                            </div>
+                        `;
+                        $('.messages-container').append(messageHtml);
+                        $('.message-input').val('');
+                        $('.message-input').height('auto');
+                        $('#file-preview').empty();
+                        $('input[type="file"]').val('');
+
+                        // Scroll vers le bas
+                        const container = $('.messages-container');
+                        container.scrollTop(container[0].scrollHeight);
+                    }
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

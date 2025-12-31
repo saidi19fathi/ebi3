@@ -1,0 +1,208 @@
+{# ~/ebi3/colis/templates/colis/partials/package_card.html #}
+{% load i18n %}
+<div class="card package-card h-100">
+    <!-- Badge vedette -->
+    {% if package.is_featured %}
+        <div class="featured-badge">
+            <span class="badge bg-warning">
+                <i class="fas fa-star"></i> {% trans "En vedette" %}
+            </span>
+        </div>
+    {% endif %}
+
+    <!-- Image principale -->
+    <div class="position-relative">
+        {% with package.images.first as main_image %}
+            {% if main_image %}
+                <img src="{{ main_image.thumbnail.url|default:main_image.image.url }}"
+                     class="card-img-top package-image"
+                     alt="{{ package.title }}"
+                     loading="lazy">
+            {% else %}
+                <div class="card-img-top package-image bg-light d-flex align-items-center justify-content-center">
+                    <i class="fas fa-box fa-3x text-muted"></i>
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Badge type de colis -->
+        <span class="position-absolute top-0 start-0 m-2 package-type-badge badge
+                     {% if package.package_type == 'SMALL_PACKAGE' %}bg-success
+                     {% elif package.package_type == 'MEDIUM_PACKAGE' %}bg-info
+                     {% elif package.package_type == 'LARGE_PACKAGE' %}bg-warning
+                     {% elif package.package_type == 'FURNITURE' %}bg-primary
+                     {% else %}bg-secondary{% endif %}">
+            {{ package.get_package_type_display }}
+        </span>
+
+        <!-- Badge fragile -->
+        {% if package.is_fragile %}
+            <span class="position-absolute top-0 end-0 m-2 fragile-badge badge bg-danger">
+                <i class="fas fa-exclamation-triangle"></i> {% trans "Fragile" %}
+            </span>
+        {% endif %}
+    </div>
+
+    <!-- Corps de la carte -->
+    <div class="card-body d-flex flex-column">
+        <h5 class="card-title">
+            <a href="{{ package.get_absolute_url }}" class="text-decoration-none text-dark">
+                {{ package.title|truncatechars:60 }}
+            </a>
+        </h5>
+
+        <!-- Trajet -->
+        <div class="package-route mb-2">
+            <div class="d-flex align-items-center">
+                <div class="route-point start-point">
+                    <i class="fas fa-map-marker-alt text-danger"></i>
+                    <small>{{ package.pickup_city|truncatechars:20 }}</small>
+                </div>
+                <div class="route-line flex-grow-1 mx-2">
+                    <hr class="my-1">
+                </div>
+                <div class="route-point end-point">
+                    <i class="fas fa-map-marker-alt text-success"></i>
+                    <small>{{ package.delivery_city|truncatechars:20 }}</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Informations -->
+        <div class="package-info mb-3">
+            <div class="row g-2">
+                <div class="col-6">
+                    <small class="text-muted d-block">{% trans "Poids" %}</small>
+                    <strong>{{ package.weight }} kg</strong>
+                </div>
+                <div class="col-6">
+                    <small class="text-muted d-block">{% trans "Dimensions" %}</small>
+                    <strong>{{ package.length }}×{{ package.width }}×{{ package.height }} cm</strong>
+                </div>
+                <div class="col-6">
+                    <small class="text-muted d-block">{% trans "Départ" %}</small>
+                    <strong>{{ package.pickup_date|date:"d/m" }}</strong>
+                </div>
+                <div class="col-6">
+                    <small class="text-muted d-block">{% trans "Livraison" %}</small>
+                    <strong>{{ package.delivery_date|date:"d/m" }}</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Description -->
+        <p class="card-text small text-muted mb-3">
+            {{ package.description|truncatechars:120 }}
+        </p>
+
+        <!-- Prix et actions -->
+        <div class="mt-auto">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="package-price">
+                    <span class="h5 text-primary">{{ package.asking_price }} {{ package.get_currency_display }}</span>
+                    {% if package.price_type == 'NEGOTIABLE' %}
+                        <small class="text-muted d-block">{% trans "(Prix négociable)" %}</small>
+                    {% endif %}
+                </div>
+
+                <!-- Bouton favori -->
+                {% if user.is_authenticated %}
+                    <button class="btn btn-sm favorite-btn
+                                {% if package in user.package_favorites.all %}btn-danger{% else %}btn-outline-danger{% endif %}"
+                            data-url="{% url 'colis:toggle_favorite' package.slug %}"
+                            data-package-slug="{{ package.slug }}"
+                            data-bs-toggle="tooltip"
+                            title="{% if package in user.package_favorites.all %}{% trans 'Retirer des favoris' %}{% else %}{% trans 'Ajouter aux favoris' %}{% endif %}">
+                        <i class="{% if package in user.package_favorites.all %}fas{% else %}far{% endif %} fa-heart"></i>
+                    </button>
+                {% else %}
+                    <a href="{% url 'users:login' %}?next={{ request.path }}"
+                       class="btn btn-sm btn-outline-danger requires-login"
+                       data-bs-toggle="tooltip"
+                       title="{% trans 'Connectez-vous pour ajouter aux favoris' %}">
+                        <i class="far fa-heart"></i>
+                    </a>
+                {% endif %}
+            </div>
+
+            <!-- Bouton voir détails -->
+            <div class="d-grid mt-3">
+                <a href="{{ package.get_absolute_url }}" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-eye"></i> {% trans "Voir détails" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pied de carte -->
+    <div class="card-footer bg-transparent border-top">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="small">
+                <i class="fas fa-user"></i>
+                <a href="{% url 'users:profile' package.sender.username %}" class="text-decoration-none">
+                    {{ package.sender.username }}
+                </a>
+            </div>
+            <div class="small text-muted">
+                <i class="fas fa-eye"></i> {{ package.view_count }}
+                <i class="fas fa-gavel ms-2"></i> {{ package.offer_count }}
+                <i class="fas fa-heart ms-2"></i> {{ package.favorite_count }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.package-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.package-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.package-image {
+    height: 180px;
+    object-fit: cover;
+    width: 100%;
+}
+
+.featured-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+}
+
+.package-type-badge {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.fragile-badge {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.package-route .route-line hr {
+    border-top: 2px dashed #dee2e6;
+}
+
+.package-price .h5 {
+    font-weight: bold;
+}
+
+.route-point {
+    text-align: center;
+    min-width: 60px;
+}
+
+.route-point small {
+    display: block;
+    font-size: 0.75rem;
+}
+</style>

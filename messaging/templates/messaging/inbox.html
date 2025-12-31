@@ -1,0 +1,224 @@
+{# ~/ebi3/messaging/templates/messaging/inbox.html #}
+{% extends 'messaging/base_messaging.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Boîte de réception" %} - Ebi3{% endblock %}
+
+{% block messaging_content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1>
+                <i class="fas fa-inbox"></i> {% trans "Boîte de réception" %}
+                {% if unread_messages_count > 0 %}
+                    <span id="unread-count" class="badge bg-danger ms-2">{{ unread_messages_count }}</span>
+                {% endif %}
+            </h1>
+            <div>
+                <a href="{% url 'messaging:new_conversation' %}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> {% trans "Nouveau message" %}
+                </a>
+                <div class="dropdown d-inline-block ms-2">
+                    <button class="btn btn-outline-secondary dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown">
+                        <i class="fas fa-filter"></i> {% trans "Filtrer" %}
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <a class="dropdown-item" href="{% url 'messaging:unread' %}">
+                                <i class="fas fa-envelope"></i> {% trans "Non lus" %}
+                                {% if unread_messages_count > 0 %}
+                                    <span class="badge bg-danger float-end">{{ unread_messages_count }}</span>
+                                {% endif %}
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'messaging:sent' %}">
+                                <i class="fas fa-paper-plane"></i> {% trans "Envoyés" %}
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'messaging:archived' %}">
+                                <i class="fas fa-archive"></i> {% trans "Archivés" %}
+                                {% if archived_conversations_count > 0 %}
+                                    <span class="badge bg-info float-end">{{ archived_conversations_count }}</span>
+                                {% endif %}
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'messaging:with_attachments' %}">
+                                <i class="fas fa-paperclip"></i> {% trans "Avec pièces jointes" %}
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <p class="text-muted">
+            {% blocktranslate count total=total_conversations %}
+                {{ total }} conversation
+            {% plural %}
+                {{ total }} conversations
+            {% endblocktranslate %}
+        </p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4 col-lg-3 mb-4">
+        <!-- Filtres rapides -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <h6 class="mb-0"><i class="fas fa-filter"></i> {% trans "Filtres rapides" %}</h6>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    <a href="{% url 'messaging:inbox' %}"
+                       class="list-group-item list-group-item-action d-flex justify-content-between align-items-center {% if not request.GET.conversation_type %}active{% endif %}">
+                        <span>
+                            <i class="fas fa-inbox me-2"></i> {% trans "Toutes" %}
+                        </span>
+                        <span class="badge bg-secondary rounded-pill">{{ total_conversations }}</span>
+                    </a>
+                    {% for type_code, type_name in conversation_types %}
+                        <a href="?conversation_type={{ type_code }}"
+                           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center {% if request.GET.conversation_type == type_code %}active{% endif %}">
+                            <span>
+                                <i class="fas fa-{{ type_code|lower }} me-2"></i> {{ type_name }}
+                            </span>
+                        </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Contacts fréquents -->
+        <div class="card shadow-sm mt-3">
+            <div class="card-header bg-light">
+                <h6 class="mb-0"><i class="fas fa-users"></i> {% trans "Contacts fréquents" %}</h6>
+            </div>
+            <div class="card-body">
+                {% for contact in frequent_contacts|slice:":5" %}
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="flex-shrink-0">
+                            <div class="conversation-avatar bg-primary text-white d-flex align-items-center justify-content-center"
+                                 style="width: 40px; height: 40px;">
+                                {{ contact.username|first|upper }}
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold">{{ contact.username }}</div>
+                            <div class="small text-muted">{{ contact.get_role_display }}</div>
+                        </div>
+                        <a href="{% url 'messaging:new_conversation_with_user' contact.username %}"
+                           class="btn btn-sm btn-outline-primary" title="{% trans 'Envoyer un message' %}">
+                            <i class="fas fa-paper-plane"></i>
+                        </a>
+                    </div>
+                {% empty %}
+                    <p class="text-muted text-center small mb-0">
+                        <i class="fas fa-info-circle"></i> {% trans "Aucun contact récent" %}
+                    </p>
+                {% endfor %}
+                <a href="{% url 'users:user_list' %}" class="btn btn-sm btn-outline-secondary w-100 mt-2">
+                    <i class="fas fa-search"></i> {% trans "Trouver des contacts" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8 col-lg-9">
+        <!-- Recherche -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body p-0">
+                <form method="get" class="search-container">
+                    <div class="input-group">
+                        <input type="text" name="q" class="form-control"
+                               placeholder="{% trans 'Rechercher dans les conversations...' %}"
+                               value="{{ request.GET.q|default:'' }}">
+                        <button class="btn btn-primary" type="submit">
+                            <i class="fas fa-search"></i>
+                        </button>
+                        {% if request.GET.q %}
+                            <a href="{% url 'messaging:inbox' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times"></i>
+                            </a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Liste des conversations -->
+        <div class="card shadow-sm">
+            <div class="card-body p-0">
+                {% if conversations %}
+                    <div class="list-group list-group-flush">
+                        {% for conversation in conversations %}
+                            {% include 'messaging/partials/conversation_list_item.html' with conversation=conversation %}
+                        {% endfor %}
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if is_paginated %}
+                        <nav class="p-3">
+                            <ul class="pagination justify-content-center mb-0">
+                                {% if page_obj.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            <i class="fas fa-chevron-left"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+
+                                {% for num in page_obj.paginator.page_range %}
+                                    {% if page_obj.number == num %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ num }}</span>
+                                        </li>
+                                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ num }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                                {{ num }}
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                {% endfor %}
+
+                                {% if page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            <i class="fas fa-chevron-right"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+                        <h4>{% trans "Votre boîte de réception est vide" %}</h4>
+                        <p class="text-muted">
+                            {% trans "Commencez une nouvelle conversation pour discuter avec d'autres membres." %}
+                        </p>
+                        <a href="{% url 'messaging:new_conversation' %}" class="btn btn-primary mt-3">
+                            <i class="fas fa-plus"></i> {% trans "Nouveau message" %}
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Variables globales pour le template -->
+<script>
+    const conversation_types = [
+        {% for type_code, type_name in conversation_types %}
+            ['{{ type_code }}', '{{ type_name }}'],
+        {% endfor %}
+    ];
+</script>
+{% endblock %}

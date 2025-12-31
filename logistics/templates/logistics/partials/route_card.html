@@ -1,0 +1,129 @@
+{# ~/ebi3/logistics/templates/logistics/partials/route_card.html #}
+
+<div class="card logistics-card h-100">
+    <div class="card-body d-flex flex-column">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-start mb-3">
+            <div>
+                <h6 class="card-title mb-1">
+                    <a href="{% url 'logistics:route_detail' route.pk %}" class="text-decoration-none text-dark">
+                        {{ route.start_city }} → {{ route.end_city }}
+                    </a>
+                </h6>
+                <small class="text-muted">
+                    {{ route.departure_date|date:"d/m/Y" }}
+                    {% if route.days_until_departure > 0 %}
+                        • {% trans "Dans" %} {{ route.days_until_departure }} {% trans "jours" %}
+                    {% endif %}
+                </small>
+            </div>
+            <span class="badge {% if route.status == 'ACTIVE' %}bg-success{% elif route.status == 'FULL' %}bg-warning{% else %}bg-secondary{% endif %}">
+                {{ route.get_status_display }}
+            </span>
+        </div>
+
+        <!-- Carrier -->
+        <div class="mb-3">
+            <div class="d-flex align-items-center">
+                <div class="avatar-circle bg-info me-2" style="width: 30px; height: 30px;">
+                    <span class="avatar-text" style="font-size: 0.8rem;">
+                        {{ route.carrier.user.username|first|upper }}
+                    </span>
+                </div>
+                <div>
+                    <small class="text-muted d-block">{% trans "Transporteur" %}</small>
+                    <small>
+                        <a href="{% url 'carriers:carrier_detail' route.carrier.user.username %}" class="text-decoration-none">
+                            {% if route.carrier.company_name %}
+                                {{ route.carrier.company_name }}
+                            {% else %}
+                                {{ route.carrier.user.username }}
+                            {% endif %}
+                        </a>
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Capacity -->
+        <div class="mb-3">
+            <small class="text-muted d-block">{% trans "Capacité disponible" %}</small>
+            <div class="d-flex justify-content-between">
+                <div class="text-center">
+                    <div class="fw-bold">{{ route.available_weight }} kg</div>
+                    <small class="text-muted">{% trans "Poids" %}</small>
+                </div>
+                <div class="text-center">
+                    <div class="fw-bold">{{ route.available_volume }} m³</div>
+                    <small class="text-muted">{% trans "Volume" %}</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Price -->
+        <div class="mb-3">
+            <small class="text-muted d-block">{% trans "Prix" %}</small>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    {% if route.fixed_price %}
+                        <span class="fw-bold">{{ route.fixed_price }} €</span>
+                        <br>
+                        <small class="text-muted">{% trans "Prix fixe" %}</small>
+                    {% else %}
+                        <span class="fw-bold">{{ route.price_per_kg|default:"0" }} €/kg</span>
+                        <br>
+                        <small class="text-muted">{% trans "ou" %} {{ route.price_per_m3|default:"0" }} €/m³</small>
+                    {% endif %}
+                </div>
+                {% if route.is_featured %}
+                <span class="badge bg-warning">
+                    <i class="fas fa-star me-1"></i> {% trans "Recommandé" %}
+                </span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Services -->
+        {% if route.includes_insurance or route.includes_packaging %}
+        <div class="mb-3">
+            <small class="text-muted d-block">{% trans "Services inclus" %}</small>
+            <div class="d-flex flex-wrap gap-1">
+                {% if route.includes_insurance %}
+                <span class="badge bg-success">
+                    <i class="fas fa-shield-alt me-1"></i> {% trans "Assurance" %}
+                </span>
+                {% endif %}
+                {% if route.includes_packaging %}
+                <span class="badge bg-info">
+                    <i class="fas fa-box me-1"></i> {% trans "Emballage" %}
+                </span>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Actions -->
+        <div class="mt-auto">
+            <div class="d-grid">
+                {% if route.is_available %}
+                    {% if user.is_authenticated %}
+                    <form method="post" action="{% url 'logistics:route_book' route.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success w-100">
+                            <i class="fas fa-calendar-check me-2"></i> {% trans "Réserver" %}
+                        </button>
+                    </form>
+                    {% else %}
+                    <a href="{% url 'users:login' %}?next={{ request.path }}" class="btn btn-success w-100">
+                        <i class="fas fa-calendar-check me-2"></i> {% trans "Réserver" %}
+                    </a>
+                    {% endif %}
+                {% else %}
+                    <button class="btn btn-secondary w-100" disabled>
+                        <i class="fas fa-times me-2"></i> {% trans "Indisponible" %}
+                    </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>

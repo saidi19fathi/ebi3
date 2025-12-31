@@ -1,0 +1,604 @@
+{# ~/ebi3/messaging/templates/messaging/settings.html #}
+{% extends 'messaging/base_messaging.html' %}
+{% load i18n crispy_forms_tags %}
+
+{% block title %}{% trans "Paramètres de messagerie" %} - Ebi3{% endblock %}
+
+{% block messaging_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card shadow-lg">
+            <div class="card-header bg-primary text-white">
+                <h2 class="mb-0">
+                    <i class="fas fa-cog"></i> {% trans "Paramètres de messagerie" %}
+                </h2>
+            </div>
+
+            <div class="card-body p-0">
+                <!-- Navigation des onglets -->
+                <ul class="nav nav-tabs" id="settingsTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="notifications-tab" data-bs-toggle="tab"
+                                data-bs-target="#notifications" type="button">
+                            <i class="fas fa-bell"></i> {% trans "Notifications" %}
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="privacy-tab" data-bs-toggle="tab"
+                                data-bs-target="#privacy" type="button">
+                            <i class="fas fa-shield-alt"></i> {% trans "Confidentialité" %}
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="appearance-tab" data-bs-toggle="tab"
+                                data-bs-target="#appearance" type="button">
+                            <i class="fas fa-paint-brush"></i> {% trans "Apparence" %}
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="storage-tab" data-bs-toggle="tab"
+                                data-bs-target="#storage" type="button">
+                            <i class="fas fa-database"></i> {% trans "Stockage" %}
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="security-tab" data-bs-toggle="tab"
+                                data-bs-target="#security" type="button">
+                            <i class="fas fa-lock"></i> {% trans "Sécurité" %}
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- Contenu des onglets -->
+                <div class="tab-content p-4" id="settingsTabsContent">
+                    <!-- Notifications -->
+                    <div class="tab-pane fade show active" id="notifications" role="tabpanel">
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="tab" value="notifications">
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card mb-4">
+                                        <div class="card-header bg-light">
+                                            <h5 class="mb-0">{% trans "Types de notifications" %}</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <div class="form-check form-switch">
+                                                    {{ form.email_notifications }}
+                                                    <label class="form-check-label" for="{{ form.email_notifications.id_for_label }}">
+                                                        {% trans "Notifications par email" %}
+                                                    </label>
+                                                </div>
+                                                <small class="text-muted">
+                                                    {% trans "Recevez des emails pour les nouveaux messages" %}
+                                                </small>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <div class="form-check form-switch">
+                                                    {{ form.push_notifications }}
+                                                    <label class="form-check-label" for="{{ form.push_notifications.id_for_label }}">
+                                                        {% trans "Notifications push" %}
+                                                    </label>
+                                                </div>
+                                                <small class="text-muted">
+                                                    {% trans "Notifications sur votre appareil mobile" %}
+                                                </small>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <div class="form-check form-switch">
+                                                    {{ form.desktop_notifications }}
+                                                    <label class="form-check-label" for="{{ form.desktop_notifications.id_for_label }}">
+                                                        {% trans "Notifications bureau" %}
+                                                    </label>
+                                                </div>
+                                                <small class="text-muted">
+                                                    {% trans "Notifications sur votre ordinateur" %}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header bg-light">
+                                            <h5 class="mb-0">{% trans "Préférences de notification" %}</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i>
+                                                {% trans "Vous recevrez des notifications pour :" %}
+                                                <ul class="mb-0 mt-2">
+                                                    <li>{% trans "Nouveaux messages" %}</li>
+                                                    <li>{% trans "Messages non lus" %}</li>
+                                                    <li>{% trans "Nouvelles conversations" %}</li>
+                                                    <li>{% trans "Messages importants" %}</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-end mt-4">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> {% trans "Enregistrer les modifications" %}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Confidentialité -->
+                    <div class="tab-pane fade" id="privacy" role="tabpanel">
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="tab" value="privacy">
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card mb-4">
+                                        <div class="card-header bg-light">
+                                            <h5 class="mb-0">{% trans "Qui peut vous contacter ?" %}</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <label class="form-label">{% trans "Autoriser les messages de :" %}</label>
+                                                {{ form.allow_messages_from }}
+                                                <div class="form-text">
+                                                    {% trans "Contrôlez qui peut vous envoyer des messages" %}
+                                                </div>
+                                            </div>
+
+                                            <div class="alert alert-warning">
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                                <strong>{% trans "Note :" %}</strong>
+                                                {% trans "Les administrateurs peuvent toujours vous contacter pour les communications importantes." %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header bg-light">
+                                            <h5 class="mb-0">{% trans "Visibilité" %}</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <div class="form-check form-switch">
+                                                    {{ form.show_online_status }}
+                                                    <label class="form-check-label" for="{{ form.show_online_status.id_for_label }}">
+                                                        {% trans "Afficher le statut en ligne" %}
+                                                    </label>
+                                                </div>
+                                                <small class="text-muted">
+                                                    {% trans "Les autres utilisateurs verront si vous êtes en ligne" %}
+                                                </small>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <div class="form-check form-switch">
+                                                    {{ form.show_read_receipts }}
+                                                    <label class="form-check-label" for="{{ form.show_read_receipts.id_for_label }}">
+                                                        {% trans "Afficher les accusés de lecture" %}
+                                                    </label>
+                                                </div>
+                                                <small class="text-muted">
+                                                    {% trans "Les expéditeurs sauront quand vous avez lu leurs messages" %}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-end mt-4">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> {% trans "Enregistrer les modifications" %}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Apparence -->
+                    <div class="tab-pane fade" id="appearance" role="tabpanel">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card mb-4">
+                                    <div class="card-header bg-light">
+                                        <h5 class="mb-0">{% trans "Thème de messagerie" %}</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-6 mb-3">
+                                                <div class="theme-option p-3 border rounded text-center cursor-pointer"
+                                                     data-theme="light">
+                                                    <i class="fas fa-sun fa-2x mb-2"></i>
+                                                    <div>{% trans "Clair" %}</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-6 mb-3">
+                                                <div class="theme-option p-3 border rounded text-center cursor-pointer"
+                                                     data-theme="dark">
+                                                    <i class="fas fa-moon fa-2x mb-2"></i>
+                                                    <div>{% trans "Sombre" %}</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="theme-option p-3 border rounded text-center cursor-pointer"
+                                                     data-theme="blue">
+                                                    <i class="fas fa-tint fa-2x mb-2"></i>
+                                                    <div>{% trans "Bleu" %}</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="theme-option p-3 border rounded text-center cursor-pointer"
+                                                     data-theme="green">
+                                                    <i class="fas fa-leaf fa-2x mb-2"></i>
+                                                    <div>{% trans "Vert" %}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header bg-light">
+                                        <h5 class="mb-0">{% trans "Aperçu" %}</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="preview-messages">
+                                            <div class="message-bubble received mb-2">
+                                                <div class="message-sender">Utilisateur</div>
+                                                <div class="message-text">Bonjour ! Comment ça va ?</div>
+                                                <div class="message-time">10:30</div>
+                                            </div>
+                                            <div class="message-bubble sent mb-2">
+                                                <div class="message-text">Ça va bien, merci !</div>
+                                                <div class="message-time">10:31</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end mt-4">
+                            <button type="button" class="btn btn-primary" id="save-theme">
+                                <i class="fas fa-save"></i> {% trans "Appliquer le thème" %}
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Stockage -->
+                    <div class="tab-pane fade" id="storage" role="tabpanel">
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="tab" value="storage">
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card mb-4">
+                                        <div class="card-header bg-light">
+                                            <h5 class="mb-0">{% trans "Gestion automatique" %}</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <div class="form-check form-switch">
+                                                    {{ form.auto_archive_conversations }}
+                                                    <label class="form-check-label" for="{{ form.auto_archive_conversations.id_for_label }}">
+                                                        {% trans "Archiver automatiquement les conversations" %}
+                                                    </label>
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label class="form-label">{% trans "Archiver après :" %}</label>
+                                                <div class="input-group">
+                                                    {{ form.archive_after_days }}
+                                                    <span class="input-group-text">{% trans "jours" %}</span>
+                                                </div>
+                                                <div class="form-text">
+                                                    {% trans "Archiver automatiquement les conversations inactives" %}
+                                                </div>
+                                            </div>
+
+                                            <hr>
+
+                                            <div class="mb-3">
+                                                <div class="form-check form-switch">
+                                                    {{ form.auto_delete_messages }}
+                                                    <label class="form-check-label" for="{{ form.auto_delete_messages.id_for_label }}">
+                                                        {% trans "Supprimer automatiquement les messages" %}
+                                                    </label>
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label class="form-label">{% trans "Supprimer après :" %}</label>
+                                                <div class="input-group">
+                                                    {{ form.delete_after_days }}
+                                                    <span class="input-group-text">{% trans "jours" %}</span>
+                                                </div>
+                                                <div class="form-text">
+                                                    {% trans "Supprimer automatiquement les anciens messages" %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header bg-light">
+                                            <h5 class="mb-0">{% trans "Statistiques de stockage" %}</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <label class="form-label">{% trans "Messages stockés :" %}</label>
+                                                <div class="progress" style="height: 20px;">
+                                                    <div class="progress-bar bg-success" style="width: 65%">
+                                                        65% (1,250 messages)
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label class="form-label">{% trans "Pièces jointes :" %}</label>
+                                                <div class="progress" style="height: 20px;">
+                                                    <div class="progress-bar bg-info" style="width: 30%">
+                                                        30% (150 MB)
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label class="form-label">{% trans "Espace total utilisé :" %}</label>
+                                                <div class="d-flex justify-content-between">
+                                                    <span>200 MB</span>
+                                                    <span class="text-muted">sur 1 GB</span>
+                                                </div>
+                                            </div>
+
+                                            <hr>
+
+                                            <button type="button" class="btn btn-outline-danger w-100"
+                                                    onclick="confirmCleanup()">
+                                                <i class="fas fa-broom"></i> {% trans "Nettoyer le stockage" %}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-end mt-4">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> {% trans "Enregistrer les modifications" %}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Sécurité -->
+                    <div class="tab-pane fade" id="security" role="tabpanel">
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="tab" value="security">
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card mb-4">
+                                        <div class="card-header bg-light">
+                                            <h5 class="mb-0">{% trans "Filtres de sécurité" %}</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <div class="form-check form-switch">
+                                                    {{ form.block_spam_messages }}
+                                                    <label class="form-check-label" for="{{ form.block_spam_messages.id_for_label }}">
+                                                        {% trans "Bloquer les messages indésirables" %}
+                                                    </label>
+                                                </div>
+                                                <small class="text-muted">
+                                                    {% trans "Filtrer automatiquement les messages suspects" %}
+                                                </small>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <div class="form-check form-switch">
+                                                    {{ form.filter_profanity }}
+                                                    <label class="form-check-label" for="{{ form.filter_profanity.id_for_label }}">
+                                                        {% trans "Filtrer les gros mots" %}
+                                                    </label>
+                                                </div>
+                                                <small class="text-muted">
+                                                    {% trans "Masquer automatiquement le langage inapproprié" %}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header bg-light">
+                                            <h5 class="mb-0">{% trans "Journal de sécurité" %}</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-shield-alt"></i>
+                                                <strong>{% trans "Dernières activités :" %}</strong>
+                                                <ul class="mb-0 mt-2">
+                                                    <li>{% trans "Connexion depuis Paris - Aujourd'hui 10:30" %}</li>
+                                                    <li>{% trans "Message supprimé - Hier 15:45" %}</li>
+                                                    <li>{% trans "Utilisateur bloqué - 2 jours" %}</li>
+                                                </ul>
+                                            </div>
+
+                                            <a href="#" class="btn btn-outline-info w-100">
+                                                <i class="fas fa-history"></i> {% trans "Voir le journal complet" %}
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-end mt-4">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> {% trans "Enregistrer les modifications" %}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sauvegarde des paramètres -->
+        <div class="card shadow-sm mt-4">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5><i class="fas fa-cloud-download-alt"></i> {% trans "Sauvegarder vos paramètres" %}</h5>
+                        <p class="text-muted">
+                            {% trans "Téléchargez une copie de vos paramètres de messagerie." %}
+                        </p>
+                        <button class="btn btn-outline-primary">
+                            <i class="fas fa-download"></i> {% trans "Télécharger la sauvegarde" %}
+                        </button>
+                    </div>
+                    <div class="col-md-6">
+                        <h5><i class="fas fa-redo"></i> {% trans "Réinitialiser les paramètres" %}</h5>
+                        <p class="text-muted">
+                            {% trans "Remettre tous les paramètres à leurs valeurs par défaut." %}
+                        </p>
+                        <button class="btn btn-outline-danger" onclick="confirmReset()">
+                            <i class="fas fa-undo"></i> {% trans "Réinitialiser" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        // Sélection de thème
+        $('.theme-option').click(function() {
+            $('.theme-option').removeClass('border-primary bg-light');
+            $(this).addClass('border-primary bg-light');
+            const theme = $(this).data('theme');
+
+            // Appliquer l'aperçu
+            $('.preview-messages').removeClass('theme-light theme-dark theme-blue theme-green');
+            $('.preview-messages').addClass('theme-' + theme);
+        });
+
+        // Sauvegarder le thème
+        $('#save-theme').click(function() {
+            const theme = $('.theme-option.border-primary').data('theme');
+            $.post('/api/messaging/settings/theme/', {
+                csrfmiddlewaretoken: '{{ csrf_token }}',
+                theme: theme
+            }, function(response) {
+                if (response.success) {
+                    showToast('{% trans "Thème appliqué avec succès !" %}', 'success');
+                    // Recharger pour appliquer le thème
+                    setTimeout(() => location.reload(), 1000);
+                }
+            });
+        });
+
+        // Confirmation de nettoyage
+        window.confirmCleanup = function() {
+            if (confirm('{% trans "Êtes-vous sûr de vouloir nettoyer le stockage ? Cette action supprimera les messages et pièces jointes les plus anciens." %}')) {
+                $.post('/api/messaging/cleanup/', {
+                    csrfmiddlewaretoken: '{{ csrf_token }}'
+                }, function(response) {
+                    if (response.success) {
+                        showToast('{% trans "Nettoyage terminé !" %}', 'success');
+                        location.reload();
+                    }
+                });
+            }
+        };
+
+        // Confirmation de réinitialisation
+        window.confirmReset = function() {
+            if (confirm('{% trans "Êtes-vous sûr de vouloir réinitialiser tous vos paramètres ? Cette action est irréversible." %}')) {
+                $.post('/api/messaging/settings/reset/', {
+                    csrfmiddlewaretoken: '{{ csrf_token }}'
+                }, function(response) {
+                    if (response.success) {
+                        showToast('{% trans "Paramètres réinitialisés !" %}', 'success');
+                        location.reload();
+                    }
+                });
+            }
+        };
+
+        // Fonction pour afficher les toasts
+        function showToast(message, type) {
+            const toastHtml = `
+                <div class="toast align-items-center text-white bg-${type} border-0" role="alert">
+                    <div class="d-flex">
+                        <div class="toast-body">${message}</div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                </div>
+            `;
+
+            $('.toast-container').append(toastHtml);
+            $('.toast').toast('show');
+
+            $('.toast').on('hidden.bs.toast', function() {
+                $(this).remove();
+            });
+        }
+    });
+</script>
+
+<style>
+    .theme-option {
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .theme-option:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .theme-option.border-primary {
+        border-width: 2px !important;
+    }
+
+    /* Aperçu des thèmes */
+    .theme-light .message-bubble.received {
+        background: #f1f1f1;
+        color: #333;
+    }
+
+    .theme-dark .message-bubble.received {
+        background: #2d2d2d;
+        color: #fff;
+    }
+
+    .theme-blue .message-bubble.received {
+        background: #e3f2fd;
+        color: #1565c0;
+    }
+
+    .theme-green .message-bubble.received {
+        background: #e8f5e9;
+        color: #2e7d32;
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,177 @@
+{# ~/ebi3/ads/templates/ads/ad_list.html #}
+{% extends 'ads/base_ads.html' %}
+{% load i18n crispy_forms_tags %}
+
+{% block title %}{% trans "Annonces" %} - Ebi3{% endblock %}
+
+{% block ads_content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1>{% trans "Annonces disponibles" %}</h1>
+            <div>
+                <a href="{% url 'ads:search' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-search"></i> {% trans "Recherche avancée" %}
+                </a>
+                {% if user.is_authenticated and user.role == 'SELLER' %}
+                    <a href="{% url 'ads:ad_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> {% trans "Créer une annonce" %}
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+        <p class="text-muted">
+            {% blocktranslate count total_ads=total_ads %}
+                {{ total_ads }} annonce disponible
+            {% plural %}
+                {{ total_ads }} annonces disponibles
+            {% endblocktranslate %}
+        </p>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Sidebar de filtres -->
+    <div class="col-md-3 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-filter"></i> {% trans "Filtres" %}</h5>
+            </div>
+            <div class="card-body">
+                <form method="get" id="filter-form">
+                    {{ search_form|crispy }}
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-filter"></i> {% trans "Filtrer" %}
+                        </button>
+                        <a href="{% url 'ads:ad_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times"></i> {% trans "Effacer" %}
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Catégories -->
+        <div class="card shadow-sm mt-3">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-list"></i> {% trans "Catégories" %}</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    {% for cat in categories|slice:":10" %}
+                        <li class="mb-2">
+                            <a href="{% url 'ads:category_detail' cat.slug %}" class="text-decoration-none">
+                                <i class="fas fa-folder me-2"></i> {{ cat.name }}
+                                <span class="badge bg-secondary float-end">{{ cat.ad_count }}</span>
+                            </a>
+                        </li>
+                    {% empty %}
+                        <li>{% trans "Aucune catégorie disponible" %}</li>
+                    {% endfor %}
+                </ul>
+                <a href="{% url 'ads:category_list' %}" class="btn btn-sm btn-outline-info w-100">
+                    {% trans "Voir toutes les catégories" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des annonces -->
+    <div class="col-md-9">
+        <!-- Tri -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <span class="text-muted">
+                            {% blocktranslate with count=page_obj.paginator.count %}
+                                {{ count }} résultats
+                            {% endblocktranslate %}
+                        </span>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary dropdown-toggle" type="button"
+                                    data-bs-toggle="dropdown">
+                                <i class="fas fa-sort"></i> {% trans "Trier par" %}
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="?sort=-created_at">{% trans "Plus récent" %}</a></li>
+                                <li><a class="dropdown-item" href="?sort=price">{% trans "Prix croissant" %}</a></li>
+                                <li><a class="dropdown-item" href="?sort=-price">{% trans "Prix décroissant" %}</a></li>
+                                <li><a class="dropdown-item" href="?sort=-view_count">{% trans "Plus vues" %}</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+</div>
+
+        <!-- Annonces -->
+        {% if ads %}
+            <div class="row">
+                {% for ad in ads %}
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        {% include 'ads/partials/ad_card.html' with ad=ad %}
+                    </div>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination -->
+            {% if page_obj.has_other_pages %}
+                <nav aria-label="Page navigation" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                    <i class="fas fa-chevron-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                        {{ num }}
+                                    </a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="card shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-search fa-4x text-muted mb-3"></i>
+                    <h3>{% trans "Aucune annonce trouvée" %}</h3>
+                    <p class="text-muted">
+                        {% trans "Essayez de modifier vos critères de recherche ou" %}
+                        <a href="{% url 'ads:ad_list' %}">{% trans "consultez toutes les annonces" %}</a>.
+                    </p>
+                    {% if user.is_authenticated and user.role == 'SELLER' %}
+                        <a href="{% url 'ads:ad_create' %}" class="btn btn-primary mt-3">
+                            <i class="fas fa-plus"></i> {% trans "Créer la première annonce" %}
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

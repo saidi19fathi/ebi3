@@ -1,0 +1,451 @@
+{# ~/ebi3/messaging/templates/messaging/base_messaging.html #}
+{% extends 'core/base.html' %}
+{% load i18n %}
+
+{% block extra_css %}
+<style>
+    /* Styles spécifiques à la messagerie */
+    .messaging-container {
+        display: flex;
+        height: calc(100vh - 200px);
+        border: 1px solid #e0e0e0;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .conversations-sidebar {
+        width: 350px;
+        border-right: 1px solid #e0e0e0;
+        background: #f8f9fa;
+        overflow-y: auto;
+    }
+
+    .conversation-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: white;
+    }
+
+    .messages-container {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+        background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+    }
+
+    .message-input-container {
+        border-top: 1px solid #e0e0e0;
+        padding: 20px;
+        background: white;
+    }
+
+    /* Styles des conversations */
+    .conversation-item {
+        padding: 15px;
+        border-bottom: 1px solid #e0e0e0;
+        cursor: pointer;
+        transition: background 0.2s ease;
+    }
+
+    .conversation-item:hover {
+        background: #e9ecef;
+    }
+
+    .conversation-item.active {
+        background: #e3f2fd;
+        border-left: 4px solid #2196f3;
+    }
+
+    .conversation-item.unread {
+        background: #fff3e0;
+    }
+
+    .conversation-item.unread.active {
+        background: #ffe0b2;
+    }
+
+    .conversation-avatar {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #fff;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .conversation-preview {
+        font-size: 0.9rem;
+        color: #666;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 200px;
+    }
+
+    .conversation-time {
+        font-size: 0.8rem;
+        color: #999;
+    }
+
+    .unread-badge {
+        background: #ff5722;
+        color: white;
+        font-size: 0.7rem;
+        padding: 2px 6px;
+        border-radius: 10px;
+        min-width: 20px;
+        text-align: center;
+        font-weight: bold;
+    }
+
+    /* Styles des messages */
+    .message-bubble {
+        max-width: 70%;
+        margin-bottom: 15px;
+        padding: 12px 16px;
+        border-radius: 18px;
+        position: relative;
+        word-wrap: break-word;
+    }
+
+    .message-bubble.sent {
+        background: #2196f3;
+        color: white;
+        margin-left: auto;
+        border-bottom-right-radius: 5px;
+    }
+
+    .message-bubble.received {
+        background: #f1f1f1;
+        color: #333;
+        margin-right: auto;
+        border-bottom-left-radius: 5px;
+    }
+
+    .message-bubble .message-time {
+        font-size: 0.75rem;
+        opacity: 0.8;
+        margin-top: 5px;
+        text-align: right;
+    }
+
+    .message-bubble.sent .message-time {
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .message-bubble.received .message-time {
+        color: #666;
+    }
+
+    .message-bubble .message-sender {
+        font-weight: bold;
+        font-size: 0.85rem;
+        margin-bottom: 3px;
+        color: #666;
+    }
+
+    /* Pièces jointes */
+    .attachment-preview {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 10px;
+        margin-top: 10px;
+        background: white;
+    }
+
+    .attachment-icon {
+        font-size: 2rem;
+        color: #666;
+    }
+
+    /* Notifications */
+    .notification-item {
+        padding: 15px;
+        border-bottom: 1px solid #e0e0e0;
+        transition: background 0.2s ease;
+    }
+
+    .notification-item.unread {
+        background: #f0f7ff;
+        border-left: 4px solid #2196f3;
+    }
+
+    .notification-item:hover {
+        background: #e9ecef;
+    }
+
+    .notification-time {
+        font-size: 0.8rem;
+        color: #999;
+    }
+
+    /* Typing indicator */
+    .typing-indicator {
+        display: flex;
+        padding: 10px 15px;
+        background: #f1f1f1;
+        border-radius: 18px;
+        width: fit-content;
+        margin-bottom: 15px;
+    }
+
+    .typing-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #666;
+        margin: 0 2px;
+        animation: typing 1.4s infinite ease-in-out;
+    }
+
+    .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+    .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+    @keyframes typing {
+        0%, 60%, 100% { transform: translateY(0); opacity: 0.6; }
+        30% { transform: translateY(-5px); opacity: 1; }
+    }
+
+    /* Search and filters */
+    .search-container {
+        padding: 15px;
+        border-bottom: 1px solid #e0e0e0;
+        background: white;
+    }
+
+    /* Online status */
+    .online-status {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 5px;
+    }
+
+    .online-status.online {
+        background: #4caf50;
+    }
+
+    .online-status.offline {
+        background: #999;
+    }
+
+    .online-status.away {
+        background: #ff9800;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .messaging-container {
+            flex-direction: column;
+            height: auto;
+        }
+
+        .conversations-sidebar {
+            width: 100%;
+            height: 300px;
+            border-right: none;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .message-bubble {
+            max-width: 85%;
+        }
+    }
+
+    /* Animations */
+    .message-enter {
+        animation: messageEnter 0.3s ease;
+    }
+
+    @keyframes messageEnter {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Scrollbar styling */
+    .messages-container::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .messages-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+
+    .messages-container::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+    .messages-container::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    /* Loading spinner */
+    .loading-spinner {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #2196f3;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        animation: spin 1s linear infinite;
+        margin: 20px auto;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    {% block messaging_content %}{% endblock %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Scripts de base pour la messagerie
+    $(document).ready(function() {
+        // Auto-scroll vers le bas des messages
+        function scrollToBottom() {
+            const container = $('.messages-container');
+            container.scrollTop(container[0].scrollHeight);
+        }
+
+        // Initial scroll to bottom
+        setTimeout(scrollToBottom, 100);
+
+        // Mark messages as read when visible
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const messageId = entry.target.dataset.messageId;
+                    if (messageId && !entry.target.dataset.read) {
+                        // Mark as read via AJAX
+                        $.post(`/messaging/api/message/${messageId}/read/`, {
+                            csrfmiddlewaretoken: '{{ csrf_token }}'
+                        });
+                        entry.target.dataset.read = 'true';
+                    }
+                }
+            });
+        }, { threshold: 0.5 });
+
+        // Observe all unread messages
+        $('.message-bubble[data-message-id]').each(function() {
+            observer.observe(this);
+        });
+
+        // Check for new messages periodically
+        let lastMessageId = 0;
+        function checkNewMessages() {
+            const conversationUuid = $('.messages-container').data('conversation-uuid');
+            if (!conversationUuid) return;
+
+            $.get(`/messaging/api/check-new-messages/?conversation_uuid=${conversationUuid}&last_message_id=${lastMessageId}`, function(data) {
+                if (data.has_new) {
+                    // Add new messages
+                    data.messages.forEach(msg => {
+                        const messageHtml = `
+                            <div class="message-bubble ${msg.is_own ? 'sent' : 'received'} message-enter"
+                                 data-message-id="${msg.id}">
+                                ${msg.is_own ? '' : `<div class="message-sender">${msg.sender}</div>`}
+                                <div class="message-text">${msg.content}</div>
+                                <div class="message-time">${msg.sent_at}</div>
+                            </div>
+                        `;
+                        $('.messages-container').append(messageHtml);
+                        lastMessageId = msg.id;
+                    });
+
+                    // Scroll to bottom if user is near bottom
+                    const container = $('.messages-container');
+                    const isNearBottom = container.scrollTop() + container.innerHeight() >= container[0].scrollHeight - 100;
+                    if (isNearBottom) {
+                        scrollToBottom();
+                    }
+
+                    // Update unread count
+                    updateUnreadCount();
+                }
+            });
+        }
+
+        // Update unread count
+        function updateUnreadCount() {
+            $.get('/messaging/api/unread-count/', function(data) {
+                $('#unread-count').text(data.unread_count);
+                if (data.unread_count > 0) {
+                    $('#unread-count').addClass('badge bg-danger');
+                } else {
+                    $('#unread-count').removeClass('badge bg-danger');
+                }
+            });
+        }
+
+        // Check for new messages every 5 seconds
+        setInterval(checkNewMessages, 5000);
+
+        // File upload preview
+        $('input[type="file"]').change(function() {
+            const file = this.files[0];
+            if (file) {
+                const preview = $('#file-preview');
+                preview.html(`
+                    <div class="attachment-preview">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-file attachment-icon me-3"></i>
+                            <div>
+                                <div class="fw-bold">${file.name}</div>
+                                <div class="text-muted small">${(file.size / 1024).toFixed(1)} KB</div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-danger ms-auto remove-file">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                `);
+
+                // Remove file button
+                $('.remove-file').click(function() {
+                    $('input[type="file"]').val('');
+                    preview.empty();
+                });
+            }
+        });
+
+        // Send message on Ctrl+Enter
+        $('.message-input').keydown(function(e) {
+            if (e.ctrlKey && e.keyCode === 13) {
+                e.preventDefault();
+                $(this).closest('form').submit();
+            }
+        });
+
+        // Typing indicator
+        let typingTimeout;
+        $('.message-input').on('input', function() {
+            // Implement typing indicator logic here
+            // This would require WebSockets or similar technology
+        });
+
+        // Initialize tooltips
+        $('[data-bs-toggle="tooltip"]').tooltip();
+
+        // Initialize emoji picker
+        $('.emoji-btn').click(function() {
+            // Implement emoji picker
+        });
+    });
+</script>
+{% endblock %}

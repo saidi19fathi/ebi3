@@ -1,0 +1,175 @@
+{# ~/ebi3/payments/templates/payments/checkout/checkout_success.html #}
+{% extends 'payments/base_payments.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Paiement réussi" %} - Ebi3{% endblock %}
+
+{% block payments_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card payment-card">
+            <div class="card-header payment-header">
+                <h3 class="mb-0 text-center">
+                    <i class="fas fa-check-circle"></i> {% trans "Paiement réussi !" %}
+                </h3>
+            </div>
+
+            <div class="card-body text-center py-5">
+                <!-- Animation de succès -->
+                <div class="mb-4">
+                    <div class="success-animation">
+                        <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                            <circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/>
+                            <path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+                        </svg>
+                    </div>
+                </div>
+
+                <h4 class="mb-3">{% trans "Merci pour votre paiement" %}</h4>
+                <p class="text-muted mb-4">
+                    {% trans "Votre transaction a été traitée avec succès." %}
+                </p>
+
+                <!-- Détails de la transaction -->
+                <div class="receipt-container mb-4">
+                    <div class="receipt-header">
+                        <h5 class="mb-0">{% trans "Reçu de paiement" %}</h5>
+                        <small class="text-light">{% trans "Numéro" %} #{{ transaction.transaction_id }}</small>
+                    </div>
+                    <div class="receipt-body">
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <small class="text-muted">{% trans "Date" %}</small>
+                                <p class="mb-0"><strong>{{ transaction.processed_at|date:"d/m/Y H:i" }}</strong></p>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted">{% trans "Statut" %}</small>
+                                <p class="mb-0">
+                                    <span class="payment-status status-completed">
+                                        {{ transaction.get_status_display }}
+                                    </span>
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <small class="text-muted">{% trans "Méthode" %}</small>
+                                <p class="mb-0"><strong>{{ transaction.get_payment_method_display }}</strong></p>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted">{% trans "Montant" %}</small>
+                                <p class="mb-0">
+                                    <strong class="amount-display">
+                                        {{ transaction.total_amount|floatformat:2 }}
+                                        <span class="currency-symbol">{{ transaction.get_currency_display }}</span>
+                                    </strong>
+                                </p>
+                            </div>
+                        </div>
+
+                        {% if invoice %}
+                            <div class="alert alert-info mb-0">
+                                <i class="fas fa-file-invoice"></i>
+                                {% trans "Votre facture a été générée." %}
+                                <a href="{% url 'payments:invoice_detail' invoice.id %}" class="alert-link">
+                                    {% trans "Télécharger la facture" %}
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="receipt-footer">
+                        <small class="text-muted">
+                            {% trans "Un email de confirmation a été envoyé à" %} {{ transaction.user.email }}
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Boutons d'action -->
+                <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                    <a href="{% url 'payments:transaction_detail' transaction.id %}" class="btn btn-outline-primary me-md-2">
+                        <i class="fas fa-receipt"></i> {% trans "Voir le détail" %}
+                    </a>
+
+                    {% if invoice %}
+                        <a href="{% url 'payments:download_invoice' invoice.id %}" class="btn btn-primary me-md-2">
+                            <i class="fas fa-download"></i> {% trans "Télécharger la facture" %}
+                        </a>
+                    {% endif %}
+
+                    <a href="{% url 'core:home' %}" class="btn btn-success">
+                        <i class="fas fa-home"></i> {% trans "Retour à l'accueil" %}
+                    </a>
+                </div>
+
+                <!-- Informations supplémentaires -->
+                <div class="mt-4 pt-4 border-top">
+                    <p class="text-muted small mb-2">
+                        <i class="fas fa-info-circle"></i>
+                        {% trans "Conservez ce reçu pour vos archives." %}
+                    </p>
+                    <p class="text-muted small mb-0">
+                        {% trans "En cas de problème, contactez notre support en fournissant la référence" %}
+                        <code>{{ transaction.transaction_id }}</code>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.success-animation {
+    width: 100px;
+    height: 100px;
+    margin: 0 auto;
+}
+
+.checkmark {
+    width: 100px;
+    height: 100px;
+}
+
+.checkmark__circle {
+    stroke-dasharray: 166;
+    stroke-dashoffset: 166;
+    stroke-width: 2;
+    stroke-miterlimit: 10;
+    stroke: #28a745;
+    fill: none;
+    animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+}
+
+.checkmark__check {
+    transform-origin: 50% 50%;
+    stroke-dasharray: 48;
+    stroke-dashoffset: 48;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke: #28a745;
+    animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
+}
+
+@keyframes stroke {
+    100% {
+        stroke-dashoffset: 0;
+    }
+}
+
+@keyframes scale {
+    0%, 100% {
+        transform: none;
+    }
+    50% {
+        transform: scale3d(1.1, 1.1, 1);
+    }
+}
+
+@keyframes fill {
+    100% {
+        box-shadow: inset 0px 0px 0px 30px #28a745;
+    }
+}
+</style>
+{% endblock %}

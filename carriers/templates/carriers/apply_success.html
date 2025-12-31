@@ -1,0 +1,66 @@
+{# ~/ebi3/carriers/templates/carriers/apply_success.html #}
+{% extends 'carriers/base_carriers.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Candidature envoyée" %} - Ebi3{% endblock %}
+
+{% block carriers_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card shadow-lg">
+            <div class="card-header bg-success text-white">
+                <h2 class="mb-0"><i class="fas fa-check-circle"></i> {% trans "Candidature envoyée" %}</h2>
+            </div>
+            <div class="card-body text-center py-5">
+                <div class="mb-4">
+                    <i class="fas fa-paper-plane fa-5x text-success mb-4"></i>
+                    <h3>{% trans "Félicitations !" %}</h3>
+                    <p class="lead">
+                        {% trans "Votre candidature pour devenir transporteur a été envoyée avec succès." %}
+                    </p>
+                </div>
+
+                <div class="alert alert-info text-start">
+                    <h5><i class="fas fa-info-circle"></i> {% trans "Prochaines étapes :" %}</h5>
+                    <ol class="mb-0">
+                        <li>{% trans "Notre équipe va examiner votre candidature sous 24-48h." %}</li>
+                        <li>{% trans "Vous recevrez un email de confirmation." %}</li>
+                        <li>{% trans "Si approuvé, vous pourrez télécharger vos documents." %}</li>
+                        <li>{% trans "Vous pourrez alors commencer à accepter des missions." %}</li>
+                    </ol>
+                </div>
+
+                <div class="mt-5">
+                    <p class="text-muted mb-4">
+                        {% trans "Pendant l'examen de votre candidature, vous pouvez :" %}
+                    </p>
+                    <div class="d-grid gap-3 col-md-8 mx-auto">
+                        <a href="{% url 'users:profile_edit' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-user-edit"></i> {% trans "Compléter mon profil" %}
+                        </a>
+                        <a href="{% url 'carriers:carrier_list' %}" class="btn btn-outline-info">
+                            <i class="fas fa-truck"></i> {% trans "Voir les autres transporteurs" %}
+                        </a>
+                        <a href="{% url 'core:home' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-home"></i> {% trans "Retour à l'accueil" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Informations importantes -->
+            <div class="card-footer bg-light">
+                <div class="text-center">
+                    <h6><i class="fas fa-question-circle"></i> {% trans "Des questions ?" %}</h6>
+                    <p class="text-muted small mb-0">
+                        {% trans "Contactez notre support :" %}
+                        <a href="mailto:support@ebi3.com">support@ebi3.com</a>
+                        {% trans "ou" %}
+                        <a href="{% url 'core:contact' %}">{% trans "notre formulaire de contact" %}</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

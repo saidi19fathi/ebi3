@@ -1,0 +1,79 @@
+{# ~/ebi3/messaging/templates/messaging/report_message.html #}
+{% extends 'messaging/base_messaging.html' %}
+{% load i18n crispy_forms_tags %}
+
+{% block title %}{% trans "Signaler un message" %} - Ebi3{% endblock %}
+
+{% block messaging_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-lg">
+            <div class="card-header bg-warning text-white">
+                <h2 class="mb-0">
+                    <i class="fas fa-flag"></i> {% trans "Signaler un message" %}
+                </h2>
+            </div>
+            <div class="card-body">
+                <!-- Message original -->
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0">{% trans "Message à signaler" %}</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="message-bubble {% if message.sender == request.user %}sent{% else %}received{% endif %}">
+                            <div class="message-sender">{{ message.sender.username }}</div>
+                            <div class="message-text">{{ message.content }}</div>
+                            <div class="message-time">{{ message.sent_at|date:"d/m/Y H:i" }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Formulaire de signalement -->
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    {{ form|crispy }}
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>{% trans "Important :" %}</strong>
+                        {% trans "Votre signalement sera examiné par notre équipe de modération. Vous serez informé de l'issue de l'examen." %}
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a href="{% url 'messaging:conversation_detail' message.conversation.uuid %}"
+                           class="btn btn-secondary me-md-2">
+                            <i class="fas fa-times"></i> {% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-flag"></i> {% trans "Signaler le message" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Informations sur le signalement -->
+        <div class="card shadow-sm mt-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-question-circle"></i> {% trans "Pourquoi signaler un message ?" %}</h5>
+            </div>
+            <div class="card-body">
+                <p>{% trans "Signalez un message s'il contient :" %}</p>
+                <ul>
+                    <li>{% trans "Contenu offensant, haineux ou discriminatoire" %}</li>
+                    <li>{% trans "Spam ou publicité non sollicitée" %}</li>
+                    <li>{% trans "Menaces ou harcèlement" %}</li>
+                    <li>{% trans "Contenu illégal ou dangereux" %}</li>
+                    <li>{% trans "Tentative d'arnaque ou de fraude" %}</li>
+                    <li>{% trans "Informations personnelles sans consentement" %}</li>
+                </ul>
+                <p class="mb-0">
+                    <strong>{% trans "Note :" %}</strong>
+                    {% trans "Les signalements abusifs peuvent entraîner des sanctions." %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

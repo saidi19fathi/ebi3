@@ -1,0 +1,692 @@
+{# ~/ebi3/carriers/templates/carriers/carrier_detail.html #}
+{% extends 'carriers/base_carriers.html' %}
+{% load i18n %}
+
+{% block title %}{{ carrier.user.username }} - {% trans "Transporteur" %} - Ebi3{% endblock %}
+
+{% block carriers_content %}
+<div class="row">
+    <!-- Profil principal -->
+    <div class="col-lg-8">
+        <!-- En-tête du profil -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-3 text-center">
+                        <div class="carrier-avatar mx-auto bg-primary text-white d-flex align-items-center justify-content-center mb-3"
+                             style="width: 120px; height: 120px;">
+                            <span style="font-size: 2.5rem; font-weight: bold;">
+                                {{ carrier.user.username|first|upper }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-md-9">
+                        <h1 class="mb-2">
+                            {% if carrier.carrier_type == 'PROFESSIONAL' and carrier.company_name %}
+                                {{ carrier.company_name }}
+                            {% else %}
+                                {{ carrier.user.username }}
+                            {% endif %}
+                        </h1>
+
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            <span class="badge
+                                        {% if carrier.carrier_type == 'PROFESSIONAL' %}bg-primary
+                                        {% else %}bg-info{% endif %}">
+                                {{ carrier.get_carrier_type_display }}
+                            </span>
+
+                            <span class="badge bg-secondary">
+                                <i class="fas fa-car"></i> {{ carrier.get_vehicle_type_display }}
+                            </span>
+
+                            {% if carrier.verification_level >= 3 %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check-circle"></i> {% trans "Vérifié" %}
+                                </span>
+                            {% endif %}
+
+                            {% if carrier.is_available %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check"></i> {% trans "Disponible" %}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary">
+                                    <i class="fas fa-times"></i> {% trans "Indisponible" %}
+                                </span>
+                            {% endif %}
+                        </div>
+
+                        <!-- Note et statistiques -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="rating-stars mb-2">
+                                    {% for i in "12345" %}
+                                        {% if forloop.counter <= carrier.average_rating %}
+                                            <i class="fas fa-star"></i>
+                                        {% else %}
+                                            <i class="far fa-star"></i>
+                                        {% endif %}
+                                    {% endfor %}
+                                    <span class="ms-2">
+                                        <strong>{{ carrier.average_rating|floatformat:1 }}</strong>
+                                        <small class="text-muted">({{ carrier.total_reviews }} {% trans "avis" %})</small>
+                                    </span>
+                                </div>
+
+                                <div class="mb-2">
+                                    <i class="fas fa-tasks text-primary"></i>
+                                    <strong>{{ carrier.completed_missions }}</strong>
+                                    <small class="text-muted">{% trans "missions complétées" %}</small>
+                                </div>
+
+                                <div class="mb-2">
+                                    <i class="fas fa-chart-line text-success"></i>
+                                    <strong>{{ carrier.success_rate }}%</strong>
+                                    <small class="text-muted">{% trans "taux de réussite" %}</small>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="mb-2">
+                                    <i class="fas fa-euro-sign text-warning"></i>
+                                    <strong>{{ carrier.base_price_per_km|floatformat:2 }}</strong>
+                                    <small class="text-muted">{% trans "/km (prix de base)" %}</small>
+                                </div>
+
+                                <div class="mb-2">
+                                    <i class="fas fa-weight text-info"></i>
+                                    <strong>{{ carrier.max_weight }} kg</strong>
+                                    <small class="text-muted">{% trans "poids max" %}</small>
+                                </div>
+
+                                <div class="mb-2">
+                                    <i class="fas fa-arrows-alt text-info"></i>
+                                    <strong>{{ carrier.max_volume }} m³</strong>
+                                    <small class="text-muted">{% trans "volume max" %}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Boutons d'action -->
+                {% if user.is_authenticated %}
+                    <div class="mt-4">
+                        {% if user != carrier.user %}
+                            <div class="d-flex gap-2">
+                                <a href="{% url 'messaging:new_conversation' carrier.user.username %}"
+                                   class="btn btn-primary">
+                                    <i class="fas fa-envelope"></i> {% trans "Contacter" %}
+                                </a>
+
+                                {% if can_review and not has_reviewed %}
+                                    <a href="{% url 'carriers:create_review' carrier.user.username %}"
+                                       class="btn btn-outline-success">
+                                        <i class="fas fa-star"></i> {% trans "Laisser un avis" %}
+                                    </a>
+                                {% endif %}
+
+                                <!-- Bouton pour proposer un transport (à lier avec une annonce) -->
+                                <button class="btn btn-outline-warning" data-bs-toggle="modal"
+                                        data-bs-target="#proposeTransportModal">
+                                    <i class="fas fa-truck"></i> {% trans "Proposer un transport" %}
+                                </button>
+                            </div>
+                        {% else %}
+                            <div class="d-flex gap-2">
+                                <a href="{% url 'carriers:carrier_dashboard' %}"
+                                   class="btn btn-success">
+                                    <i class="fas fa-tachometer-alt"></i> {% trans "Tableau de bord" %}
+                                </a>
+
+                                <a href="{% url 'carriers:carrier_update' carrier.user.username %}"
+                                   class="btn btn-outline-primary">
+                                    <i class="fas fa-edit"></i> {% trans "Modifier mon profil" %}
+                                </a>
+
+                                <form method="post" action="{% url 'carriers:toggle_availability' carrier.user.username %}"
+                                      class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn
+                                                {% if carrier.is_available %}btn-outline-warning
+                                                {% else %}btn-outline-success{% endif %}">
+                                        <i class="fas fa-toggle-{% if carrier.is_available %}on{% else %}off{% endif %}"></i>
+                                        {% if carrier.is_available %}
+                                            {% trans "Se rendre indisponible" %}
+                                        {% else %}
+                                            {% trans "Se rendre disponible" %}
+                                        {% endif %}
+                                    </button>
+                                </form>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div class="mt-4">
+                        <a href="{% url 'users:login' %}?next={{ request.path }}"
+                           class="btn btn-primary">
+                            <i class="fas fa-sign-in-alt"></i> {% trans "Se connecter pour contacter" %}
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Informations détaillées -->
+        <div class="row">
+            <!-- Capacités -->
+            <div class="col-md-6 mb-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-truck-loading"></i> {% trans "Capacités" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <small class="text-muted d-block">{% trans "Poids maximum" %}</small>
+                                <strong>{{ carrier.max_weight }} kg</strong>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <small class="text-muted d-block">{% trans "Volume maximum" %}</small>
+                                <strong>{{ carrier.max_volume }} m³</strong>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <small class="text-muted d-block">{% trans "Longueur max" %}</small>
+                                <strong>{{ carrier.max_length }} m</strong>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <small class="text-muted d-block">{% trans "Largeur max" %}</small>
+                                <strong>{{ carrier.max_width }} m</strong>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <small class="text-muted d-block">{% trans "Hauteur max" %}</small>
+                                <strong>{{ carrier.max_height }} m</strong>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <small class="text-muted d-block">{% trans "Véhicule" %}</small>
+                                <strong>{{ carrier.get_vehicle_type_display }}</strong>
+                                {% if carrier.vehicle_make %}
+                                    <br>
+                                    <small class="text-muted">{{ carrier.vehicle_make }} {{ carrier.vehicle_model }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Services inclus -->
+            <div class="col-md-6 mb-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="fas fa-concierge-bell"></i> {% trans "Services inclus" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-unstyled">
+                            {% if carrier.provides_insurance %}
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-success me-2"></i>
+                                    <strong>{% trans "Assurance incluse" %}</strong>
+                                    <br>
+                                    <small class="text-muted">{% trans "Votre envoi est assuré pendant le transport" %}</small>
+                                </li>
+                            {% endif %}
+
+                            {% if carrier.provides_packaging %}
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-success me-2"></i>
+                                    <strong>{% trans "Emballage professionnel" %}</strong>
+                                    <br>
+                                    <small class="text-muted">{% trans "Emballage adapté à votre objet" %}</small>
+                                </li>
+                            {% endif %}
+
+                            {% if carrier.provides_loading %}
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-success me-2"></i>
+                                    <strong>{% trans "Chargement inclus" %}</strong>
+                                    <br>
+                                    <small class="text-muted">{% trans "Aide au chargement de l'objet" %}</small>
+                                </li>
+                            {% endif %}
+
+                            {% if carrier.provides_unloading %}
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-success me-2"></i>
+                                    <strong>{% trans "Déchargement inclus" %}</strong>
+                                    <br>
+                                    <small class="text-muted">{% trans "Aide au déchargement à destination" %}</small>
+                                </li>
+                            {% endif %}
+
+                            <li class="mb-2">
+                                <i class="fas fa-check text-success me-2"></i>
+                                <strong>{% trans "Suivi en temps réel" %}</strong>
+                                <br>
+                                <small class="text-muted">{% trans "Suivez votre colis en direct" %}</small>
+                            </li>
+
+                            <li>
+                                <i class="fas fa-check text-success me-2"></i>
+                                <strong>{% trans "Paiement sécurisé" %}</strong>
+                                <br>
+                                <small class="text-muted">{% trans "Paiement versé après livraison" %}</small>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Routes disponibles -->
+        {% if active_routes %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-warning text-white">
+                    <h5 class="mb-0"><i class="fas fa-route"></i> {% trans "Routes disponibles" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Départ" %}</th>
+                                    <th>{% trans "Destination" %}</th>
+                                    <th>{% trans "Date départ" %}</th>
+                                    <th>{% trans "Date arrivée" %}</th>
+                                    <th>{% trans "Disponibilité" %}</th>
+                                    <th>{% trans "Prix estimé" %}</th>
+                                    <th>{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for route in active_routes %}
+                                    <tr>
+                                        <td>
+                                            <i class="fas fa-map-marker-alt text-danger"></i>
+                                            {{ route.start_city }}, {{ route.start_country.name }}
+                                        </td>
+                                        <td>
+                                            <i class="fas fa-map-marker-alt text-success"></i>
+                                            {{ route.end_city }}, {{ route.end_country.name }}
+                                        </td>
+                                        <td>{{ route.departure_date|date:"d/m/Y" }}</td>
+                                        <td>{{ route.arrival_date|date:"d/m/Y" }}</td>
+                                        <td>
+                                            {% if route.is_full %}
+                                                <span class="badge bg-danger">{% trans "Complet" %}</span>
+                                            {% else %}
+                                                <span class="badge bg-success">
+                                                    {{ route.available_weight }}kg / {{ route.available_volume }}m³
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if route.fixed_price %}
+                                                {{ route.fixed_price }} €
+                                            {% else %}
+                                                {{ route.carrier.base_price_per_km|floatformat:2 }} €/km
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if user.is_authenticated and not route.is_full %}
+                                                <button class="btn btn-sm btn-outline-primary"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#bookRouteModal{{ route.id }}">
+                                                    <i class="fas fa-calendar-check"></i> {% trans "Réserver" %}
+                                                </button>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Avis -->
+        {% if reviews %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-star"></i> {% trans "Avis des clients" %}</h5>
+                        <span class="badge bg-light text-dark">
+                            {{ review_stats.total_reviews }} {% trans "avis" %}
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Statistiques des avis -->
+                    {% if review_stats.total_reviews > 0 %}
+                        <div class="row mb-4">
+                            <div class="col-md-3 text-center">
+                                <div class="display-4 fw-bold text-primary">
+                                    {{ carrier.average_rating|floatformat:1 }}
+                                </div>
+                                <div class="rating-stars">
+                                    {% for i in "12345" %}
+                                        {% if forloop.counter <= carrier.average_rating %}
+                                            <i class="fas fa-star"></i>
+                                        {% else %}
+                                            <i class="far fa-star"></i>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                                <small class="text-muted">{% trans "Note moyenne" %}</small>
+                            </div>
+                            <div class="col-md-9">
+                                <div class="row">
+                                    <div class="col-6 mb-2">
+                                        <small class="text-muted d-block">{% trans "Communication" %}</small>
+                                        <div class="progress" style="height: 10px;">
+                                            <div class="progress-bar bg-info"
+                                                 style="width: {{ review_stats.avg_communication|default:0|floatformat:0 }}0%">
+                                            </div>
+                                        </div>
+                                        <small>{{ review_stats.avg_communication|floatformat:1 }}/5</small>
+                                    </div>
+                                    <div class="col-6 mb-2">
+                                        <small class="text-muted d-block">{% trans "Ponctualité" %}</small>
+                                        <div class="progress" style="height: 10px;">
+                                            <div class="progress-bar bg-success"
+                                                 style="width: {{ review_stats.avg_punctuality|default:0|floatformat:0 }}0%">
+                                            </div>
+                                        </div>
+                                        <small>{{ review_stats.avg_punctuality|floatformat:1 }}/5</small>
+                                    </div>
+                                    <div class="col-6 mb-2">
+                                        <small class="text-muted d-block">{% trans "Manutention" %}</small>
+                                        <div class="progress" style="height: 10px;">
+                                            <div class="progress-bar bg-warning"
+                                                 style="width: {{ review_stats.avg_handling|default:0|floatformat:0 }}0%">
+                                            </div>
+                                        </div>
+                                        <small>{{ review_stats.avg_handling|floatformat:1 }}/5</small>
+                                    </div>
+                                    <div class="col-6 mb-2">
+                                        <small class="text-muted d-block">{% trans "Professionalisme" %}</small>
+                                        <div class="progress" style="height: 10px;">
+                                            <div class="progress-bar bg-primary"
+                                                 style="width: {{ review_stats.avg_professionalism|default:0|floatformat:0 }}0%">
+                                            </div>
+                                        </div>
+                                        <small>{{ review_stats.avg_professionalism|floatformat:1 }}/5</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <!-- Liste des avis -->
+                    <div class="reviews-list">
+                        {% for review in reviews %}
+                            <div class="review-item border-bottom pb-3 mb-3">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        <strong>{{ review.reviewer.username }}</strong>
+                                        <div class="rating-stars">
+                                            {% for i in "12345" %}
+                                                {% if forloop.counter <= review.rating %}
+                                                    <i class="fas fa-star"></i>
+                                                {% else %}
+                                                    <i class="far fa-star"></i>
+                                                {% endif %}
+                                            {% endfor %}
+                                            <span class="ms-2">{{ review.created_at|date:"d/m/Y" }}</span>
+                                        </div>
+                                    </div>
+                                    {% if review.mission %}
+                                        <small class="text-muted">
+                                            {% trans "Mission :" %} {{ review.mission.reference }}
+                                        </small>
+                                    {% endif %}
+                                </div>
+
+                                <h6 class="mb-2">{{ review.title }}</h6>
+                                <p class="mb-2">{{ review.comment }}</p>
+
+                                <!-- Détails de l'évaluation -->
+                                <div class="row">
+                                    <div class="col-3">
+                                        <small class="text-muted">{% trans "Communication" %}</small>
+                                        <br>
+                                        <small class="fw-bold">{{ review.communication }}/5</small>
+                                    </div>
+                                    <div class="col-3">
+                                        <small class="text-muted">{% trans "Ponctualité" %}</small>
+                                        <br>
+                                        <small class="fw-bold">{{ review.punctuality }}/5</small>
+                                    </div>
+                                    <div class="col-3">
+                                        <small class="text-muted">{% trans "Manutention" %}</small>
+                                        <br>
+                                        <small class="fw-bold">{{ review.handling }}/5</small>
+                                    </div>
+                                    <div class="col-3">
+                                        <small class="text-muted">{% trans "Professionalisme" %}</small>
+                                        <br>
+                                        <small class="fw-bold">{{ review.professionalism }}/5</small>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    {% if review_stats.total_reviews > reviews|length %}
+                        <div class="text-center mt-3">
+                            <a href="#" class="btn btn-outline-primary">
+                                <i class="fas fa-comments"></i> {% trans "Voir tous les avis" %}
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Informations de contact -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="fas fa-address-card"></i> {% trans "Informations" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <small class="text-muted d-block">{% trans "Membre depuis" %}</small>
+                    <strong>{{ carrier.user.date_joined|date:"d/m/Y" }}</strong>
+                </div>
+
+                <div class="mb-3">
+                    <small class="text-muted d-block">{% trans "Transporteur depuis" %}</small>
+                    <strong>{{ carrier.created_at|date:"d/m/Y" }}</strong>
+                </div>
+
+                {% if carrier.company_address %}
+                    <div class="mb-3">
+                        <small class="text-muted d-block">{% trans "Adresse" %}</small>
+                        <strong>{{ carrier.company_address|truncatechars:50 }}</strong>
+                    </div>
+                {% endif %}
+
+                <div class="mb-3">
+                    <small class="text-muted d-block">{% trans "Langues parlées" %}</small>
+                    <div class="d-flex flex-wrap gap-1 mt-1">
+                        <span class="badge bg-light text-dark">{{ carrier.user.get_preferred_language_display }}</span>
+                        <!-- Ajouter d'autres langues si disponibles -->
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <small class="text-muted d-block">{% trans "Disponibilité" %}</small>
+                    {% if carrier.available_from and carrier.available_until %}
+                        <strong>
+                            {{ carrier.available_from|date:"d/m/Y" }} - {{ carrier.available_until|date:"d/m/Y" }}
+                        </strong>
+                    {% else %}
+                        <strong>{% trans "Flexible" %}</strong>
+                    {% endif %}
+                </div>
+
+                <!-- Documents vérifiés -->
+                {% if verified_documents %}
+                    <div class="mt-4">
+                        <small class="text-muted d-block mb-2">{% trans "Documents vérifiés" %}</small>
+                        <div class="d-flex flex-wrap gap-1">
+                            {% for doc in verified_documents %}
+                                <span class="verified-badge">
+                                    <i class="fas fa-check"></i> {{ doc.get_document_type_display }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Bouton rapide de contact -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body text-center">
+                <h6 class="mb-3">{% trans "Besoin d'un transport ?" %}</h6>
+                {% if user.is_authenticated and user != carrier.user %}
+                    <a href="{% url 'messaging:new_conversation' carrier.user.username %}"
+                       class="btn btn-primary w-100 mb-2">
+                        <i class="fas fa-envelope"></i> {% trans "Contacter" %}
+                    </a>
+
+                    <button class="btn btn-success w-100" data-bs-toggle="modal"
+                            data-bs-target="#quickQuoteModal">
+                        <i class="fas fa-calculator"></i> {% trans "Demander un devis" %}
+                    </button>
+                {% elif not user.is_authenticated %}
+                    <a href="{% url 'users:login' %}?next={{ request.path }}"
+                       class="btn btn-primary w-100">
+                        <i class="fas fa-sign-in-alt"></i> {% trans "Se connecter pour contacter" %}
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Transporteurs similaires -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="fas fa-users"></i> {% trans "Transporteurs similaires" %}</h5>
+            </div>
+            <div class="card-body">
+                <!-- À implémenter : logique pour trouver des transporteurs similaires -->
+                <p class="text-muted text-center">
+                    <i class="fas fa-info-circle"></i>
+                    {% trans "Fonctionnalité à venir" %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals -->
+<div class="modal fade" id="proposeTransportModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Proposer un transport" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Cette fonctionnalité vous permettra de proposer un transport pour une annonce spécifique." %}</p>
+                <p class="text-muted">{% trans "À implémenter avec l'application logistics." %}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {% trans "Fermer" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="quickQuoteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Demande de devis rapide" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="quickQuoteForm">
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Description de l'objet" %}</label>
+                        <textarea class="form-control" rows="3" required></textarea>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans "Poids (kg)" %}</label>
+                            <input type="number" class="form-control" step="0.001" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans "Volume (m³)" %}</label>
+                            <input type="number" class="form-control" step="0.001" required>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans "Lieu de départ" %}</label>
+                            <input type="text" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans "Lieu d'arrivée" %}</label>
+                            <input type="text" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Date souhaitée" %}</label>
+                        <input type="date" class="form-control" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {% trans "Annuler" %}
+                </button>
+                <button type="submit" form="quickQuoteForm" class="btn btn-success">
+                    {% trans "Envoyer la demande" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals pour la réservation de routes -->
+{% for route in active_routes %}
+    <div class="modal fade" id="bookRouteModal{{ route.id }}" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Réserver cette route" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>
+                        {% trans "Route :" %}
+                        <strong>{{ route.start_city }} → {{ route.end_city }}</strong>
+                    </p>
+                    <p>
+                        {% trans "Date :" %}
+                        <strong>{{ route.departure_date|date:"d/m/Y" }}</strong>
+                    </p>
+                    <p class="text-muted">
+                        {% trans "Vous serez redirigé vers le formulaire de réservation." %}
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "Annuler" %}
+                    </button>
+                    <a href="#" class="btn btn-success">{% trans "Continuer" %}</a>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endfor %}
+{% endblock %}
