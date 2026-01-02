@@ -1,0 +1,752 @@
+{# ~/ebi3/ads/templates/ads/ad_create.html #}
+{% extends 'ads/base_ads.html' %}
+{% load i18n crispy_forms_tags %}
+
+{% block title %}{% trans "Créer une annonce" %} - Ebi3{% endblock %}
+
+{% block ads_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h2 class="mb-0">
+                    <i class="fas fa-plus-circle"></i> {% trans "Créer une nouvelle annonce" %}
+                </h2>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data" id="ad-create-form" novalidate>
+                    {% csrf_token %}
+
+                    <!-- Indicateur de progression -->
+                    <div class="stepper mb-5">
+                        <div class="stepper-progress">
+                            <div class="stepper-progress-bar" id="stepper-progress"></div>
+                        </div>
+                        <div class="stepper-header">
+                            <div class="step active" data-step="1">
+                                <div class="step-circle">1</div>
+                                <div class="step-label">{% trans "Informations de base" %}</div>
+                            </div>
+                            <div class="step" data-step="2">
+                                <div class="step-circle">2</div>
+                                <div class="step-label">{% trans "Description et prix" %}</div>
+                            </div>
+                            <div class="step" data-step="3">
+                                <div class="step-circle">3</div>
+                                <div class="step-label">{% trans "Logistique" %}</div>
+                            </div>
+                            <div class="step" data-step="4">
+                                <div class="step-circle">4</div>
+                                <div class="step-label">{% trans "Images" %}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Messages d'erreur Django -->
+                    {% if form.errors %}
+                        <div class="alert alert-danger">
+                            <h5><i class="fas fa-exclamation-triangle"></i> {% trans "Veuillez corriger les erreurs ci-dessous" %}</h5>
+                            <ul class="mb-0">
+                                {% for field, errors in form.errors.items %}
+                                    {% for error in errors %}
+                                        <li>{{ field }}: {{ error }}</li>
+                                    {% endfor %}
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endif %}
+
+                    <!-- Étape 1: Informations de base -->
+                    <div class="step-content active" id="step-1">
+                        <h4 class="mb-4">
+                            <span class="badge bg-primary me-2">1</span>
+                            {% trans "Informations de base" %}
+                        </h4>
+
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                {{ form.title|as_crispy_field }}
+                                <small class="form-text text-muted">
+                                    {% trans "Soyez clair et concis. Ex: 'Canapé en cuir marron 3 places'" %}
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                {{ form.category|as_crispy_field }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                {{ form.condition|as_crispy_field }}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                {{ form.weight|as_crispy_field }}
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                {{ form.length|as_crispy_field }}
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                {{ form.width|as_crispy_field }}
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                {{ form.height|as_crispy_field }}
+                            </div>
+                        </div>
+
+                        <div class="text-end">
+                            <button type="button" class="btn btn-primary next-step-btn" data-next="2">
+                                {% trans "Suivant" %} <i class="fas fa-arrow-right ms-1"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Étape 2: Description et prix -->
+                    <div class="step-content" id="step-2">
+                        <h4 class="mb-4">
+                            <span class="badge bg-primary me-2">2</span>
+                            {% trans "Description et prix" %}
+                        </h4>
+
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                {{ form.description|as_crispy_field }}
+                                <small class="form-text text-muted">
+                                    {% trans "Décrivez votre objet en détail. Soyez précis sur son état, ses dimensions, son histoire, etc." %}
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                {{ form.price|as_crispy_field }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                {{ form.currency|as_crispy_field }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <div class="form-check mt-4 pt-2">
+                                    {{ form.is_negotiable }}
+                                    <label class="form-check-label" for="{{ form.is_negotiable.id_for_label }}">
+                                        {% trans "Prix négociable" %}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                {{ form.available_from|as_crispy_field }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                {{ form.available_until|as_crispy_field }}
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <button type="button" class="btn btn-outline-secondary prev-step-btn" data-prev="1">
+                                <i class="fas fa-arrow-left me-1"></i> {% trans "Précédent" %}
+                            </button>
+                            <button type="button" class="btn btn-primary next-step-btn" data-next="3">
+                                {% trans "Suivant" %} <i class="fas fa-arrow-right ms-1"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Étape 3: Logistique -->
+                    <div class="step-content" id="step-3">
+                        <h4 class="mb-4">
+                            <span class="badge bg-primary me-2">3</span>
+                            {% trans "Informations logistiques" %}
+                        </h4>
+
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                {{ form.logistics_option|as_crispy_field }}
+                                <div class="alert alert-info mt-2">
+                                    <small>
+                                        <strong>{% trans "Vente directe (P2P):" %}</strong> {% trans "Vous rencontrez l'acheteur directement" %}<br>
+                                        <strong>{% trans "Avec transporteur:" %}</strong> {% trans "Utilisation d'un service de transport" %}<br>
+                                        <strong>{% trans "Avec expatrié-transporteur:" %}</strong> {% trans "Personne voyageant qui peut transporter" %}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card mb-4 border-info">
+                            <div class="card-header bg-info text-white">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-map-marker-alt"></i> {% trans "Point de départ" %}
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        {{ form.country_from|as_crispy_field }}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        {{ form.city_from|as_crispy_field }}
+                                    </div>
+                                </div>
+                                {{ form.address_from|as_crispy_field }}
+                            </div>
+                        </div>
+
+                        <div class="card mb-4 border-success">
+                            <div class="card-header bg-success text-white">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-flag-checkered"></i> {% trans "Point d'arrivée" %}
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        {{ form.country_to|as_crispy_field }}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        {{ form.city_to|as_crispy_field }}
+                                    </div>
+                                </div>
+                                {{ form.address_to|as_crispy_field }}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check">
+                                    {{ form.requires_insurance }}
+                                    <label class="form-check-label" for="{{ form.requires_insurance.id_for_label }}">
+                                        {% trans "Assurance requise" %}
+                                    </label>
+                                </div>
+                                <div id="insurance-value-field" class="mt-2" style="display: none;">
+                                    {{ form.insurance_value|as_crispy_field }}
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="form-check">
+                                    {{ form.fragile_item }}
+                                    <label class="form-check-label" for="{{ form.fragile_item.id_for_label }}">
+                                        {% trans "Objet fragile" %}
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="form-check">
+                                    {{ form.requires_packaging }}
+                                    <label class="form-check-label" for="{{ form.requires_packaging.id_for_label }}">
+                                        {% trans "Emballage requis" %}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <button type="button" class="btn btn-outline-secondary prev-step-btn" data-prev="2">
+                                <i class="fas fa-arrow-left me-1"></i> {% trans "Précédent" %}
+                            </button>
+                            <button type="button" class="btn btn-primary next-step-btn" data-next="4">
+                                {% trans "Suivant" %} <i class="fas fa-arrow-right ms-1"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Étape 4: Images -->
+                    <div class="step-content" id="step-4">
+                        <h4 class="mb-4">
+                            <span class="badge bg-primary me-2">4</span>
+                            {% trans "Images" %}
+                        </h4>
+
+                        <div class="alert alert-info mb-4">
+                            <i class="fas fa-info-circle"></i>
+                            {% blocktrans %}
+                                Vous pouvez télécharger jusqu'à <strong>3 images gratuitement</strong>.
+                                Les images supplémentaires sont payantes (1€ par image).
+                            {% endblocktrans %}
+                        </div>
+
+                        <!-- Formset pour les images -->
+                        <div id="image-forms">
+                            {{ image_formset.management_form }}
+
+                            <div class="row">
+                                {% for form in image_formset %}
+                                    <div class="col-md-6 mb-4">
+                                        <div class="card h-100 image-form" data-index="{{ forloop.counter0 }}">
+                                            <div class="card-body">
+                                                <h6 class="card-title border-bottom pb-2 mb-3">
+                                                    {% if forloop.first %}
+                                                        <strong>{% trans "Image principale" %}</strong>
+                                                    {% else %}
+                                                        {% trans "Image complémentaire" %} #{{ forloop.counter }}
+                                                    {% endif %}
+                                                </h6>
+
+                                                <div class="form-group mb-3">
+                                                    <label for="{{ form.image.id_for_label }}" class="form-label">
+                                                        {% trans "Fichier image" %}
+                                                    </label>
+                                                    {{ form.image }}
+                                                    {% if form.image.errors %}
+                                                        <div class="invalid-feedback d-block">
+                                                            {{ form.image.errors }}
+                                                        </div>
+                                                    {% endif %}
+                                                    <div class="image-preview-container mt-2" id="preview-{{ forloop.counter0 }}">
+                                                        <!-- Prévisualisation ici -->
+                                                    </div>
+                                                </div>
+
+                                                {{ form.caption|as_crispy_field }}
+
+                                                <div class="row">
+                                                    <div class="col-md-6">
+                                                        {% if forloop.first %}
+                                                            <div class="form-check">
+                                                                <input type="checkbox" class="form-check-input"
+                                                                       id="{{ form.is_primary.id_for_label }}"
+                                                                       name="{{ form.is_primary.html_name }}"
+                                                                       checked disabled>
+                                                                <label class="form-check-label" for="{{ form.is_primary.id_for_label }}">
+                                                                    {% trans "Image principale" %}
+                                                                </label>
+                                                            </div>
+                                                            <input type="hidden" name="{{ form.is_primary.html_name }}" value="on">
+                                                        {% else %}
+                                                            <div class="form-check">
+                                                                {{ form.is_primary }}
+                                                                <label class="form-check-label" for="{{ form.is_primary.id_for_label }}">
+                                                                    {% trans "Image principale" %}
+                                                                </label>
+                                                            </div>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        {{ form.display_order|as_crispy_field }}
+                                                    </div>
+                                                </div>
+
+                                                {% if image_formset.can_delete and not forloop.first %}
+                                                    <div class="form-check mt-3">
+                                                        {{ form.DELETE }}
+                                                        <label class="form-check-label text-danger" for="{{ form.DELETE.id_for_label }}">
+                                                            {% trans "Supprimer cette image" %}
+                                                        </label>
+                                                    </div>
+                                                {% endif %}
+
+                                                {% for hidden in form.hidden_fields %}
+                                                    {{ hidden }}
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="text-center mb-4">
+                            <button type="button" id="add-image-btn" class="btn btn-outline-primary">
+                                <i class="fas fa-plus"></i> {% trans "Ajouter une image" %}
+                            </button>
+                            <small class="d-block text-muted mt-2">
+                                {% trans "Formats acceptés: JPG, PNG, WebP. Taille max: 10MB par image." %}
+                            </small>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <button type="button" class="btn btn-outline-secondary prev-step-btn" data-prev="3">
+                                <i class="fas fa-arrow-left me-1"></i> {% trans "Précédent" %}
+                            </button>
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="fas fa-check"></i> {% trans "Publier l'annonce" %}
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stepper {
+        position: relative;
+        margin-bottom: 2.5rem;
+    }
+
+    .stepper-progress {
+        position: absolute;
+        top: 24px;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background-color: #e9ecef;
+        z-index: 1;
+        border-radius: 2px;
+    }
+
+    .stepper-progress-bar {
+        height: 100%;
+        background-color: #007bff;
+        width: 25%;
+        transition: width 0.3s ease;
+        border-radius: 2px;
+    }
+
+    .stepper-header {
+        display: flex;
+        justify-content: space-between;
+        position: relative;
+        z-index: 2;
+    }
+
+    .step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        flex: 1;
+        position: relative;
+    }
+
+    .step-circle {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background-color: #fff;
+        border: 3px solid #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 1.1rem;
+        color: #6c757d;
+        margin-bottom: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .step.active .step-circle {
+        background-color: #007bff;
+        border-color: #007bff;
+        color: #fff;
+        transform: scale(1.1);
+    }
+
+    .step.completed .step-circle {
+        background-color: #28a745;
+        border-color: #28a745;
+        color: #fff;
+    }
+
+    .step-label {
+        font-size: 0.85rem;
+        text-align: center;
+        color: #6c757d;
+        font-weight: 500;
+        max-width: 100px;
+    }
+
+    .step.active .step-label {
+        color: #007bff;
+        font-weight: 600;
+    }
+
+    .step-content {
+        display: none;
+        animation: fadeIn 0.5s ease;
+    }
+
+    .step-content.active {
+        display: block;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .image-form {
+        transition: all 0.3s ease;
+        border: 1px solid #dee2e6;
+    }
+
+    .image-form:hover {
+        border-color: #007bff;
+        box-shadow: 0 2px 8px rgba(0,123,255,0.1);
+    }
+
+    .image-preview-container {
+        min-height: 100px;
+        border: 1px dashed #dee2e6;
+        border-radius: 0.375rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .image-preview {
+        max-width: 100%;
+        max-height: 150px;
+        object-fit: contain;
+    }
+
+    .form-control.is-invalid {
+        border-color: #dc3545;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right calc(0.375em + 0.1875rem) center;
+        background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+    }
+
+    .form-control.is-valid {
+        border-color: #28a745;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%2328a745' d='M2.3 6.73L.6 4.53c-.4-1.04.46-1.4 1.1-.8l1.1 1.4 3.4-3.8c.6-.63 1.6-.27 1.2.7l-4 4.6c-.43.5-.8.4-1.1.1z'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right calc(0.375em + 0.1875rem) center;
+        background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+    }
+
+    .required label:after {
+        content: " *";
+        color: #dc3545;
+    }
+
+    .next-step-btn:disabled,
+    .prev-step-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    console.log('Stepper jQuery initialized');
+
+    let currentStep = 1;
+    const totalSteps = 4;
+
+    // Afficher la première étape
+    showStep(currentStep);
+
+    // Gestion des boutons Suivant
+    $(document).on('click', '.next-step-btn', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        console.log('Next button clicked');
+        const nextStep = parseInt($(this).data('next'));
+        console.log('Next step:', nextStep);
+
+        if (validateStep(currentStep)) {
+            console.log('Validation passed, showing step', nextStep);
+            showStep(nextStep);
+        } else {
+            console.log('Validation failed for step', currentStep);
+        }
+    });
+
+    // Gestion des boutons Précédent
+    $(document).on('click', '.prev-step-btn', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        console.log('Previous button clicked');
+        const prevStep = parseInt($(this).data('prev'));
+        console.log('Previous step:', prevStep);
+
+        showStep(prevStep);
+    });
+
+    // Gestion de l'assurance
+    $('#{{ form.requires_insurance.id_for_label }}').change(function() {
+        if ($(this).is(':checked')) {
+            $('#insurance-value-field').show();
+        } else {
+            $('#insurance-value-field').hide();
+        }
+    }).trigger('change');
+
+    // Gestion des images
+    $('#add-image-btn').click(function() {
+        addImageForm();
+    });
+
+    // Prévisualisation des images
+    $(document).on('change', 'input[type="file"]', function() {
+        previewImage(this);
+    });
+
+    // Validation du formulaire final
+    $('#ad-create-form').submit(function(e) {
+        console.log('Form submit attempted');
+
+        if (!validateAllSteps()) {
+            e.preventDefault();
+            alert('{% trans "Veuillez corriger les erreurs dans le formulaire avant de soumettre." %}');
+            return false;
+        }
+
+        // Vérifier qu'au moins une image est primaire
+        const hasPrimary = $('[id$="-is_primary"]:checked').length > 0;
+        const hasImages = $('input[type="file"]').length > 0;
+
+        if (hasImages && !hasPrimary) {
+            e.preventDefault();
+            alert('{% trans "Veuillez sélectionner au moins une image comme image principale." %}');
+            return false;
+        }
+
+        console.log('Form validation passed, submitting...');
+        return true;
+    });
+
+    // Fonctions principales
+    function showStep(step) {
+        console.log('Showing step:', step);
+
+        // Masquer toutes les étapes
+        $('.step-content').removeClass('active');
+
+        // Afficher l'étape demandée
+        $('#step-' + step).addClass('active');
+
+        // Mettre à jour les indicateurs visuels
+        $('.step').removeClass('active completed');
+
+        $('.step').each(function() {
+            const stepNumber = parseInt($(this).data('step'));
+
+            if (stepNumber < step) {
+                $(this).addClass('completed');
+            } else if (stepNumber === step) {
+                $(this).addClass('active');
+            }
+        });
+
+        currentStep = step;
+        updateProgressBar();
+
+        // Scroll vers le haut
+        $('html, body').animate({ scrollTop: 0 }, 300);
+    }
+
+    function updateProgressBar() {
+        const progress = ((currentStep - 1) / (totalSteps - 1)) * 100;
+        $('#stepper-progress').css('width', progress + '%');
+    }
+
+    function validateStep(step) {
+        console.log('Validating step:', step);
+        let isValid = true;
+        const stepElement = $('#step-' + step);
+
+        if (stepElement.length === 0) {
+            console.error('Step element not found for validation:', step);
+            return false;
+        }
+
+        // Valider les champs requis dans cette étape
+        const requiredFields = stepElement.find('[required]');
+        console.log('Required fields found:', requiredFields.length);
+
+        requiredFields.each(function() {
+            const $field = $(this);
+            const fieldValue = $field.val() ? $field.val().trim() : '';
+            const isSelect = $field.is('select');
+            const isCheckbox = $field.is(':checkbox');
+
+            console.log('Validating field:', $field.attr('name'), 'value:', fieldValue);
+
+            if (isSelect && !fieldValue) {
+                markFieldInvalid($field, '{% trans "Ce champ est requis" %}');
+                isValid = false;
+            } else if (isCheckbox && !$field.is(':checked')) {
+                markFieldInvalid($field, '{% trans "Ce champ est requis" %}');
+                isValid = false;
+            } else if (!isCheckbox && !fieldValue) {
+                markFieldInvalid($field, '{% trans "Ce champ est requis" %}');
+                isValid = false;
+            } else {
+                markFieldValid($field);
+            }
+        });
+
+        // Validation spécifique pour le prix
+        if (step === 2) {
+            const priceField = $('#{{ form.price.id_for_label }}');
+            if (priceField.length && priceField.val()) {
+                const price = parseFloat(priceField.val());
+                if (isNaN(price) || price <= 0) {
+                    markFieldInvalid(priceField, '{% trans "Le prix doit être supérieur à 0" %}');
+                    isValid = false;
+                }
+            }
+        }
+
+        if (!isValid) {
+            console.log('Step validation failed');
+            showStepError(step);
+        } else {
+            console.log('Step validation passed');
+        }
+
+        return isValid;
+    }
+
+    function validateAllSteps() {
+        console.log('Validating all steps');
+        for (let i = 1; i <= totalSteps; i++) {
+            if (!validateStep(i)) {
+                showStep(i);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function showStepError(step) {
+        const stepElement = $('#step-' + step);
+        if (stepElement.length === 0) return;
+
+        // Supprimer les alertes existantes
+        stepElement.find('.step-error-alert').remove();
+
+        // Créer une nouvelle alerte
+        const errorAlert = $('<div class="alert alert-danger alert-dismissible fade show step-error-alert mb-3">\
+            <i class="fas fa-exclamation-triangle"></i>\
+            <strong>{% trans "Veuillez corriger les erreurs ci-dessous" %}</strong>\
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>\
+        </div>');
+
+        stepElement.prepend(errorAlert);
+    }
+
+    function markFieldInvalid($field, message) {
+        $field.addClass('is-invalid').removeClass('is-valid');
+
+        // Trouver ou créer le message d'erreur
+        let $errorDiv = $field.parent().find('.invalid-feedback');
+        if ($errorDiv.length === 0) {
+            $errorDiv = $('<div class="invalid-feedback"></div>');
+            $field.parent().append($errorDiv);
+        }
+        $errorDiv.text(message).show();
+    }
+
+    function markFieldValid($field) {
+        $field.removeClass('is-invalid').addClass('is-valid');
+
+        // Masquer le message d'erreur
+        $field.parent().find('.invalid-feedback').hide();
+    }
+});
+</script>
+{% endblock %}

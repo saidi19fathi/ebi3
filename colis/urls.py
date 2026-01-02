@@ -189,6 +189,8 @@ urlpatterns = [
     # Conditions générales
     path('conditions-generales/', TemplateView.as_view(template_name='colis/terms.html'), name='terms'),
 
+    path('politique-de-confidentialite/', TemplateView.as_view(template_name='colis/privacy.html'), name='privacy'),
+
     # ============================================================================
     # REDIRECTIONS ET URLS ALIAS
     # ============================================================================

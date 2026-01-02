@@ -11,7 +11,7 @@
     <div class="position-relative">
         {% with ad.images.first as main_image %}
             {% if main_image %}
-                <img src="{{ main_image.thumbnail.url|default:main_image.image.url }}"
+                <img src="{{ main_image.image.url }}"
                      class="card-img-top ad-image"
                      alt="{{ ad.title }}"
                      loading="lazy">

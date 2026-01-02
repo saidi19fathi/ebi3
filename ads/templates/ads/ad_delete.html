@@ -1,0 +1,178 @@
+{# ~/ebi3/ads/templates/ads/ad_delete.html #}
+{% extends 'ads/base_ads.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Supprimer l'annonce" %} - Ebi3{% endblock %}
+
+{% block ads_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-danger">
+            <div class="card-header bg-danger text-white">
+                <h2 class="mb-0">
+                    <i class="fas fa-exclamation-triangle"></i> {% trans "Confirmer la suppression" %}
+                </h2>
+            </div>
+            <div class="card-body">
+                <p class="lead">{% trans "Êtes-vous sûr de vouloir supprimer cette annonce ?" %}</p>
+
+                <!-- Aperçu de l'annonce -->
+                <div class="card mb-4 border-secondary">
+                    <div class="row g-0">
+                        {% with ad.images.first as main_image %}
+                            <div class="col-md-4">
+                                {% if main_image %}
+                                    <img src="{{ main_image.thumbnail.url|default:main_image.image.url }}"
+                                         class="img-fluid rounded-start h-100 object-fit-cover"
+                                         alt="{{ ad.title }}">
+                                {% else %}
+                                    <div class="bg-light d-flex align-items-center justify-content-center h-100">
+                                        <i class="fas fa-image fa-3x text-muted"></i>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endwith %}
+                        <div class="col-md-8">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ ad.title }}</h5>
+
+                                <div class="mb-2">
+                                    <span class="badge {% if ad.condition == 'NEW' %}bg-success{% elif ad.condition == 'LIKE_NEW' %}bg-info{% elif ad.condition == 'GOOD' %}bg-primary{% else %}bg-secondary{% endif %}">
+                                        {{ ad.get_condition_display }}
+                                    </span>
+                                    <span class="badge bg-warning ms-2">
+                                        {{ ad.get_logistics_option_display }}
+                                    </span>
+                                </div>
+
+                                <p class="card-text text-muted mb-2">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    {{ ad.city_from }} → {{ ad.city_to }}
+                                </p>
+
+                                <p class="card-text">
+                                    <strong class="text-primary fs-4">{{ ad.get_price_with_currency }}</strong>
+                                    {% if ad.is_negotiable %}
+                                        <small class="text-muted">{% trans "(Négociable)" %}</small>
+                                    {% endif %}
+                                </p>
+
+                                <p class="card-text small text-muted">
+                                    <i class="fas fa-calendar"></i>
+                                    {% trans "Créée le" %} {{ ad.created_at|date:"d/m/Y" }}
+                                </p>
+
+                                <div class="d-flex text-muted small">
+                                    <div class="me-3">
+                                        <i class="fas fa-eye"></i> {{ ad.view_count }} {% trans "vues" %}
+                                    </div>
+                                    <div class="me-3">
+                                        <i class="fas fa-heart"></i> {{ ad.favorite_count }} {% trans "favoris" %}
+                                    </div>
+                                    <div>
+                                        <i class="fas fa-comments"></i> {{ ad.inquiry_count }} {% trans "demandes" %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Conséquences de la suppression -->
+                <div class="alert alert-danger">
+                    <h5 class="alert-heading">
+                        <i class="fas fa-exclamation-circle"></i> {% trans "Attention" %}
+                    </h5>
+                    <ul class="mb-0">
+                        <li>{% trans "Cette action est irréversible" %}</li>
+                        <li>{% trans "Toutes les images associées seront supprimées" %}</li>
+                        <li>{% trans "Toutes les vidéos associées seront supprimées" %}</li>
+                        <li>{% trans "Les favoris de cette annonce seront perdus" %}</li>
+                        <li>{% trans "Les statistiques de vues seront effacées" %}</li>
+                        <li>{% trans "Les signalements associés seront supprimés" %}</li>
+                    </ul>
+                </div>
+
+                <!-- Formulaire de confirmation -->
+                <form method="post">
+                    {% csrf_token %}
+
+                    <div class="form-check mb-4">
+                        <input class="form-check-input" type="checkbox" id="confirmDelete" required>
+                        <label class="form-check-label" for="confirmDelete">
+                            {% trans "Je comprends les conséquences et je confirme la suppression définitive" %}
+                        </label>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'ads:ad_detail' slug=ad.slug %}" class="btn btn-outline-secondary btn-lg">
+                            <i class="fas fa-arrow-left"></i> {% trans "Annuler et retourner" %}
+                        </a>
+
+                        <button type="submit" class="btn btn-danger btn-lg" id="deleteBtn" disabled>
+                            <i class="fas fa-trash-alt"></i> {% trans "Supprimer définitivement" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Activer/désactiver le bouton de suppression selon la confirmation
+        $('#confirmDelete').change(function() {
+            $('#deleteBtn').prop('disabled', !$(this).is(':checked'));
+        });
+
+        // Confirmation supplémentaire
+        $('#deleteBtn').click(function(e) {
+            if (!confirm('{% trans "Êtes-vous absolument certain de vouloir supprimer cette annonce ? Cette action ne peut pas être annulée." %}')) {
+                e.preventDefault();
+            }
+        });
+
+        // Message de prévention de fermeture
+        let formChanged = false;
+        $('form :input').change(function() {
+            formChanged = true;
+        });
+
+        $(window).on('beforeunload', function() {
+            if (formChanged) {
+                return '{% trans "Vous avez des modifications non enregistrées. Êtes-vous sûr de vouloir quitter ?" %}';
+            }
+        });
+
+        $('form').submit(function() {
+            $(window).off('beforeunload');
+        });
+    });
+</script>
+
+<style>
+    .object-fit-cover {
+        object-fit: cover;
+    }
+
+    .card.border-danger {
+        border-width: 2px;
+    }
+
+    #deleteBtn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .alert-danger ul {
+        padding-left: 1.5rem;
+    }
+
+    .alert-danger li {
+        margin-bottom: 0.5rem;
+    }
+</style>
+{% endblock %}

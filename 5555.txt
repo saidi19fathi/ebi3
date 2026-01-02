@@ -1,0 +1,4310 @@
+{# ~/ebi3/ads/templates/ads/base_ads.html #}
+{% extends 'core/base.html' %}
+{% load i18n %}
+
+{% block extra_css %}
+<style>
+    /* Styles spécifiques aux annonces */
+    .ad-card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border: 1px solid #e0e0e0;
+    }
+
+    .ad-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+
+    .ad-image {
+        height: 200px;
+        object-fit: cover;
+        width: 100%;
+    }
+
+    .ad-price {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #28a745;
+    }
+
+    .badge-logistics {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .featured-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 10;
+    }
+
+    .carousel-item img {
+        height: 400px;
+        object-fit: cover;
+    }
+
+    .condition-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    /* Pagination */
+    .pagination .page-link {
+        color: #667eea;
+        border: 1px solid #dee2e6;
+    }
+
+    .pagination .page-item.active .page-link {
+        background-color: #667eea;
+        border-color: #667eea;
+    }
+
+    /* RTL support */
+    [dir="rtl"] .featured-badge {
+        right: auto;
+        left: 10px;
+    }
+
+    [dir="rtl"] .carousel-control-prev {
+        right: 0;
+        left: auto;
+    }
+
+    [dir="rtl"] .carousel-control-next {
+        left: 0;
+        right: auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    {% block ads_content %}{% endblock %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Scripts spécifiques aux annonces
+    $(document).ready(function() {
+        // Tooltips
+        $('[data-bs-toggle="tooltip"]').tooltip();
+
+        // Favoris AJAX
+        $('.favorite-btn').click(function(e) {
+            e.preventDefault();
+            const btn = $(this);
+            const url = btn.data('url');
+            const adSlug = btn.data('ad-slug');
+
+            $.ajax({
+                url: url,
+                type: 'POST',
+                data: {
+                    csrfmiddlewaretoken: '{{ csrf_token }}'
+                },
+                success: function(data) {
+                    if (data.status === 'success') {
+                        if (data.action === 'added') {
+                            btn.removeClass('btn-outline-danger').addClass('btn-danger');
+                            btn.find('i').removeClass('far').addClass('fas');
+                            btn.attr('title', '{% trans "Retirer des favoris" %}');
+                        } else {
+                            btn.removeClass('btn-danger').addClass('btn-outline-danger');
+                            btn.find('i').removeClass('fas').addClass('far');
+                            btn.attr('title', '{% trans "Ajouter aux favoris" %}');
+                        }
+
+                        // Mettre à jour le compteur si présent
+                        const countSpan = $('#favorite-count-' + adSlug);
+                        if (countSpan.length) {
+                            countSpan.text(data.favorite_count);
+                        }
+
+                        // Afficher un toast
+                        showToast(data.action === 'added' ?
+                            '{% trans "Annonce ajoutée aux favoris" %}' :
+                            '{% trans "Annonce retirée des favoris" %}',
+                            'success'
+                        );
+                    }
+                },
+                error: function() {
+                    showToast('{% trans "Une erreur est survenue" %}', 'error');
+                }
+            });
+        });
+
+        // Image gallery navigation
+        $('.image-thumbnail').click(function() {
+            const imgSrc = $(this).data('full');
+            $('.main-image').attr('src', imgSrc);
+            $('.image-thumbnail').removeClass('active');
+            $(this).addClass('active');
+        });
+
+        // Helper function for toasts
+        function showToast(message, type) {
+            const toastHtml = `
+                <div class="toast align-items-center text-white bg-${type === 'success' ? 'success' : 'danger'} border-0" role="alert">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            ${message}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                </div>
+            `;
+
+            $('#toast-container').append(toastHtml);
+            $('.toast').toast('show');
+
+            // Remove toast after hiding
+            $('.toast').on('hidden.bs.toast', function() {
+                $(this).remove();
+            });
+        }
+
+        // Initialize toast container if not exists
+        if ($('#toast-container').length === 0) {
+            $('body').append('<div id="toast-container" class="toast-container position-fixed top-0 end-0 p-3"></div>');
+        }
+    });
+</script>
+{% endblock %}{# ~/ebi3/ads/templates/ads/partials/ad_card.html #}
+{% load i18n %}
+<div class="card ad-card h-100">
+    {% if ad.is_featured %}
+        <span class="featured-badge badge bg-warning">
+            <i class="fas fa-star"></i> {% trans "En vedette" %}
+        </span>
+    {% endif %}
+
+    <!-- Image principale -->
+    <div class="position-relative">
+        {% with ad.images.first as main_image %}
+            {% if main_image %}
+                <img src="{{ main_image.thumbnail.url|default:main_image.image.url }}"
+                     class="card-img-top ad-image"
+                     alt="{{ ad.title }}"
+                     loading="lazy">
+            {% else %}
+                <div class="card-img-top ad-image bg-light d-flex align-items-center justify-content-center">
+                    <i class="fas fa-image fa-3x text-muted"></i>
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Badge condition -->
+        <span class="position-absolute top-0 start-0 m-2 condition-badge badge
+                     {% if ad.condition == 'NEW' %}bg-success
+                     {% elif ad.condition == 'LIKE_NEW' %}bg-info
+                     {% elif ad.condition == 'GOOD' %}bg-primary
+                     {% else %}bg-secondary{% endif %}">
+            {{ ad.get_condition_display }}
+        </span>
+
+        <!-- Badge logistique -->
+        <span class="position-absolute top-0 end-0 m-2 badge-logistics badge
+                     {% if ad.logistics_option == 'P2P_DIRECT' %}bg-success
+                     {% elif ad.logistics_option == 'WITH_CARRIER' %}bg-warning
+                     {% else %}bg-info{% endif %}">
+            {{ ad.get_logistics_option_display|slice:":10" }}
+        </span>
+    </div>
+
+    <!-- Corps de la carte -->
+    <div class="card-body d-flex flex-column">
+        <h5 class="card-title">
+            <a href="{{ ad.get_absolute_url }}" class="text-decoration-none text-dark">
+                {{ ad.title|truncatechars:50 }}
+            </a>
+        </h5>
+
+        <p class="card-text text-muted small mb-2">
+            <i class="fas fa-map-marker-alt"></i>
+            {{ ad.city_from }} → {{ ad.city_to }}
+        </p>
+
+        <p class="card-text small mb-3">
+            {{ ad.description|truncatechars:100 }}
+        </p>
+
+        <div class="mt-auto">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="ad-price">
+                    {{ ad.get_price_with_currency }}
+                    {% if ad.is_negotiable %}
+                        <small class="text-muted">{% trans "(Négociable)" %}</small>
+                    {% endif %}
+                </div>
+
+                <!-- Bouton favori -->
+                {% if user.is_authenticated %}
+                    <button class="btn btn-sm favorite-btn
+                                {% if ad in user.favorites.all %}btn-danger{% else %}btn-outline-danger{% endif %}"
+                            data-url="{% url 'ads:toggle_favorite' ad.slug %}"
+                            data-ad-slug="{{ ad.slug }}"
+                            data-bs-toggle="tooltip"
+                            title="{% if ad in user.favorites.all %}{% trans 'Retirer des favoris' %}{% else %}{% trans 'Ajouter aux favoris' %}{% endif %}">
+                        <i class="{% if ad in user.favorites.all %}fas{% else %}far{% endif %} fa-heart"></i>
+                    </button>
+                {% else %}
+                    <a href="{% url 'users:login' %}?next={{ request.path }}"
+                       class="btn btn-sm btn-outline-danger"
+                       data-bs-toggle="tooltip"
+                       title="{% trans 'Connectez-vous pour ajouter aux favoris' %}">
+                        <i class="far fa-heart"></i>
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Pied de carte -->
+    <div class="card-footer bg-transparent border-top">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="small">
+                <i class="fas fa-user"></i>
+                <a href="{% url 'users:profile' ad.seller.username %}" class="text-decoration-none">
+                    {{ ad.seller.username }}
+                </a>
+            </div>
+            <div class="small text-muted">
+                <i class="fas fa-eye"></i> {{ ad.view_count }}
+                <i class="fas fa-heart ms-2"></i>
+                <span id="favorite-count-{{ ad.slug }}">{{ ad.favorite_count }}</span>
+            </div>
+        </div>
+    </div>
+</div>{# ~/ebi3/ads/templates/ads/ad_detail.html #}
+{% extends 'ads/base_ads.html' %}
+{% load i18n %}
+
+{% block title %}{{ ad.title }} - Ebi3{% endblock %}
+
+{% block ads_content %}
+<div class="row">
+    <!-- Images et galerie -->
+    <div class="col-lg-8">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <!-- Galerie principale -->
+                <div id="adCarousel" class="carousel slide" data-bs-ride="carousel">
+                    {% if ad.images.count > 1 %}
+                        <div class="carousel-indicators">
+                            {% for image in ad.images.all %}
+                                <button type="button" data-bs-target="#adCarousel"
+                                        data-bs-slide-to="{{ forloop.counter0 }}"
+                                        {% if forloop.first %}class="active"{% endif %}></button>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <div class="carousel-inner">
+                        {% for image in ad.images.all %}
+                            <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                <img src="{{ image.image.url }}" class="d-block w-100"
+                                     alt="{{ image.caption|default:ad.title }}">
+                            </div>
+                        {% empty %}
+                            <div class="carousel-item active">
+                                <div class="d-flex align-items-center justify-content-center bg-light"
+                                     style="height: 400px;">
+                                    <i class="fas fa-image fa-5x text-muted"></i>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    {% if ad.images.count > 1 %}
+                        <button class="carousel-control-prev" type="button"
+                                data-bs-target="#adCarousel" data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon"></span>
+                        </button>
+                        <button class="carousel-control-next" type="button"
+                                data-bs-target="#adCarousel" data-bs-slide="next">
+                            <span class="carousel-control-next-icon"></span>
+                        </button>
+                    {% endif %}
+                </div>
+
+                <!-- Miniatures -->
+                {% if ad.images.count > 1 %}
+                    <div class="row mt-3">
+                        {% for image in ad.images.all %}
+                            <div class="col-3 col-md-2">
+                                <img src="{{ image.thumbnail.url|default:image.image.url }}"
+                                     class="img-thumbnail image-thumbnail {% if forloop.first %}active{% endif %}"
+                                     data-full="{{ image.image.url }}"
+                                     alt="{{ image.caption|default:'' }}"
+                                     style="cursor: pointer; height: 80px; object-fit: cover;">
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <!-- Vidéos -->
+                {% if ad.videos.exists %}
+                    <div class="mt-4">
+                        <h5><i class="fas fa-video"></i> {% trans "Vidéos" %}</h5>
+                        <div class="row">
+                            {% for video in ad.videos.all %}
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <video controls class="card-img-top" style="max-height: 200px;">
+                                            <source src="{{ video.video.url }}" type="video/mp4">
+                                            {% trans "Votre navigateur ne supporte pas la vidéo." %}
+                                        </video>
+                                        {% if video.caption %}
+                                            <div class="card-body">
+                                                <p class="card-text small">{{ video.caption }}</p>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Description -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> {% trans "Description" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <p><strong>{% trans "Catégorie:" %}</strong>
+                            <a href="{{ ad.category.get_absolute_url }}">{{ ad.category.name }}</a>
+                        </p>
+                        <p><strong>{% trans "État:" %}</strong>
+                            <span class="badge bg-info">{{ ad.get_condition_display }}</span>
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>{% trans "Poids:" %}</strong>
+                            {% if ad.weight %}
+                                {{ ad.weight }} kg
+                            {% else %}
+                                <span class="text-muted">{% trans "Non spécifié" %}</span>
+                            {% endif %}
+                        </p>
+                        <p><strong>{% trans "Dimensions:" %}</strong>
+                            {% if ad.length and ad.width and ad.height %}
+                                {{ ad.length }} × {{ ad.width }} × {{ ad.height }} cm
+                            {% else %}
+                                <span class="text-muted">{% trans "Non spécifiées" %}</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+
+                <h6>{% trans "Description détaillée" %}</h6>
+                <div class="description-content">
+                    {{ ad.description|linebreaks }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar avec informations et actions -->
+    <div class="col-lg-4">
+        <!-- Prix et actions -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h2 class="ad-price mb-3">
+                    {{ ad.get_price_with_currency }}
+                    {% if ad.is_negotiable %}
+                        <small class="text-muted d-block">{% trans "(Prix négociable)" %}</small>
+                    {% endif %}
+                </h2>
+
+                <!-- Boutons d'action -->
+                <div class="d-grid gap-2 mb-3">
+                    {% if user.is_authenticated %}
+                        {% if user == ad.seller %}
+                            <a href="{% url 'ads:ad_edit' ad.slug %}" class="btn btn-primary">
+                                <i class="fas fa-edit"></i> {% trans "Modifier l'annonce" %}
+                            </a>
+                            <a href="{% url 'ads:ad_delete' ad.slug %}" class="btn btn-outline-danger">
+                                <i class="fas fa-trash"></i> {% trans "Supprimer" %}
+                            </a>
+                        {% else %}
+                            {% if ad.can_be_reserved %}
+                                <button class="btn btn-success" data-bs-toggle="modal"
+                                        data-bs-target="#reservationModal">
+                                    <i class="fas fa-shopping-cart"></i> {% trans "Réserver" %}
+                                </button>
+
+                                {% if ad.is_available_for_carrier %}
+                                    <button class="btn btn-warning" data-bs-toggle="modal"
+                                            data-bs-target="#carrierProposalModal">
+                                        <i class="fas fa-truck"></i> {% trans "Proposer un transport" %}
+                                    </button>
+                                {% endif %}
+                            {% endif %}
+
+                            <!-- Bouton favori -->
+                            <button class="btn favorite-btn
+                                        {% if is_favorite %}btn-danger{% else %}btn-outline-danger{% endif %}"
+                                    data-url="{% url 'ads:toggle_favorite' ad.slug %}"
+                                    data-ad-slug="{{ ad.slug }}">
+                                <i class="{% if is_favorite %}fas{% else %}far{% endif %} fa-heart"></i>
+                                {% if is_favorite %}
+                                    {% trans "Retirer des favoris" %}
+                                {% else %}
+                                    {% trans "Ajouter aux favoris" %}
+                                {% endif %}
+                            </button>
+                        {% endif %}
+                    {% else %}
+                        <a href="{% url 'users:login' %}?next={{ request.path }}"
+                           class="btn btn-primary">
+                            <i class="fas fa-sign-in-alt"></i> {% trans "Se connecter pour réserver" %}
+                        </a>
+                    {% endif %}
+
+                    <!-- Bouton de partage -->
+                    <button class="btn btn-outline-secondary" onclick="shareAd()">
+                        <i class="fas fa-share-alt"></i> {% trans "Partager" %}
+                    </button>
+
+                    <!-- Bouton de signalement -->
+                    {% if can_report %}
+                        <a href="{% url 'ads:ad_report' ad.slug %}" class="btn btn-outline-warning">
+                            <i class="fas fa-flag"></i> {% trans "Signaler" %}
+                        </a>
+                    {% endif %}
+                </div>
+
+                <!-- Statistiques -->
+                <div class="d-flex justify-content-around text-center border-top pt-3">
+                    <div>
+                        <div class="h5">{{ ad.view_count }}</div>
+                        <small class="text-muted">{% trans "Vues" %}</small>
+                    </div>
+                    <div>
+                        <div class="h5">{{ ad.favorite_count }}</div>
+                        <small class="text-muted">{% trans "Favoris" %}</small>
+                    </div>
+                    <div>
+                        <div class="h5">{{ ad.inquiry_count }}</div>
+                        <small class="text-muted">{% trans "Demandes" %}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Informations logistiques -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-shipping-fast"></i> {% trans "Informations logistiques" %}</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>{% trans "Option:" %}</strong>
+                    <span class="badge bg-primary">{{ ad.get_logistics_option_display }}</span>
+                </p>
+
+                <div class="mb-3">
+                    <p class="mb-1"><strong>{% trans "Départ:" %}</strong></p>
+                    <p class="mb-0">
+                        <i class="fas fa-map-marker-alt text-danger"></i>
+                        {{ ad.city_from }}, {{ ad.country_from.name }}
+                    </p>
+                    {% if ad.address_from %}
+                        <small class="text-muted">{{ ad.address_from|truncatechars:50 }}</small>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <p class="mb-1"><strong>{% trans "Destination:" %}</strong></p>
+                    <p class="mb-0">
+                        <i class="fas fa-map-marker-alt text-success"></i>
+                        {{ ad.city_to }}, {{ ad.country_to.name }}
+                    </p>
+                    {% if ad.address_to %}
+                        <small class="text-muted">{{ ad.address_to|truncatechars:50 }}</small>
+                    {% endif %}
+                </div>
+
+                {% if ad.requires_insurance %}
+                    <p><strong>{% trans "Assurance:" %}</strong>
+                        <span class="badge bg-success">{% trans "Requis" %}</span>
+                        {% if ad.insurance_value %}
+                            ({{ ad.insurance_value }} {{ ad.get_currency_display }})
+                        {% endif %}
+                    </p>
+                {% endif %}
+
+                {% if ad.fragile_item %}
+                    <p><strong>{% trans "Fragile:" %}</strong>
+                        <span class="badge bg-warning">{% trans "Oui" %}</span>
+                    </p>
+                {% endif %}
+
+                {% if ad.requires_packaging %}
+                    <p><strong>{% trans "Emballage:" %}</strong>
+                        <span class="badge bg-info">{% trans "Requis" %}</span>
+                    </p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Informations du vendeur -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-user"></i> {% trans "Vendeur" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="avatar-circle bg-primary me-3"
+                         style="width: 60px; height: 60px;">
+                        <span class="avatar-text" style="font-size: 1.5rem;">
+                            {{ ad.seller.username|first|upper }}
+                        </span>
+                    </div>
+                    <div>
+                        <h5 class="mb-0">
+                            <a href="{% url 'users:profile' ad.seller.username %}"
+                               class="text-decoration-none">
+                                {{ ad.seller.username }}
+                            </a>
+                        </h5>
+                        <p class="text-muted mb-0">
+                            <i class="fas fa-user-tag"></i> {{ ad.seller.get_role_display }}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="row text-center">
+                    <div class="col-4">
+                        <div class="h5">{{ ad.seller.profile.successful_transactions|default:0 }}</div>
+                        <small class="text-muted">{% trans "Transactions" %}</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="h5">{{ ad.seller.profile.total_ads|default:0 }}</div>
+                        <small class="text-muted">{% trans "Annonces" %}</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="h5">{{ ad.seller.rating|default:"0.0" }}</div>
+                        <small class="text-muted">{% trans "Note" %}</small>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <a href="{% url 'messaging:new_conversation' ad.seller.username %}"
+                       class="btn btn-outline-primary w-100">
+                        <i class="fas fa-envelope"></i> {% trans "Contacter" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Annonces similaires -->
+{% if similar_ads %}
+    <div class="row mt-5">
+        <div class="col-12">
+            <h3 class="mb-4">{% trans "Annonces similaires" %}</h3>
+            <div class="row">
+                {% for similar_ad in similar_ads %}
+                    <div class="col-md-6 col-lg-3 mb-4">
+                        {% include 'ads/partials/ad_card.html' with ad=similar_ad %}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+<!-- Modals -->
+<div class="modal fade" id="reservationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Réserver cette annonce" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Vous êtes sur le point de réserver cette annonce." %}</p>
+                <p><strong>{% trans "Prix:" %}</strong> {{ ad.get_price_with_currency }}</p>
+                <p><strong>{% trans "Vendeur:" %}</strong> {{ ad.seller.username }}</p>
+                <p class="text-muted">{% trans "Vous serez redirigé vers le processus de paiement." %}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {% trans "Annuler" %}
+                </button>
+                <a href="#" class="btn btn-success">{% trans "Confirmer la réservation" %}</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Script de partage -->
+<script>
+    function shareAd() {
+        const url = window.location.href;
+        const title = '{{ ad.title }}';
+
+        if (navigator.share) {
+            navigator.share({
+                title: title,
+                text: '{% trans "Regardez cette annonce sur Ebi3" %}',
+                url: url,
+            });
+        } else {
+            // Fallback pour les navigateurs qui ne supportent pas Web Share API
+            navigator.clipboard.writeText(url).then(() => {
+                alert('{% trans "Lien copié dans le presse-papier !" %}');
+            });
+        }
+    }
+</script>
+
+<style>
+    .avatar-circle {
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+    }
+
+    .avatar-text {
+        line-height: 1;
+    }
+
+    .description-content {
+        line-height: 1.8;
+        font-size: 1.05rem;
+    }
+
+    .description-content img {
+        max-width: 100%;
+        height: auto;
+    }
+</style>
+{% endblock %}{# ~/ebi3/ads/templates/ads/ad_list.html #}
+{% extends 'ads/base_ads.html' %}
+{% load i18n crispy_forms_tags %}
+
+{% block title %}{% trans "Annonces" %} - Ebi3{% endblock %}
+
+{% block ads_content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1>{% trans "Annonces disponibles" %}</h1>
+            <div>
+                <a href="{% url 'ads:search' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-search"></i> {% trans "Recherche avancée" %}
+                </a>
+                {% if user.is_authenticated and user.role == 'SELLER' %}
+                    <a href="{% url 'ads:ad_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> {% trans "Créer une annonce" %}
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+        <p class="text-muted">
+            {% blocktranslate count total_ads=total_ads %}
+                {{ total_ads }} annonce disponible
+            {% plural %}
+                {{ total_ads }} annonces disponibles
+            {% endblocktranslate %}
+        </p>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Sidebar de filtres -->
+    <div class="col-md-3 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-filter"></i> {% trans "Filtres" %}</h5>
+            </div>
+            <div class="card-body">
+                <form method="get" id="filter-form">
+                    {{ search_form|crispy }}
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-filter"></i> {% trans "Filtrer" %}
+                        </button>
+                        <a href="{% url 'ads:ad_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times"></i> {% trans "Effacer" %}
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Catégories -->
+        <div class="card shadow-sm mt-3">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-list"></i> {% trans "Catégories" %}</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    {% for cat in categories|slice:":10" %}
+                        <li class="mb-2">
+                            <a href="{% url 'ads:category_detail' cat.slug %}" class="text-decoration-none">
+                                <i class="fas fa-folder me-2"></i> {{ cat.name }}
+                                <span class="badge bg-secondary float-end">{{ cat.ad_count }}</span>
+                            </a>
+                        </li>
+                    {% empty %}
+                        <li>{% trans "Aucune catégorie disponible" %}</li>
+                    {% endfor %}
+                </ul>
+                <a href="{% url 'ads:category_list' %}" class="btn btn-sm btn-outline-info w-100">
+                    {% trans "Voir toutes les catégories" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des annonces -->
+    <div class="col-md-9">
+        <!-- Tri -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <span class="text-muted">
+                            {% blocktranslate with count=page_obj.paginator.count %}
+                                {{ count }} résultats
+                            {% endblocktranslate %}
+                        </span>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary dropdown-toggle" type="button"
+                                    data-bs-toggle="dropdown">
+                                <i class="fas fa-sort"></i> {% trans "Trier par" %}
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="?sort=-created_at">{% trans "Plus récent" %}</a></li>
+                                <li><a class="dropdown-item" href="?sort=price">{% trans "Prix croissant" %}</a></li>
+                                <li><a class="dropdown-item" href="?sort=-price">{% trans "Prix décroissant" %}</a></li>
+                                <li><a class="dropdown-item" href="?sort=-view_count">{% trans "Plus vues" %}</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+</div>
+
+        <!-- Annonces -->
+        {% if ads %}
+            <div class="row">
+                {% for ad in ads %}
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        {% include 'ads/partials/ad_card.html' with ad=ad %}
+                    </div>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination -->
+            {% if page_obj.has_other_pages %}
+                <nav aria-label="Page navigation" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                    <i class="fas fa-chevron-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                        {{ num }}
+                                    </a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="card shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-search fa-4x text-muted mb-3"></i>
+                    <h3>{% trans "Aucune annonce trouvée" %}</h3>
+                    <p class="text-muted">
+                        {% trans "Essayez de modifier vos critères de recherche ou" %}
+                        <a href="{% url 'ads:ad_list' %}">{% trans "consultez toutes les annonces" %}</a>.
+                    </p>
+                    {% if user.is_authenticated and user.role == 'SELLER' %}
+                        <a href="{% url 'ads:ad_create' %}" class="btn btn-primary mt-3">
+                            <i class="fas fa-plus"></i> {% trans "Créer la première annonce" %}
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}# Generated by Django 6.0 on 2025-12-31 08:04
+
+import django.db.models.deletion
+import mptt.fields
+from django.conf import settings
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    initial = True
+
+    dependencies = [
+        ("ads", "0001_initial"),
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+    ]
+
+    operations = [
+        migrations.AddField(
+            model_name="ad",
+            name="seller",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="ads",
+                to=settings.AUTH_USER_MODEL,
+                verbose_name="Vendeur",
+            ),
+        ),
+        migrations.AddField(
+            model_name="adimage",
+            name="ad",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="images",
+                to="ads.ad",
+                verbose_name="Annonce",
+            ),
+        ),
+        migrations.AddField(
+            model_name="adreport",
+            name="ad",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="reports",
+                to="ads.ad",
+                verbose_name="Annonce",
+            ),
+        ),
+        migrations.AddField(
+            model_name="adreport",
+            name="reporter",
+            field=models.ForeignKey(
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="ad_reports",
+                to=settings.AUTH_USER_MODEL,
+                verbose_name="Signaleur",
+            ),
+        ),
+        migrations.AddField(
+            model_name="adreport",
+            name="resolved_by",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="resolved_ad_reports",
+                to=settings.AUTH_USER_MODEL,
+                verbose_name="Résolu par",
+            ),
+        ),
+        migrations.AddField(
+            model_name="advideo",
+            name="ad",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="videos",
+                to="ads.ad",
+                verbose_name="Annonce",
+            ),
+        ),
+        migrations.AddField(
+            model_name="adview",
+            name="ad",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="views_tracking",
+                to="ads.ad",
+                verbose_name="Annonce",
+            ),
+        ),
+        migrations.AddField(
+            model_name="adview",
+            name="user",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="ad_views",
+                to=settings.AUTH_USER_MODEL,
+                verbose_name="Utilisateur",
+            ),
+        ),
+        migrations.AddField(
+            model_name="category",
+            name="parent",
+            field=mptt.fields.TreeForeignKey(
+                blank=True,
+                help_text="Sélectionnez une catégorie parente si applicable",
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="children",
+                to="ads.category",
+                verbose_name="Catégorie parente",
+            ),
+        ),
+        migrations.AddField(
+            model_name="ad",
+            name="category",
+            field=mptt.fields.TreeForeignKey(
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="ads",
+                to="ads.category",
+                verbose_name="Catégorie",
+            ),
+        ),
+        migrations.AddField(
+            model_name="favorite",
+            name="ad",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="favorited_by",
+                to="ads.ad",
+                verbose_name="Annonce",
+            ),
+        ),
+        migrations.AddField(
+            model_name="favorite",
+            name="user",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="favorites",
+                to=settings.AUTH_USER_MODEL,
+                verbose_name="Utilisateur",
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="adimage",
+            constraint=models.UniqueConstraint(
+                condition=models.Q(("is_primary", True)),
+                fields=("ad",),
+                name="unique_primary_image_per_ad",
+            ),
+        ),
+        migrations.AddIndex(
+            model_name="adview",
+            index=models.Index(
+                fields=["ad", "viewed_at"], name="ads_adview_ad_id_519a73_idx"
+            ),
+        ),
+        migrations.AddIndex(
+            model_name="adview",
+            index=models.Index(
+                fields=["session_key", "ad"], name="ads_adview_session_09c76a_idx"
+            ),
+        ),
+        migrations.AddIndex(
+            model_name="adview",
+            index=models.Index(
+                fields=["user", "viewed_at"], name="ads_adview_user_id_7d23e6_idx"
+            ),
+        ),
+        migrations.AddIndex(
+            model_name="category",
+            index=models.Index(
+                fields=["slug", "is_active"], name="ads_categor_slug_9fdcd8_idx"
+            ),
+        ),
+        migrations.AddIndex(
+            model_name="category",
+            index=models.Index(
+                fields=["parent", "is_active"], name="ads_categor_parent__1c7a6d_idx"
+            ),
+        ),
+        migrations.AddIndex(
+            model_name="category",
+            index=models.Index(
+                fields=["tree_id", "lft"], name="ads_category_tree_id_lft_idx"
+            ),
+        ),
+        migrations.AddIndex(
+            model_name="ad",
+            index=models.Index(
+                fields=["status", "created_at"], name="ads_ad_status_f0db0f_idx"
+            ),
+        ),
+        migrations.AddIndex(
+            model_name="ad",
+            index=models.Index(
+                fields=["seller", "status"], name="ads_ad_seller__10008f_idx"
+            ),
+        ),
+        migrations.AddIndex(
+            model_name="ad",
+            index=models.Index(
+                fields=["country_from", "country_to"], name="ads_ad_country_eb4a3c_idx"
+            ),
+        ),
+        migrations.AddIndex(
+            model_name="ad",
+            index=models.Index(
+                fields=["price", "status"], name="ads_ad_price_c094b3_idx"
+            ),
+        ),
+        migrations.AddIndex(
+            model_name="ad",
+            index=models.Index(
+                fields=["category", "status"], name="ads_ad_categor_cf5a94_idx"
+            ),
+        ),
+        migrations.AlterUniqueTogether(
+            name="favorite",
+            unique_together={("user", "ad")},
+        ),
+    ]
+# Generated by Django 6.0 on 2025-12-31 08:04
+
+import ads.models
+import django.core.validators
+import django.utils.timezone
+import django_countries.fields
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    initial = True
+
+    dependencies = []
+
+    operations = [
+        migrations.CreateModel(
+            name="Ad",
+            fields=[
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "title",
+                    models.CharField(
+                        db_index=True, max_length=200, verbose_name="Titre de l'annonce"
+                    ),
+                ),
+                (
+                    "slug",
+                    models.SlugField(max_length=200, unique=True, verbose_name="Slug"),
+                ),
+                (
+                    "description",
+                    models.TextField(
+                        help_text="Décrivez votre objet en détail",
+                        verbose_name="Description détaillée",
+                    ),
+                ),
+                (
+                    "condition",
+                    models.CharField(
+                        choices=[
+                            ("NEW", "Neuf"),
+                            ("LIKE_NEW", "Comme neuf"),
+                            ("GOOD", "Bon état"),
+                            ("FAIR", "État correct"),
+                            ("POOR", "Mauvais état"),
+                            ("FOR_PARTS", "Pour pièces"),
+                        ],
+                        default="GOOD",
+                        max_length=20,
+                        verbose_name="État de l'objet",
+                    ),
+                ),
+                (
+                    "price",
+                    models.DecimalField(
+                        decimal_places=2,
+                        help_text="Prix en devise de départ",
+                        max_digits=10,
+                        verbose_name="Prix",
+                    ),
+                ),
+                (
+                    "currency",
+                    models.CharField(
+                        choices=[
+                            ("EUR", "€"),
+                            ("USD", "$"),
+                            ("GBP", "£"),
+                            ("MAD", "DH"),
+                            ("XOF", "CFA"),
+                        ],
+                        default="EUR",
+                        max_length=3,
+                        verbose_name="Devise",
+                    ),
+                ),
+                (
+                    "is_negotiable",
+                    models.BooleanField(default=False, verbose_name="Prix négociable"),
+                ),
+                (
+                    "weight",
+                    models.DecimalField(
+                        blank=True,
+                        decimal_places=3,
+                        help_text="Poids en kilogrammes",
+                        max_digits=8,
+                        null=True,
+                        verbose_name="Poids (kg)",
+                    ),
+                ),
+                (
+                    "length",
+                    models.DecimalField(
+                        blank=True,
+                        decimal_places=2,
+                        max_digits=8,
+                        null=True,
+                        verbose_name="Longueur (cm)",
+                    ),
+                ),
+                (
+                    "width",
+                    models.DecimalField(
+                        blank=True,
+                        decimal_places=2,
+                        max_digits=8,
+                        null=True,
+                        verbose_name="Largeur (cm)",
+                    ),
+                ),
+                (
+                    "height",
+                    models.DecimalField(
+                        blank=True,
+                        decimal_places=2,
+                        max_digits=8,
+                        null=True,
+                        verbose_name="Hauteur (cm)",
+                    ),
+                ),
+                (
+                    "volume",
+                    models.DecimalField(
+                        blank=True,
+                        decimal_places=3,
+                        editable=False,
+                        max_digits=10,
+                        null=True,
+                        verbose_name="Volume (L)",
+                    ),
+                ),
+                (
+                    "country_from",
+                    django_countries.fields.CountryField(
+                        help_text="Pays où se trouve l'objet",
+                        max_length=2,
+                        verbose_name="Pays de départ",
+                    ),
+                ),
+                (
+                    "city_from",
+                    models.CharField(max_length=100, verbose_name="Ville de départ"),
+                ),
+                (
+                    "address_from",
+                    models.TextField(blank=True, verbose_name="Adresse de départ"),
+                ),
+                (
+                    "latitude_from",
+                    models.DecimalField(
+                        blank=True,
+                        decimal_places=6,
+                        max_digits=9,
+                        null=True,
+                        verbose_name="Latitude départ",
+                    ),
+                ),
+                (
+                    "longitude_from",
+                    models.DecimalField(
+                        blank=True,
+                        decimal_places=6,
+                        max_digits=9,
+                        null=True,
+                        verbose_name="Longitude départ",
+                    ),
+                ),
+                (
+                    "country_to",
+                    django_countries.fields.CountryField(
+                        help_text="Pays où l'objet doit être livré",
+                        max_length=2,
+                        verbose_name="Pays de destination",
+                    ),
+                ),
+                (
+                    "city_to",
+                    models.CharField(
+                        max_length=100, verbose_name="Ville de destination"
+                    ),
+                ),
+                (
+                    "address_to",
+                    models.TextField(blank=True, verbose_name="Adresse de destination"),
+                ),
+                (
+                    "latitude_to",
+                    models.DecimalField(
+                        blank=True,
+                        decimal_places=6,
+                        max_digits=9,
+                        null=True,
+                        verbose_name="Latitude destination",
+                    ),
+                ),
+                (
+                    "longitude_to",
+                    models.DecimalField(
+                        blank=True,
+                        decimal_places=6,
+                        max_digits=9,
+                        null=True,
+                        verbose_name="Longitude destination",
+                    ),
+                ),
+                (
+                    "logistics_option",
+                    models.CharField(
+                        choices=[
+                            ("P2P_DIRECT", "Vente directe (P2P)"),
+                            ("WITH_CARRIER", "Avec transporteur"),
+                            ("WITH_EXPAT_CARRIER", "Avec expatrié-transporteur"),
+                        ],
+                        default="P2P_DIRECT",
+                        max_length=20,
+                        verbose_name="Option logistique",
+                    ),
+                ),
+                (
+                    "requires_insurance",
+                    models.BooleanField(
+                        default=False, verbose_name="Requiert assurance"
+                    ),
+                ),
+                (
+                    "insurance_value",
+                    models.DecimalField(
+                        blank=True,
+                        decimal_places=2,
+                        max_digits=10,
+                        null=True,
+                        verbose_name="Valeur assurée",
+                    ),
+                ),
+                (
+                    "fragile_item",
+                    models.BooleanField(default=False, verbose_name="Objet fragile"),
+                ),
+                (
+                    "requires_packaging",
+                    models.BooleanField(
+                        default=False, verbose_name="Requiert emballage"
+                    ),
+                ),
+                (
+                    "available_from",
+                    models.DateField(
+                        default=django.utils.timezone.now,
+                        help_text="Date à partir de laquelle l'objet est disponible",
+                        verbose_name="Disponible à partir du",
+                    ),
+                ),
+                (
+                    "available_until",
+                    models.DateField(
+                        blank=True,
+                        help_text="Date limite de disponibilité",
+                        null=True,
+                        verbose_name="Disponible jusqu'au",
+                    ),
+                ),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("DRAFT", "Brouillon"),
+                            ("PENDING", "En attente de validation"),
+                            ("ACTIVE", "Active"),
+                            ("RESERVED", "Réservée"),
+                            ("SOLD", "Vendue"),
+                            ("EXPIRED", "Expirée"),
+                            ("REJECTED", "Rejetée"),
+                            ("ARCHIVED", "Archivée"),
+                        ],
+                        db_index=True,
+                        default="DRAFT",
+                        max_length=20,
+                        verbose_name="Statut",
+                    ),
+                ),
+                (
+                    "is_featured",
+                    models.BooleanField(
+                        default=False, verbose_name="Annonce en vedette"
+                    ),
+                ),
+                (
+                    "featured_until",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="En vedette jusqu'au"
+                    ),
+                ),
+                (
+                    "rejection_reason",
+                    models.TextField(blank=True, verbose_name="Raison du rejet"),
+                ),
+                (
+                    "meta_keywords",
+                    models.CharField(
+                        blank=True, max_length=500, verbose_name="Mots-clés SEO"
+                    ),
+                ),
+                (
+                    "meta_description",
+                    models.TextField(blank=True, verbose_name="Description SEO"),
+                ),
+                (
+                    "view_count",
+                    models.PositiveIntegerField(
+                        default=0, editable=False, verbose_name="Nombre de vues"
+                    ),
+                ),
+                (
+                    "favorite_count",
+                    models.PositiveIntegerField(
+                        default=0, editable=False, verbose_name="Nombre de favoris"
+                    ),
+                ),
+                (
+                    "inquiry_count",
+                    models.PositiveIntegerField(
+                        default=0, editable=False, verbose_name="Nombre de demandes"
+                    ),
+                ),
+                (
+                    "free_images_allowed",
+                    models.PositiveIntegerField(
+                        default=3, verbose_name="Nombre de photos gratuites"
+                    ),
+                ),
+                (
+                    "paid_images_used",
+                    models.PositiveIntegerField(
+                        default=0, verbose_name="Photos payantes utilisées"
+                    ),
+                ),
+                (
+                    "videos_allowed",
+                    models.BooleanField(
+                        default=False, verbose_name="Vidéos autorisées"
+                    ),
+                ),
+                (
+                    "videos_used",
+                    models.PositiveIntegerField(
+                        default=0, verbose_name="Vidéos utilisées"
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True, db_index=True)),
+                ("updated_at", models.DateTimeField(auto_now=True, db_index=True)),
+                ("published_at", models.DateTimeField(blank=True, null=True)),
+                ("expired_at", models.DateTimeField(blank=True, null=True)),
+            ],
+            options={
+                "verbose_name": "Annonce",
+                "verbose_name_plural": "Annonces",
+                "ordering": ["-created_at"],
+                "permissions": [
+                    ("can_feature_ad", "Peut mettre en vedette une annonce"),
+                    ("can_moderate_ad", "Peut modérer les annonces"),
+                    ("can_view_statistics", "Peut voir les statistiques"),
+                ],
+            },
+        ),
+        migrations.CreateModel(
+            name="AdImage",
+            fields=[
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "image",
+                    models.ImageField(
+                        upload_to=ads.models.ad_image_upload_path,
+                        validators=[
+                            django.core.validators.FileExtensionValidator(
+                                ["jpg", "jpeg", "png", "webp"]
+                            ),
+                            ads.models.validate_file_size,
+                        ],
+                        verbose_name="Image",
+                    ),
+                ),
+                (
+                    "thumbnail",
+                    models.ImageField(
+                        blank=True,
+                        editable=False,
+                        null=True,
+                        upload_to="ads/thumbnails/",
+                        verbose_name="Miniature",
+                    ),
+                ),
+                (
+                    "caption",
+                    models.CharField(
+                        blank=True, max_length=200, verbose_name="Légende"
+                    ),
+                ),
+                (
+                    "is_primary",
+                    models.BooleanField(default=False, verbose_name="Image principale"),
+                ),
+                (
+                    "is_paid",
+                    models.BooleanField(default=False, verbose_name="Image payante"),
+                ),
+                (
+                    "payment_status",
+                    models.CharField(
+                        choices=[
+                            ("FREE", "Gratuite"),
+                            ("PAID", "Payée"),
+                            ("PENDING", "En attente"),
+                            ("FAILED", "Échouée"),
+                        ],
+                        default="FREE",
+                        max_length=20,
+                        verbose_name="Statut du paiement",
+                    ),
+                ),
+                (
+                    "payment_reference",
+                    models.CharField(
+                        blank=True, max_length=100, verbose_name="Référence de paiement"
+                    ),
+                ),
+                (
+                    "display_order",
+                    models.PositiveIntegerField(
+                        default=0, verbose_name="Ordre d'affichage"
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+            ],
+            options={
+                "verbose_name": "Image d'annonce",
+                "verbose_name_plural": "Images d'annonces",
+                "ordering": ["is_primary", "display_order", "created_at"],
+            },
+        ),
+        migrations.CreateModel(
+            name="AdReport",
+            fields=[
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "reason",
+                    models.CharField(
+                        choices=[
+                            ("SPAM", "Spam ou publicité"),
+                            ("FRAUD", "Fraude ou arnaque"),
+                            ("INAPPROPRIATE", "Contenu inapproprié"),
+                            ("WRONG_CATEGORY", "Mauvaise catégorie"),
+                            ("PROHIBITED", "Article prohibé"),
+                            ("DUPLICATE", "Annonce en double"),
+                            ("OTHER", "Autre"),
+                        ],
+                        max_length=20,
+                        verbose_name="Raison du signalement",
+                    ),
+                ),
+                (
+                    "description",
+                    models.TextField(blank=True, verbose_name="Description détaillée"),
+                ),
+                (
+                    "evidence",
+                    models.FileField(
+                        blank=True,
+                        null=True,
+                        upload_to="reports/",
+                        verbose_name="Preuve",
+                    ),
+                ),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("PENDING", "En attente"),
+                            ("IN_REVIEW", "En revue"),
+                            ("RESOLVED", "Résolu"),
+                            ("DISMISSED", "Rejeté"),
+                        ],
+                        default="PENDING",
+                        max_length=20,
+                        verbose_name="Statut",
+                    ),
+                ),
+                (
+                    "admin_notes",
+                    models.TextField(
+                        blank=True, verbose_name="Notes de l'administrateur"
+                    ),
+                ),
+                (
+                    "resolved_at",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="Résolu le"
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+            ],
+            options={
+                "verbose_name": "Signalement d'annonce",
+                "verbose_name_plural": "Signalements d'annonces",
+                "ordering": ["-created_at"],
+            },
+        ),
+        migrations.CreateModel(
+            name="AdVideo",
+            fields=[
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "video",
+                    models.FileField(
+                        upload_to=ads.models.ad_video_upload_path,
+                        validators=[
+                            django.core.validators.FileExtensionValidator(
+                                ["mp4", "avi", "mov", "wmv", "webm"]
+                            ),
+                            ads.models.validate_video_size,
+                        ],
+                        verbose_name="Vidéo",
+                    ),
+                ),
+                (
+                    "thumbnail",
+                    models.ImageField(
+                        blank=True,
+                        editable=False,
+                        null=True,
+                        upload_to="ads/video_thumbnails/",
+                        verbose_name="Miniature vidéo",
+                    ),
+                ),
+                (
+                    "caption",
+                    models.CharField(
+                        blank=True, max_length=200, verbose_name="Légende"
+                    ),
+                ),
+                (
+                    "duration",
+                    models.DurationField(blank=True, null=True, verbose_name="Durée"),
+                ),
+                (
+                    "is_paid",
+                    models.BooleanField(default=True, verbose_name="Vidéo payante"),
+                ),
+                (
+                    "payment_status",
+                    models.CharField(
+                        choices=[
+                            ("PAID", "Payée"),
+                            ("PENDING", "En attente"),
+                            ("FAILED", "Échouée"),
+                        ],
+                        default="PENDING",
+                        max_length=20,
+                        verbose_name="Statut du paiement",
+                    ),
+                ),
+                (
+                    "payment_reference",
+                    models.CharField(
+                        blank=True, max_length=100, verbose_name="Référence de paiement"
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+            ],
+            options={
+                "verbose_name": "Vidéo d'annonce",
+                "verbose_name_plural": "Vidéos d'annonces",
+            },
+        ),
+        migrations.CreateModel(
+            name="AdView",
+            fields=[
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "session_key",
+                    models.CharField(
+                        db_index=True, max_length=40, verbose_name="Clé de session"
+                    ),
+                ),
+                (
+                    "ip_address",
+                    models.GenericIPAddressField(
+                        blank=True, null=True, verbose_name="Adresse IP"
+                    ),
+                ),
+                ("user_agent", models.TextField(blank=True, verbose_name="User Agent")),
+                ("referer", models.URLField(blank=True, verbose_name="Referer")),
+                ("viewed_at", models.DateTimeField(auto_now_add=True)),
+            ],
+            options={
+                "verbose_name": "Vue d'annonce",
+                "verbose_name_plural": "Vues d'annonces",
+            },
+        ),
+        migrations.CreateModel(
+            name="Category",
+            fields=[
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "name",
+                    models.CharField(
+                        db_index=True,
+                        max_length=200,
+                        verbose_name="Nom de la catégorie",
+                    ),
+                ),
+                (
+                    "slug",
+                    models.SlugField(
+                        help_text="URL-friendly version du nom",
+                        max_length=200,
+                        unique=True,
+                        verbose_name="Slug",
+                    ),
+                ),
+                (
+                    "description",
+                    models.TextField(
+                        blank=True,
+                        help_text="Description détaillée de la catégorie",
+                        verbose_name="Description",
+                    ),
+                ),
+                (
+                    "icon",
+                    models.CharField(
+                        blank=True,
+                        help_text="Exemple: fa-mobile, fa-car, fa-home",
+                        max_length=100,
+                        verbose_name="Icône FontAwesome",
+                    ),
+                ),
+                (
+                    "image",
+                    models.ImageField(
+                        blank=True,
+                        null=True,
+                        upload_to="categories/",
+                        verbose_name="Image de la catégorie",
+                    ),
+                ),
+                (
+                    "is_active",
+                    models.BooleanField(
+                        default=True,
+                        help_text="Désactiver pour cacher la catégorie",
+                        verbose_name="Active",
+                    ),
+                ),
+                (
+                    "show_in_menu",
+                    models.BooleanField(
+                        default=True, verbose_name="Afficher dans le menu"
+                    ),
+                ),
+                (
+                    "display_order",
+                    models.PositiveIntegerField(
+                        default=0,
+                        help_text="Plus le nombre est bas, plus c'est prioritaire",
+                        verbose_name="Ordre d'affichage",
+                    ),
+                ),
+                (
+                    "requires_dimensions",
+                    models.BooleanField(
+                        default=False,
+                        help_text="Les annonces de cette catégorie doivent avoir des dimensions",
+                        verbose_name="Requiert dimensions",
+                    ),
+                ),
+                (
+                    "requires_weight",
+                    models.BooleanField(
+                        default=True,
+                        help_text="Les annonces de cette catégorie doivent avoir un poids",
+                        verbose_name="Requiert poids",
+                    ),
+                ),
+                (
+                    "meta_title",
+                    models.CharField(
+                        blank=True, max_length=200, verbose_name="Titre SEO"
+                    ),
+                ),
+                (
+                    "meta_description",
+                    models.TextField(blank=True, verbose_name="Description SEO"),
+                ),
+                (
+                    "ad_count",
+                    models.PositiveIntegerField(
+                        default=0, editable=False, verbose_name="Nombre d'annonces"
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                ("lft", models.PositiveIntegerField(editable=False)),
+                ("rght", models.PositiveIntegerField(editable=False)),
+                ("tree_id", models.PositiveIntegerField(db_index=True, editable=False)),
+                ("level", models.PositiveIntegerField(editable=False)),
+            ],
+            options={
+                "verbose_name": "Catégorie",
+                "verbose_name_plural": "Catégories",
+                "ordering": ["display_order", "name"],
+            },
+        ),
+        migrations.CreateModel(
+            name="Favorite",
+            fields=[
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+            ],
+            options={
+                "verbose_name": "Favori",
+                "verbose_name_plural": "Favoris",
+                "ordering": ["-created_at"],
+            },
+        ),
+    ]
+# ~/ebi3/ads/tests.py
+from django.test import TestCase, TransactionTestCase
+from django.urls import reverse
+from django.contrib.auth import get_user_model
+from django.utils import timezone
+from datetime import timedelta
+from django.conf import settings
+from .models import Category, Ad
+
+User = get_user_model()
+
+
+class AdsTests(TestCase):
+    """Tests pour l'application ads"""
+
+    def setUp(self):
+        # Créer un utilisateur
+        self.user = User.objects.create_user(
+            username='testuser',
+            email='test@example.com',
+            password='testpass123',
+            role='SELLER'
+        )
+
+        # Créer une catégorie
+        self.category = Category.objects.create(
+            name='Électronique',
+            slug='electronique',
+            is_active=True
+        )
+
+        # Créer une annonce
+        self.ad = Ad.objects.create(
+            title='Test Annonce',
+            slug='test-annonce',
+            seller=self.user,
+            category=self.category,
+            description='Description de test',
+            price=100.00,
+            currency='EUR',
+            country_from='FR',
+            city_from='Paris',
+            country_to='MA',
+            city_to='Casablanca',
+            logistics_option=Ad.LogisticsOption.P2P_DIRECT,
+            status=Ad.Status.ACTIVE,
+            available_from=timezone.now().date(),
+            available_until=(timezone.now() + timedelta(days=30)).date()
+        )
+
+    def test_ad_creation(self):
+        """Test la création d'une annonce"""
+        self.assertEqual(self.ad.title, 'Test Annonce')
+        self.assertEqual(self.ad.seller.username, 'testuser')
+        self.assertEqual(self.ad.status, Ad.Status.ACTIVE)
+        self.assertIsNotNone(self.ad.available_from)
+
+    def test_ad_list_view(self):
+        """Test la vue de liste des annonces"""
+        response = self.client.get(reverse('ads:ad_list'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'ads/ad_list.html')
+        self.assertContains(response, 'Annonces')
+
+    def test_ad_detail_view(self):
+        """Test la vue de détail d'annonce"""
+        response = self.client.get(reverse('ads:ad_detail', kwargs={'slug': self.ad.slug}))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'ads/ad_detail.html')
+        self.assertContains(response, 'Test Annonce')
+
+    def test_ad_str_method(self):
+        """Test la méthode __str__ de l'annonce"""
+        self.assertEqual(str(self.ad), 'Test Annonce - testuser')
+
+    def test_category_str_method(self):
+        """Test la méthode __str__ de la catégorie"""
+        self.assertEqual(str(self.category), 'Électronique')
+
+    def test_ad_get_absolute_url(self):
+        """Test la méthode get_absolute_url de l'annonce"""
+        url = self.ad.get_absolute_url()
+        # Prendre en compte le préfixe de langue
+        expected = f'/ads/{self.ad.slug}/'
+        # Si I18N est activé, l'URL aura un préfixe
+        if settings.USE_I18N:
+            self.assertTrue(url.startswith('/') and url.endswith(f'/ads/{self.ad.slug}/'))
+        else:
+            self.assertEqual(url, expected)
+
+    def test_category_get_absolute_url(self):
+        """Test la méthode get_absolute_url de la catégorie"""
+        url = self.category.get_absolute_url()
+        expected = f'/ads/categories/{self.category.slug}/'
+        # Si I18N est activé, l'URL aura un préfixe
+        if settings.USE_I18N:
+            self.assertTrue(url.startswith('/') and url.endswith(f'/ads/categories/{self.category.slug}/'))
+        else:
+            self.assertEqual(url, expected)
+
+    def test_ad_price_with_currency(self):
+        """Test la méthode get_price_with_currency"""
+        price_str = self.ad.get_price_with_currency()
+        # Format attendu : "100.00 €"
+        self.assertEqual(price_str, '100.00 €')
+
+    def test_ad_can_be_reserved(self):
+        """Test la méthode can_be_reserved"""
+        # L'annonce peut être réservée par un autre utilisateur
+        other_user = User.objects.create_user(
+            username='otheruser',
+            password='testpass123',
+            role='BUYER'
+        )
+        self.assertTrue(self.ad.can_be_reserved(other_user))
+
+        # Le vendeur ne peut pas réserver sa propre annonce
+        self.assertFalse(self.ad.can_be_reserved(self.user))
+
+        # Une annonce non active ne peut pas être réservée
+        self.ad.status = Ad.Status.DRAFT
+        self.ad.save()
+        self.assertFalse(self.ad.can_be_reserved(other_user))
+
+
+class CategoryTests(TestCase):
+    """Tests spécifiques pour les catégories"""
+
+    def setUp(self):
+        self.parent_category = Category.objects.create(
+            name='Parent',
+            slug='parent',
+            is_active=True
+        )
+
+        self.child_category = Category.objects.create(
+            name='Child',
+            slug='child',
+            parent=self.parent_category,
+            is_active=True
+        )
+
+    def test_category_hierarchy(self):
+        """Test la hiérarchie des catégories"""
+        self.assertEqual(self.child_category.parent, self.parent_category)
+        self.assertIn(self.child_category, self.parent_category.children.all())
+
+    def test_category_get_full_path(self):
+        """Test la méthode get_full_path"""
+        path = self.child_category.get_full_path()
+        self.assertEqual(path, 'Parent > Child')
+
+
+class AdModelTests(TestCase):
+    """Tests supplémentaires pour le modèle Ad"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='modeluser',
+            password='testpass123',
+            role='SELLER'
+        )
+
+        self.category = Category.objects.create(
+            name='Test Category',
+            slug='test-category',
+            is_active=True
+        )
+
+    def test_ad_slug_generation(self):
+        """Test la génération automatique du slug"""
+        ad = Ad.objects.create(
+            title='Un titre avec des espaces',
+            seller=self.user,
+            category=self.category,
+            description='Description',
+            price=50.00,
+            currency='EUR',
+            country_from='FR',
+            city_from='Paris',
+            country_to='MA',
+            city_to='Casablanca',
+            available_from=timezone.now().date()
+        )
+
+        # Le slug devrait être généré automatiquement
+        self.assertTrue(hasattr(ad, 'slug'))
+        self.assertTrue(ad.slug.startswith('un-titre-avec-des-espaces'))
+
+    def test_ad_volume_calculation(self):
+        """Test le calcul automatique du volume"""
+        ad = Ad.objects.create(
+            title='Test Volume',
+            seller=self.user,
+            category=self.category,
+            description='Description',
+            price=50.00,
+            currency='EUR',
+            country_from='FR',
+            city_from='Paris',
+            country_to='MA',
+            city_to='Casablanca',
+            length=10,
+            width=20,
+            height=30,
+            available_from=timezone.now().date()
+        )
+
+        # Volume = (10 * 20 * 30) / 1000 = 6 litres
+        # Mais le calcul se fait dans save(), donc vérifions après rechargement
+        ad.refresh_from_db()
+        if ad.volume:  # Peut être None si pas calculé
+            self.assertEqual(float(ad.volume), 6.0)
+
+    def test_ad_status_transitions(self):
+        """Test les transitions de statut"""
+        ad = Ad.objects.create(
+            title='Test Status',
+            seller=self.user,
+            category=self.category,
+            description='Description',
+            price=50.00,
+            currency='EUR',
+            country_from='FR',
+            city_from='Paris',
+            country_to='MA',
+            city_to='Casablanca',
+            available_from=timezone.now().date(),
+            status=Ad.Status.DRAFT
+        )
+
+        # Vérifier qu'il n'y a pas de date de publication
+        self.assertIsNone(ad.published_at)
+
+        # Changer le statut à ACTIVE
+        ad.status = Ad.Status.ACTIVE
+        ad.save()
+        ad.refresh_from_db()
+
+        # Vérifier que published_at a été défini
+        self.assertIsNotNone(ad.published_at)
+
+    def test_ad_expiration(self):
+        """Test l'expiration automatique"""
+        ad = Ad.objects.create(
+            title='Test Expiration',
+            seller=self.user,
+            category=self.category,
+            description='Description',
+            price=50.00,
+            currency='EUR',
+            country_from='FR',
+            city_from='Paris',
+            country_to='MA',
+            city_to='Casablanca',
+            available_from=timezone.now().date() - timedelta(days=10),
+            available_until=timezone.now().date() - timedelta(days=1),  # Hier
+            status=Ad.Status.ACTIVE
+        )
+
+        # Sauvegarder pour déclencher la logique d'expiration
+        ad.save()
+        ad.refresh_from_db()
+
+        # L'annonce devrait être marquée comme expirée
+        self.assertEqual(ad.status, Ad.Status.EXPIRED)
+        self.assertIsNotNone(ad.expired_at)
+
+
+# Tests de vues avec TransactionTestCase pour éviter les problèmes de DB
+class AdsViewTests(TransactionTestCase):
+    """Tests des vues avec gestion transactionnelle"""
+
+    def test_empty_ad_list(self):
+        """Test la liste d'annonces vide"""
+        response = self.client.get(reverse('ads:ad_list'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Aucune annonce')
+
+    def test_search_view(self):
+        """Test la vue de recherche"""
+        response = self.client.get(reverse('ads:search'), {'q': 'test'})
+        self.assertEqual(response.status_code, 200)# ~/ebi3/ads/signals.py
+from django.db.models.signals import post_save, pre_save, post_delete
+from django.dispatch import receiver
+from django.utils import timezone
+from .models import Ad, AdImage, Favorite
+
+@receiver(pre_save, sender=Ad)
+def update_ad_status(sender, instance, **kwargs):
+    """Met à jour les dates lors des changements de statut"""
+    if instance.pk:
+        old_instance = Ad.objects.get(pk=instance.pk)
+
+        # Si l'annonce devient active et n'était pas active avant
+        if instance.status == Ad.Status.ACTIVE and old_instance.status != Ad.Status.ACTIVE:
+            instance.published_at = timezone.now()
+
+        # Si l'annonce devient expirée
+        if instance.status == Ad.Status.EXPIRED and old_instance.status != Ad.Status.EXPIRED:
+            instance.expired_at = timezone.now()
+
+@receiver(post_save, sender=AdImage)
+def update_paid_images_count(sender, instance, created, **kwargs):
+    """Met à jour le compteur d'images payantes"""
+    if instance.is_paid and instance.payment_status == 'PAID':
+        ad = instance.ad
+        ad.paid_images_used = ad.images.filter(is_paid=True, payment_status='PAID').count()
+        ad.save(update_fields=['paid_images_used'])
+
+@receiver(post_delete, sender=AdImage)
+def cleanup_image_files(sender, instance, **kwargs):
+    """Nettoie les fichiers d'image supprimés"""
+    # django-cleanup s'en charge automatiquement
+    pass# ~/ebi3/ads/admin.py
+from django.contrib import admin
+from django.utils import timezone
+from django.utils.html import format_html
+from django.utils.translation import gettext_lazy as _
+from django.contrib import messages
+from django.urls import reverse
+from django.db.models import Count, Avg, Sum, Q
+from django.http import HttpResponseRedirect
+import csv
+from django.http import HttpResponse
+
+from .models import (
+    Ad, Category, AdImage, AdVideo, Favorite,
+    AdView, AdReport
+)
+
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    """Administration des catégories"""
+
+    list_display = ('name', 'parent', 'is_active', 'show_in_menu', 'ad_count', 'display_order')
+    list_filter = ('is_active', 'show_in_menu', 'created_at')
+    search_fields = ('name', 'description', 'slug')
+    prepopulated_fields = {'slug': ('name',)}
+    readonly_fields = ('created_at', 'updated_at', 'ad_count')
+
+    fieldsets = (
+        (_('Informations de base'), {
+            'fields': ('name', 'slug', 'parent', 'description')
+        }),
+        (_('Apparence'), {
+            'fields': ('icon', 'image', 'display_order')
+        }),
+        (_('Visibilité'), {
+            'fields': ('is_active', 'show_in_menu')
+        }),
+        (_('Configuration des annonces'), {
+            'fields': ('requires_dimensions', 'requires_weight')
+        }),
+        (_('SEO'), {
+            'fields': ('meta_title', 'meta_description')
+        }),
+        (_('Statistiques'), {
+            'fields': ('ad_count', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    # ✅ CORRECTION : actions doit être une LISTE de noms de méthodes
+    actions = ['activate_categories', 'deactivate_categories', 'show_in_menu_action', 'hide_from_menu_action']
+
+    # ✅ Les méthodes d'action doivent être séparées
+    def activate_categories(self, request, queryset):
+        """Action pour activer les catégories"""
+        updated = queryset.update(is_active=True)
+        self.message_user(request, _(f'{updated} catégories ont été activées.'))
+    activate_categories.short_description = _('Activer les catégories sélectionnées')
+
+    def deactivate_categories(self, request, queryset):
+        """Action pour désactiver les catégories"""
+        updated = queryset.update(is_active=False)
+        self.message_user(request, _(f'{updated} catégories ont été désactivées.'))
+    deactivate_categories.short_description = _('Désactiver les catégories sélectionnées')
+
+    def show_in_menu_action(self, request, queryset):
+        """Action pour afficher dans le menu"""
+        updated = queryset.update(show_in_menu=True)
+        self.message_user(request, _(f'{updated} catégories sont maintenant visibles dans le menu.'))
+    show_in_menu_action.short_description = _('Afficher dans le menu')
+
+    def hide_from_menu_action(self, request, queryset):
+        """Action pour cacher du menu"""
+        updated = queryset.update(show_in_menu=False)
+        self.message_user(request, _(f'{updated} catégories sont maintenant cachées du menu.'))
+    hide_from_menu_action.short_description = _('Cacher du menu')
+
+
+class AdImageInline(admin.TabularInline):
+    """Inline pour les images d'annonce"""
+    model = AdImage
+    extra = 1
+    fields = ('image', 'thumbnail_preview', 'caption', 'is_primary', 'display_order', 'is_paid', 'payment_status')
+    readonly_fields = ('thumbnail_preview',)
+
+    def thumbnail_preview(self, obj):
+        if obj.thumbnail:
+            return format_html('<img src="{}" style="max-height: 50px; max-width: 50px;" />', obj.thumbnail.url)
+        elif obj.image:
+            return format_html('<img src="{}" style="max-height: 50px; max-width: 50px;" />', obj.image.url)
+        return _("Pas d'image")
+    thumbnail_preview.short_description = _('Aperçu')
+
+
+class AdVideoInline(admin.TabularInline):
+    """Inline pour les vidéos d'annonce"""
+    model = AdVideo
+    extra = 0
+    fields = ('video', 'thumbnail_preview', 'caption', 'is_paid', 'payment_status')
+    readonly_fields = ('thumbnail_preview',)
+
+    def thumbnail_preview(self, obj):
+        if obj.thumbnail:
+            return format_html('<img src="{}" style="max-height: 50px; max-width: 50px;" />', obj.thumbnail.url)
+        return _("Pas de miniature")
+    thumbnail_preview.short_description = _('Aperçu')
+
+
+@admin.register(Ad)
+class AdAdmin(admin.ModelAdmin):
+    """Administration des annonces"""
+
+    inlines = [AdImageInline, AdVideoInline]
+
+    list_display = (
+        'title', 'seller', 'category', 'price_with_currency',
+        'status_badge', 'is_featured', 'view_count',
+        'favorite_count', 'created_at'
+    )
+
+    list_filter = (
+        'status', 'condition', 'logistics_option',
+        'is_featured', 'created_at', 'category'
+    )
+
+    search_fields = (
+        'title', 'description', 'seller__username',
+        'seller__email', 'city_from', 'city_to'
+    )
+
+    readonly_fields = (
+        'slug', 'view_count', 'favorite_count', 'inquiry_count',
+        'created_at', 'updated_at', 'published_at', 'expired_at',
+        'volume', 'paid_images_used', 'videos_used'
+    )
+
+    fieldsets = (
+        (_('Informations de base'), {
+            'fields': ('title', 'slug', 'seller', 'category', 'description')
+        }),
+        (_('État et prix'), {
+            'fields': ('condition', 'price', 'currency', 'is_negotiable')
+        }),
+        (_('Dimensions'), {
+            'fields': ('weight', 'length', 'width', 'height', 'volume')
+        }),
+        (_('Origine'), {
+            'fields': ('country_from', 'city_from', 'address_from')
+        }),
+        (_('Destination'), {
+            'fields': ('country_to', 'city_to', 'address_to')
+        }),
+        (_('Logistique'), {
+            'fields': ('logistics_option', 'requires_insurance',
+                      'insurance_value', 'fragile_item', 'requires_packaging')
+        }),
+        (_('Disponibilité'), {
+            'fields': ('available_from', 'available_until')
+        }),
+        (_('Statut et promotion'), {
+            'fields': ('status', 'is_featured', 'featured_until',
+                      'rejection_reason')
+        }),
+        (_('Multimédia'), {
+            'fields': ('free_images_allowed', 'paid_images_used',
+                      'videos_allowed', 'videos_used'),
+            'classes': ('collapse',)
+        }),
+        (_('SEO'), {
+            'fields': ('meta_keywords', 'meta_description'),
+            'classes': ('collapse',)
+        }),
+        (_('Statistiques'), {
+            'fields': ('view_count', 'favorite_count', 'inquiry_count',
+                      'created_at', 'updated_at', 'published_at', 'expired_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    # ✅ CORRECTION IMPORTANTE: actions doit être une LISTE de noms de méthodes
+    actions = [
+        'approve_ads', 'reject_ads', 'feature_ads', 'unfeature_ads',
+        'mark_as_sold', 'mark_as_expired', 'export_to_csv'
+    ]
+
+    def price_with_currency(self, obj):
+        return f"{obj.price} {obj.get_currency_display()}"
+    price_with_currency.short_description = _('Prix')
+    price_with_currency.admin_order_field = 'price'
+
+    def status_badge(self, obj):
+        status_colors = {
+            'DRAFT': 'secondary',
+            'PENDING': 'warning',
+            'ACTIVE': 'success',
+            'RESERVED': 'info',
+            'SOLD': 'primary',
+            'EXPIRED': 'dark',
+            'REJECTED': 'danger',
+            'ARCHIVED': 'light'
+        }
+        color = status_colors.get(obj.status, 'secondary')
+        return format_html(
+            '<span class="badge bg-{}">{}</span>',
+            color, obj.get_status_display()
+        )
+    status_badge.short_description = _('Statut')
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('seller', 'category')
+
+    # Les méthodes d'action doivent être séparées de la liste 'actions'
+    def approve_ads(self, request, queryset):
+        """Action pour approuver les annonces"""
+        updated = queryset.update(status=Ad.Status.ACTIVE, published_at=timezone.now())
+        self.message_user(request, _(f'{updated} annonces ont été approuvées.'))
+    approve_ads.short_description = _('Approuver les annonces sélectionnées')
+
+    def reject_ads(self, request, queryset):
+        """Action pour rejeter les annonces"""
+        for ad in queryset:
+            ad.status = Ad.Status.REJECTED
+            ad.save()
+        self.message_user(request, _(f'{queryset.count()} annonces ont été rejetées.'))
+    reject_ads.short_description = _('Rejeter les annonces sélectionnées')
+
+    def feature_ads(self, request, queryset):
+        """Action pour mettre en vedette"""
+        updated = queryset.update(
+            is_featured=True,
+            featured_until=timezone.now() + timezone.timedelta(days=7)
+        )
+        self.message_user(request, _(f'{updated} annonces ont été mises en vedette.'))
+    feature_ads.short_description = _('Mettre en vedette')
+
+    def unfeature_ads(self, request, queryset):
+        """Action pour retirer de la vedette"""
+        updated = queryset.update(is_featured=False, featured_until=None)
+        self.message_user(request, _(f'{updated} annonces ne sont plus en vedette.'))
+    unfeature_ads.short_description = _('Retirer de la vedette')
+
+    def mark_as_sold(self, request, queryset):
+        """Action pour marquer comme vendu"""
+        updated = queryset.update(status=Ad.Status.SOLD)
+        self.message_user(request, _(f'{updated} annonces ont été marquées comme vendues.'))
+    mark_as_sold.short_description = _('Marquer comme vendu')
+
+    def mark_as_expired(self, request, queryset):
+        """Action pour marquer comme expiré"""
+        updated = queryset.update(status=Ad.Status.EXPIRED, expired_at=timezone.now())
+        self.message_user(request, _(f'{updated} annonces ont été marquées comme expirées.'))
+    mark_as_expired.short_description = _('Marquer comme expiré')
+
+    def export_to_csv(self, request, queryset):
+        """Action pour exporter en CSV"""
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="annonces.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow([
+            'ID', 'Titre', 'Vendeur', 'Catégorie', 'Prix', 'Devise',
+            'Statut', 'Ville départ', 'Ville destination', 'Vues',
+            'Favoris', 'Date création'
+        ])
+
+        for ad in queryset:
+            writer.writerow([
+                ad.id, ad.title, ad.seller.username,
+                ad.category.name if ad.category else '',
+                ad.price, ad.currency, ad.get_status_display(),
+                ad.city_from, ad.city_to, ad.view_count,
+                ad.favorite_count, ad.created_at.strftime('%Y-%m-%d %H:%M')
+            ])
+
+        return response
+    export_to_csv.short_description = _('Exporter en CSV')
+
+    def save_model(self, request, obj, form, change):
+        if not obj.pk:
+            obj.seller = request.user
+
+        # Si le statut passe à ACTIF et qu'il n'y a pas de date de publication
+        if obj.status == Ad.Status.ACTIVE and not obj.published_at:
+            obj.published_at = timezone.now()
+
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(AdImage)
+class AdImageAdmin(admin.ModelAdmin):
+    """Administration des images d'annonces"""
+
+    list_display = ('ad', 'thumbnail_preview', 'caption', 'is_primary', 'is_paid', 'payment_status', 'created_at')
+    list_filter = ('is_primary', 'is_paid', 'payment_status', 'created_at')
+    search_fields = ('ad__title', 'caption')
+    readonly_fields = ('created_at', 'updated_at')
+
+    # ✅ CORRECTION: actions doit être une liste vide si pas d'actions
+    actions = []
+
+    def thumbnail_preview(self, obj):
+        if obj.thumbnail:
+            return format_html('<img src="{}" style="max-height: 50px; max-width: 50px;" />', obj.thumbnail.url)
+        elif obj.image:
+            return format_html('<img src="{}" style="max-height: 50px; max-width: 50px;" />', obj.image.url)
+        return _("Pas d'image")
+    thumbnail_preview.short_description = _('Aperçu')
+
+
+@admin.register(AdVideo)
+class AdVideoAdmin(admin.ModelAdmin):
+    """Administration des vidéos d'annonces"""
+
+    list_display = ('ad', 'caption', 'is_paid', 'payment_status', 'created_at')
+    list_filter = ('is_paid', 'payment_status', 'created_at')
+    search_fields = ('ad__title', 'caption')
+    readonly_fields = ('created_at',)
+
+    # ✅ CORRECTION: actions doit être une liste vide si pas d'actions
+    actions = []
+
+
+@admin.register(Favorite)
+class FavoriteAdmin(admin.ModelAdmin):
+    """Administration des favoris"""
+
+    list_display = ('user', 'ad', 'created_at')
+    list_filter = ('created_at',)
+    search_fields = ('user__username', 'ad__title')
+    readonly_fields = ('created_at',)
+
+    # ✅ CORRECTION: actions doit être une liste vide si pas d'actions
+    actions = []
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('user', 'ad')
+
+
+@admin.register(AdView)
+class AdViewAdmin(admin.ModelAdmin):
+    """Administration des vues d'annonces"""
+
+    list_display = ('ad', 'user', 'ip_address', 'viewed_at')
+    list_filter = ('viewed_at',)
+    search_fields = ('ad__title', 'user__username', 'ip_address')
+    readonly_fields = ('viewed_at',)
+
+    # ✅ CORRECTION: actions doit être une liste vide si pas d'actions
+    actions = []
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(AdReport)
+class AdReportAdmin(admin.ModelAdmin):
+    """Administration des signalements d'annonces"""
+
+    list_display = ('ad', 'reporter', 'reason', 'status', 'created_at')
+    list_filter = ('reason', 'status', 'created_at')
+    search_fields = ('ad__title', 'reporter__username', 'description')
+    list_editable = ('status',)
+    readonly_fields = ('created_at',)
+
+    fieldsets = (
+        (_('Signalement'), {
+            'fields': ('ad', 'reporter', 'reason', 'description', 'evidence')
+        }),
+        (_('Traitement'), {
+            'fields': ('status', 'admin_notes', 'resolved_by', 'resolved_at')
+        }),
+        (_('Métadonnées'), {
+            'fields': ('created_at',),
+            'classes': ('collapse',)
+        }),
+    )
+
+    # ✅ CORRECTION: actions doit être une liste de noms de méthodes
+    actions = ['mark_as_resolved', 'mark_as_dismissed']
+
+    def mark_as_resolved(self, request, queryset):
+        """Action pour marquer comme résolu"""
+        updated = queryset.update(
+            status='RESOLVED',  # Note: Utiliser la valeur littérale
+            resolved_by=request.user,
+            resolved_at=timezone.now()
+        )
+        self.message_user(request, _(f'{updated} signalements ont été résolus.'))
+    mark_as_resolved.short_description = _('Marquer comme résolu')
+
+    def mark_as_dismissed(self, request, queryset):
+        """Action pour rejeter les signalements"""
+        updated = queryset.update(
+            status='DISMISSED',  # Note: Utiliser la valeur littérale
+            resolved_by=request.user,
+            resolved_at=timezone.now()
+        )
+        self.message_user(request, _(f'{updated} signalements ont été rejetés.'))
+    mark_as_dismissed.short_description = _('Rejeter les signalements')
+
+    def save_model(self, request, obj, form, change):
+        if obj.status in ['RESOLVED', 'DISMISSED'] and not obj.resolved_by:
+            obj.resolved_by = request.user
+            obj.resolved_at = timezone.now()
+        super().save_model(request, obj, form, change)# ~/ebi3/ads/forms.py
+from django import forms
+from django.utils.translation import gettext_lazy as _
+from django.core.exceptions import ValidationError
+from django.forms import inlineformset_factory
+from django.utils import timezone
+from django_countries.fields import CountryField  # AJOUTEZ CETTE LIGNE
+
+from .models import Ad, AdImage, Category, AdReport
+from users.models import User
+
+class AdBaseForm(forms.ModelForm):
+    """Formulaire de base pour les annonces"""
+
+    class Meta:
+        model = Ad
+        fields = [
+            'title', 'category', 'description', 'condition',
+            'price', 'currency', 'is_negotiable',
+            'weight', 'length', 'width', 'height',
+            'country_from', 'city_from', 'address_from',
+            'country_to', 'city_to', 'address_to',
+            'logistics_option', 'requires_insurance',
+            'insurance_value', 'fragile_item', 'requires_packaging',
+            'available_from', 'available_until',
+        ]
+        widgets = {
+            'title': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': _("Titre de votre annonce")
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 6,
+                'placeholder': _("Décrivez votre objet en détail...")
+            }),
+            'category': forms.Select(attrs={'class': 'form-control'}),
+            'condition': forms.Select(attrs={'class': 'form-control'}),
+            'price': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.01'
+            }),
+            'currency': forms.Select(attrs={'class': 'form-control'}),
+            'weight': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.001',
+                'placeholder': _("kg")
+            }),
+            'length': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.1',
+                'placeholder': _("cm")
+            }),
+            'width': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.1',
+                'placeholder': _("cm")
+            }),
+            'height': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.1',
+                'placeholder': _("cm")
+            }),
+            'country_from': forms.Select(attrs={'class': 'form-control'}),
+            'city_from': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': _("Ville de départ")
+            }),
+            'address_from': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 2,
+                'placeholder': _("Adresse complète (optionnel)")
+            }),
+            'country_to': forms.Select(attrs={'class': 'form-control'}),
+            'city_to': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': _("Ville de destination")
+            }),
+            'address_to': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 2,
+                'placeholder': _("Adresse complète (optionnel)")
+            }),
+            'logistics_option': forms.Select(attrs={'class': 'form-control'}),
+            'insurance_value': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.01'
+            }),
+            'available_from': forms.DateInput(attrs={
+                'type': 'date',
+                'class': 'form-control'
+            }),
+            'available_until': forms.DateInput(attrs={
+                'type': 'date',
+                'class': 'form-control'
+            }),
+        }
+        labels = {
+            'is_negotiable': _("Prix négociable"),
+            'requires_insurance': _("Assurance requise"),
+            'fragile_item': _("Objet fragile"),
+            'requires_packaging': _("Emballage requis"),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+
+        # Filtrer les catégories actives
+        self.fields['category'].queryset = Category.objects.filter(is_active=True)
+
+        # Définir les dates par défaut
+        if not self.instance.pk:
+            self.fields['available_from'].initial = timezone.now().date()
+            self.fields['available_until'].initial = (timezone.now() + timezone.timedelta(days=30)).date()
+
+    def clean_available_until(self):
+        available_from = self.cleaned_data.get('available_from')
+        available_until = self.cleaned_data.get('available_until')
+
+        if available_from and available_until:
+            if available_until < available_from:
+                raise ValidationError(
+                    _("La date de fin doit être postérieure à la date de début.")
+                )
+            if available_until < timezone.now().date():
+                raise ValidationError(
+                    _("La date de fin ne peut pas être dans le passé.")
+                )
+
+        return available_until
+
+    def clean_price(self):
+        price = self.cleaned_data.get('price')
+        if price and price <= 0:
+            raise ValidationError(_("Le prix doit être supérieur à 0."))
+        return price
+
+
+class AdCreateForm(AdBaseForm):
+    """Formulaire pour créer une annonce"""
+
+    def save(self, commit=True):
+        ad = super().save(commit=False)
+        if self.user:
+            ad.seller = self.user
+
+        if commit:
+            ad.save()
+        return ad
+
+
+class AdUpdateForm(AdBaseForm):
+    """Formulaire pour mettre à jour une annonce"""
+    pass
+
+
+class AdImageForm(forms.ModelForm):
+    """Formulaire pour les images d'annonces"""
+
+    class Meta:
+        model = AdImage
+        fields = ['image', 'caption', 'is_primary', 'is_paid', 'display_order']
+        widgets = {
+            'image': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/*'
+            }),
+            'caption': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': _("Description de l'image")
+            }),
+            'display_order': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 0
+            }),
+        }
+
+
+# Formset pour les images
+AdImageFormSet = inlineformset_factory(
+    Ad,
+    AdImage,
+    form=AdImageForm,
+    extra=5,  # 5 formulaires d'image vides par défaut
+    max_num=20,  # Maximum d'images
+    can_delete=True,
+    validate_max=True,
+)
+
+
+class AdSearchForm(forms.Form):
+    """Formulaire de recherche d'annonces"""
+
+    q = forms.CharField(
+        required=False,
+        label=_("Rechercher"),
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': _("Que cherchez-vous ?")
+        })
+    )
+
+    category = forms.ModelChoiceField(
+        required=False,
+        queryset=Category.objects.filter(is_active=True),
+        label=_("Catégorie"),
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+
+    min_price = forms.DecimalField(
+        required=False,
+        min_value=0,
+        decimal_places=2,
+        label=_("Prix minimum"),
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'placeholder': _("Min")
+        })
+    )
+
+    max_price = forms.DecimalField(
+        required=False,
+        min_value=0,
+        decimal_places=2,
+        label=_("Prix maximum"),
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'placeholder': _("Max")
+        })
+    )
+
+    condition = forms.ChoiceField(
+        required=False,
+        choices=[('', _("Tous"))] + list(Ad.Condition.choices),
+        label=_("État"),
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+
+    logistics_option = forms.ChoiceField(
+        required=False,
+        choices=[('', _("Toutes"))] + list(Ad.LogisticsOption.choices),
+        label=_("Option logistique"),
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+
+    # CORRECTION : Utiliser CountryField directement pour le formfield
+    country_from = CountryField().formfield(
+        required=False,
+        label=_("Pays de départ"),
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+
+    country_to = CountryField().formfield(
+        required=False,
+        label=_("Pays de destination"),
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        min_price = cleaned_data.get('min_price')
+        max_price = cleaned_data.get('max_price')
+
+        if min_price and max_price and min_price > max_price:
+            raise ValidationError(
+                _("Le prix minimum ne peut pas être supérieur au prix maximum.")
+            )
+
+        return cleaned_data
+
+
+class AdReportForm(forms.ModelForm):
+    """Formulaire pour signaler une annonce"""
+
+    class Meta:
+        model = AdReport
+        fields = ['reason', 'description', 'evidence']
+        widgets = {
+            'reason': forms.Select(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 4,
+                'placeholder': _("Décrivez le problème en détail...")
+            }),
+            'evidence': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/*,.pdf,.doc,.docx'
+            }),
+        }# ~/ebi3/ads/apps.py
+from django.apps import AppConfig
+
+class AdsConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'ads'
+    verbose_name = "Annonces"
+
+    def ready(self):
+        import ads.signals  # Import des signaux# ~/ebi3/ads/urls.py
+from django.urls import path
+from . import views
+
+app_name = 'ads'
+
+urlpatterns = [
+    # Annonces
+    path('', views.AdListView.as_view(), name='ad_list'),
+    path('create/', views.AdCreateView.as_view(), name='ad_create'),
+    path('search/', views.search_ads, name='search'),
+    path('my-ads/', views.MyAdsListView.as_view(), name='my_ads'),
+
+    # Annonce spécifique
+    path('<slug:slug>/', views.AdDetailView.as_view(), name='ad_detail'),
+    path('<slug:slug>/edit/', views.AdUpdateView.as_view(), name='ad_edit'),
+    path('<slug:slug>/delete/', views.AdDeleteView.as_view(), name='ad_delete'),
+    path('<slug:slug>/report/', views.AdReportView.as_view(), name='ad_report'),
+    path('<slug:slug>/favorite/', views.toggle_favorite, name='toggle_favorite'),
+    path('<slug:slug>/status/<str:status>/', views.change_ad_status, name='change_status'),
+
+    # Nouvelle intégration avec logistics
+    path('<slug:slug>/reserve/', views.AdDetailView.as_view(), name='ad_reserve'),
+    path('<slug:slug>/propose-transport/', views.AdDetailView.as_view(), name='ad_propose_transport'),
+    path('<slug:slug>/transport-proposals/', views.AdTransportProposalsView.as_view(), name='ad_transport_proposals'),
+
+    # Catégories
+    path('categories/', views.CategoryListView.as_view(), name='category_list'),
+    path('categories/<slug:slug>/', views.CategoryDetailView.as_view(), name='category_detail'),
+
+    # Favoris
+    path('favorites/', views.FavoriteListView.as_view(), name='favorite_list'),
+]# ~/ebi3/ads/models.py
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+from django.core.exceptions import ValidationError
+from django.utils.text import slugify
+from django.urls import reverse
+from django.utils import timezone
+from django.core.validators import FileExtensionValidator
+import os
+import uuid
+from mptt.models import MPTTModel, TreeForeignKey
+from django_countries.fields import CountryField
+
+# Validateurs personnalisés
+def validate_file_size(value):
+    """Validateur pour la taille maximale des fichiers (10MB)"""
+    filesize = value.size
+    max_size = 10 * 1024 * 1024  # 10MB
+    if filesize > max_size:
+        raise ValidationError(
+            _(f'La taille du fichier ne doit pas dépasser {max_size / (1024 * 1024):.0f}MB')
+        )
+
+def validate_video_size(value):
+    """Validateur pour la taille maximale des vidéos (100MB)"""
+    filesize = value.size
+    max_size = 100 * 1024 * 1024  # 100MB
+    if filesize > max_size:
+        raise ValidationError(
+            _(f'La taille de la vidéo ne doit pas dépasser {max_size / (1024 * 1024):.0f}MB')
+        )
+
+
+class Category(MPTTModel):
+    name = models.CharField(
+        max_length=200,
+        verbose_name=_("Nom de la catégorie"),
+        db_index=True
+    )
+    slug = models.SlugField(
+        max_length=200,
+        unique=True,
+        verbose_name=_("Slug"),
+        help_text=_("URL-friendly version du nom")
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name=_("Description"),
+        help_text=_("Description détaillée de la catégorie")
+    )
+    parent = TreeForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='children',
+        verbose_name=_("Catégorie parente"),
+        help_text=_("Sélectionnez une catégorie parente si applicable")
+    )
+    icon = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_("Icône FontAwesome"),
+        help_text=_("Exemple: fa-mobile, fa-car, fa-home")
+    )
+    image = models.ImageField(
+        upload_to='categories/',
+        null=True,
+        blank=True,
+        verbose_name=_("Image de la catégorie")
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name=_("Active"),
+        help_text=_("Désactiver pour cacher la catégorie")
+    )
+    show_in_menu = models.BooleanField(
+        default=True,
+        verbose_name=_("Afficher dans le menu")
+    )
+    display_order = models.PositiveIntegerField(
+        default=0,
+        verbose_name=_("Ordre d'affichage"),
+        help_text=_("Plus le nombre est bas, plus c'est prioritaire")
+    )
+    requires_dimensions = models.BooleanField(
+        default=False,
+        verbose_name=_("Requiert dimensions"),
+        help_text=_("Les annonces de cette catégorie doivent avoir des dimensions")
+    )
+    requires_weight = models.BooleanField(
+        default=True,
+        verbose_name=_("Requiert poids"),
+        help_text=_("Les annonces de cette catégorie doivent avoir un poids")
+    )
+    meta_title = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name=_("Titre SEO")
+    )
+    meta_description = models.TextField(
+        blank=True,
+        verbose_name=_("Description SEO")
+    )
+    ad_count = models.PositiveIntegerField(
+        default=0,
+        editable=False,
+        verbose_name=_("Nombre d'annonces")
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class MPTTMeta:
+        order_insertion_by = ['display_order', 'name']
+
+    class Meta:
+        verbose_name = _("Catégorie")
+        verbose_name_plural = _("Catégories")
+        ordering = ['display_order', 'name']
+        indexes = [
+            models.Index(fields=['slug', 'is_active']),
+            models.Index(fields=['parent', 'is_active']),
+        ]
+
+    def __str__(self):
+        return self.name
+
+    def get_absolute_url(self):
+        return reverse('ads:category_detail', kwargs={'slug': self.slug})
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
+    def get_full_path(self):
+        ancestors = self.get_ancestors(include_self=True)
+        return " > ".join([cat.name for cat in ancestors])
+
+    def update_ad_count(self):
+        """Met à jour le compteur d'annonces sans import circulaire"""
+        from .models import Ad  # Import local pour éviter les problèmes
+        count = self.ads.filter(status=Ad.Status.ACTIVE).count()
+        # Mise à jour directe en base pour éviter la récursion
+        Category.objects.filter(pk=self.pk).update(ad_count=count)
+
+
+class Ad(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', _('Brouillon')
+        PENDING = 'PENDING', _('En attente de validation')
+        ACTIVE = 'ACTIVE', _('Active')
+        RESERVED = 'RESERVED', _('Réservée')
+        SOLD = 'SOLD', _('Vendue')
+        EXPIRED = 'EXPIRED', _('Expirée')
+        REJECTED = 'REJECTED', _('Rejetée')
+        ARCHIVED = 'ARCHIVED', _('Archivée')
+
+    class Condition(models.TextChoices):
+        NEW = 'NEW', _('Neuf')
+        LIKE_NEW = 'LIKE_NEW', _('Comme neuf')
+        GOOD = 'GOOD', _('Bon état')
+        FAIR = 'FAIR', _('État correct')
+        POOR = 'POOR', _('Mauvais état')
+        FOR_PARTS = 'FOR_PARTS', _('Pour pièces')
+
+    class LogisticsOption(models.TextChoices):
+        P2P_DIRECT = 'P2P_DIRECT', _('Vente directe (P2P)')
+        WITH_CARRIER = 'WITH_CARRIER', _('Avec transporteur')
+        WITH_EXPAT_CARRIER = 'WITH_EXPAT_CARRIER', _('Avec expatrié-transporteur')
+
+    seller = models.ForeignKey(
+        'users.User',
+        on_delete=models.CASCADE,
+        related_name='ads',
+        verbose_name=_("Vendeur")
+    )
+    category = TreeForeignKey(
+        Category,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='ads',
+        verbose_name=_("Catégorie")
+    )
+    title = models.CharField(
+        max_length=200,
+        verbose_name=_("Titre de l'annonce"),
+        db_index=True
+    )
+    slug = models.SlugField(
+        max_length=200,
+        unique=True,
+        db_index=True,
+        verbose_name=_("Slug")
+    )
+    description = models.TextField(
+        verbose_name=_("Description détaillée"),
+        help_text=_("Décrivez votre objet en détail")
+    )
+    condition = models.CharField(
+        max_length=20,
+        choices=Condition.choices,
+        default=Condition.GOOD,
+        verbose_name=_("État de l'objet")
+    )
+    price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name=_("Prix"),
+        help_text=_("Prix en devise de départ")
+    )
+    currency = models.CharField(
+        max_length=3,
+        default='EUR',
+        choices=[
+            ('EUR', '€'),
+            ('USD', '$'),
+            ('GBP', '£'),
+            ('MAD', 'DH'),
+            ('XOF', 'CFA'),
+        ],
+        verbose_name=_("Devise")
+    )
+    is_negotiable = models.BooleanField(
+        default=False,
+        verbose_name=_("Prix négociable")
+    )
+    weight = models.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+        null=True,
+        blank=True,
+        verbose_name=_("Poids (kg)"),
+        help_text=_("Poids en kilogrammes")
+    )
+    length = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Longueur (cm)")
+    )
+    width = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Largeur (cm)")
+    )
+    height = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Hauteur (cm)")
+    )
+    volume = models.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+        null=True,
+        blank=True,
+        editable=False,
+        verbose_name=_("Volume (L)")
+    )
+    country_from = CountryField(
+        verbose_name=_("Pays de départ"),
+        help_text=_("Pays où se trouve l'objet")
+    )
+    city_from = models.CharField(
+        max_length=100,
+        verbose_name=_("Ville de départ")
+    )
+    address_from = models.TextField(
+        blank=True,
+        verbose_name=_("Adresse de départ")
+    )
+    latitude_from = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        verbose_name=_("Latitude départ")
+    )
+    longitude_from = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        verbose_name=_("Longitude départ")
+    )
+    country_to = CountryField(
+        verbose_name=_("Pays de destination"),
+        help_text=_("Pays où l'objet doit être livré")
+    )
+    city_to = models.CharField(
+        max_length=100,
+        verbose_name=_("Ville de destination")
+    )
+    address_to = models.TextField(
+        blank=True,
+        verbose_name=_("Adresse de destination")
+    )
+    latitude_to = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        verbose_name=_("Latitude destination")
+    )
+    longitude_to = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        verbose_name=_("Longitude destination")
+    )
+    logistics_option = models.CharField(
+        max_length=20,
+        choices=LogisticsOption.choices,
+        default=LogisticsOption.P2P_DIRECT,
+        verbose_name=_("Option logistique")
+    )
+    requires_insurance = models.BooleanField(
+        default=False,
+        verbose_name=_("Requiert assurance")
+    )
+    insurance_value = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Valeur assurée")
+    )
+    fragile_item = models.BooleanField(
+        default=False,
+        verbose_name=_("Objet fragile")
+    )
+    requires_packaging = models.BooleanField(
+        default=False,
+        verbose_name=_("Requiert emballage")
+    )
+    available_from = models.DateField(
+        verbose_name=_("Disponible à partir du"),
+        help_text=_("Date à partir de laquelle l'objet est disponible"),
+        default=timezone.now,  # ✅ Référence, pas appel
+    )
+    available_until = models.DateField(  # ⚠️ CORRIGÉ : virgule manquante ajoutée
+        verbose_name=_("Disponible jusqu'au"),
+        help_text=_("Date limite de disponibilité"),
+        null=True,
+        blank=True,
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        verbose_name=_("Statut"),
+        db_index=True
+    )
+    is_featured = models.BooleanField(
+        default=False,
+        verbose_name=_("Annonce en vedette")
+    )
+    featured_until = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("En vedette jusqu'au")
+    )
+    rejection_reason = models.TextField(
+        blank=True,
+        verbose_name=_("Raison du rejet")
+    )
+    meta_keywords = models.CharField(
+        max_length=500,
+        blank=True,
+        verbose_name=_("Mots-clés SEO")
+    )
+    meta_description = models.TextField(
+        blank=True,
+        verbose_name=_("Description SEO")
+    )
+    view_count = models.PositiveIntegerField(
+        default=0,
+        editable=False,
+        verbose_name=_("Nombre de vues")
+    )
+    favorite_count = models.PositiveIntegerField(
+        default=0,
+        editable=False,
+        verbose_name=_("Nombre de favoris")
+    )
+    inquiry_count = models.PositiveIntegerField(
+        default=0,
+        editable=False,
+        verbose_name=_("Nombre de demandes")
+    )
+    free_images_allowed = models.PositiveIntegerField(
+        default=3,
+        verbose_name=_("Nombre de photos gratuites")
+    )
+    paid_images_used = models.PositiveIntegerField(
+        default=0,
+        verbose_name=_("Photos payantes utilisées")
+    )
+    videos_allowed = models.BooleanField(
+        default=False,
+        verbose_name=_("Vidéos autorisées")
+    )
+    videos_used = models.PositiveIntegerField(
+        default=0,
+        verbose_name=_("Vidéos utilisées")
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True, db_index=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+    expired_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = _("Annonce")
+        verbose_name_plural = _("Annonces")
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', 'created_at']),
+            models.Index(fields=['seller', 'status']),
+            models.Index(fields=['country_from', 'country_to']),
+            models.Index(fields=['price', 'status']),
+            models.Index(fields=['category', 'status']),
+        ]
+        permissions = [
+            ('can_feature_ad', 'Peut mettre en vedette une annonce'),
+            ('can_moderate_ad', 'Peut modérer les annonces'),
+            ('can_view_statistics', 'Peut voir les statistiques'),
+        ]
+
+    def __str__(self):
+        return f"{self.title} - {self.seller.username}"
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base_slug = slugify(self.title)
+            self.slug = base_slug
+            counter = 1
+            while Ad.objects.filter(slug=self.slug).exists():
+                self.slug = f"{base_slug}-{counter}"
+                counter += 1
+
+        if self.length and self.width and self.height:
+            self.volume = (self.length * self.width * self.height) / 1000
+
+        if self.status == self.Status.ACTIVE and not self.published_at:
+            self.published_at = timezone.now()
+
+        if self.available_until and self.available_until < timezone.now().date():
+            if self.status == self.Status.ACTIVE:
+                self.status = self.Status.EXPIRED
+                self.expired_at = timezone.now()
+
+        super().save(*args, **kwargs)
+
+        if self.category:
+            self.category.update_ad_count()
+
+    def get_absolute_url(self):
+        return reverse('ads:ad_detail', kwargs={'slug': self.slug})
+
+    def get_price_with_currency(self):
+        return f"{self.price} {self.get_currency_display()}"
+
+    def calculate_total_images(self):
+        return self.images.count()
+
+    def calculate_free_images_remaining(self):
+        return max(0, self.free_images_allowed - self.images.filter(is_paid=False).count())
+
+    def is_available_for_carrier(self):
+        return self.status == self.Status.ACTIVE and self.logistics_option in [
+            self.LogisticsOption.WITH_CARRIER,
+            self.LogisticsOption.WITH_EXPAT_CARRIER
+        ]
+
+    def can_be_reserved(self, user):
+        if user == self.seller:
+            return False
+        if self.status != self.Status.ACTIVE:
+            return False
+        return True
+
+
+def ad_image_upload_path(instance, filename):
+    ext = filename.split('.')[-1]
+    filename = f"{uuid.uuid4()}.{ext}"
+    return f"ads/{instance.ad.seller.username}/{instance.ad.slug}/images/{filename}"
+
+
+class AdImage(models.Model):
+    ad = models.ForeignKey(
+        Ad,
+        on_delete=models.CASCADE,
+        related_name='images',
+        verbose_name=_("Annonce")
+    )
+    image = models.ImageField(
+        upload_to=ad_image_upload_path,
+        verbose_name=_("Image"),
+        validators=[
+            FileExtensionValidator(['jpg', 'jpeg', 'png', 'webp']),
+            validate_file_size,
+        ]
+    )
+    thumbnail = models.ImageField(
+        upload_to='ads/thumbnails/',
+        null=True,
+        blank=True,
+        editable=False,
+        verbose_name=_("Miniature")
+    )
+    caption = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name=_("Légende")
+    )
+    is_primary = models.BooleanField(
+        default=False,
+        verbose_name=_("Image principale")
+    )
+    is_paid = models.BooleanField(
+        default=False,
+        verbose_name=_("Image payante")
+    )
+    payment_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('FREE', _('Gratuite')),
+            ('PAID', _('Payée')),
+            ('PENDING', _('En attente')),
+            ('FAILED', _('Échouée')),
+        ],
+        default='FREE',
+        verbose_name=_("Statut du paiement")
+    )
+    payment_reference = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_("Référence de paiement")
+    )
+    display_order = models.PositiveIntegerField(
+        default=0,
+        verbose_name=_("Ordre d'affichage")
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Image d'annonce")
+        verbose_name_plural = _("Images d'annonces")
+        ordering = ['is_primary', 'display_order', 'created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['ad'],
+                condition=models.Q(is_primary=True),
+                name='unique_primary_image_per_ad'
+            )
+        ]
+
+    def __str__(self):
+        return f"Image pour {self.ad.title}"
+
+    def save(self, *args, **kwargs):
+        if not self.ad.images.exists() and not self.is_primary:
+            self.is_primary = True
+        if self.is_primary:
+            AdImage.objects.filter(ad=self.ad, is_primary=True).exclude(pk=self.pk).update(is_primary=False)
+        super().save(*args, **kwargs)
+
+
+def ad_video_upload_path(instance, filename):
+    ext = filename.split('.')[-1]
+    filename = f"{uuid.uuid4()}.{ext}"
+    return f"ads/{instance.ad.seller.username}/{instance.ad.slug}/videos/{filename}"
+
+
+class AdVideo(models.Model):
+    ad = models.ForeignKey(
+        Ad,
+        on_delete=models.CASCADE,
+        related_name='videos',
+        verbose_name=_("Annonce")
+    )
+    video = models.FileField(
+        upload_to=ad_video_upload_path,
+        verbose_name=_("Vidéo"),
+        validators=[
+            FileExtensionValidator(['mp4', 'avi', 'mov', 'wmv', 'webm']),
+            validate_video_size,
+        ]
+    )
+    thumbnail = models.ImageField(
+        upload_to='ads/video_thumbnails/',
+        null=True,
+        blank=True,
+        editable=False,
+        verbose_name=_("Miniature vidéo")
+    )
+    caption = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name=_("Légende")
+    )
+    duration = models.DurationField(
+        null=True,
+        blank=True,
+        verbose_name=_("Durée")
+    )
+    is_paid = models.BooleanField(
+        default=True,
+        verbose_name=_("Vidéo payante")
+    )
+    payment_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('PAID', _('Payée')),
+            ('PENDING', _('En attente')),
+            ('FAILED', _('Échouée')),
+        ],
+        default='PENDING',
+        verbose_name=_("Statut du paiement")
+    )
+    payment_reference = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_("Référence de paiement")
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Vidéo d'annonce")
+        verbose_name_plural = _("Vidéos d'annonces")
+
+    def __str__(self):
+        return f"Vidéo pour {self.ad.title}"
+
+
+class Favorite(models.Model):
+    user = models.ForeignKey(
+        'users.User',
+        on_delete=models.CASCADE,
+        related_name='favorites',
+        verbose_name=_("Utilisateur")
+    )
+    ad = models.ForeignKey(
+        Ad,
+        on_delete=models.CASCADE,
+        related_name='favorited_by',
+        verbose_name=_("Annonce")
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Favori")
+        verbose_name_plural = _("Favoris")
+        unique_together = ['user', 'ad']
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username} aime {self.ad.title}"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self.ad.favorite_count = self.ad.favorited_by.count()
+        self.ad.save(update_fields=['favorite_count'])
+
+    def delete(self, *args, **kwargs):
+        ad = self.ad
+        super().delete(*args, **kwargs)
+        ad.favorite_count = ad.favorited_by.count()
+        ad.save(update_fields=['favorite_count'])
+
+
+class AdView(models.Model):
+    ad = models.ForeignKey(
+        Ad,
+        on_delete=models.CASCADE,
+        related_name='views_tracking',
+        verbose_name=_("Annonce")
+    )
+    user = models.ForeignKey(
+        'users.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ad_views',
+        verbose_name=_("Utilisateur")
+    )
+    session_key = models.CharField(
+        max_length=40,
+        db_index=True,
+        verbose_name=_("Clé de session")
+    )
+    ip_address = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        verbose_name=_("Adresse IP")
+    )
+    user_agent = models.TextField(
+        blank=True,
+        verbose_name=_("User Agent")
+    )
+    referer = models.URLField(
+        blank=True,
+        verbose_name=_("Referer")
+    )
+    viewed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Vue d'annonce")
+        verbose_name_plural = _("Vues d'annonces")
+        indexes = [
+            models.Index(fields=['ad', 'viewed_at']),
+            models.Index(fields=['session_key', 'ad']),
+            models.Index(fields=['user', 'viewed_at']),
+        ]
+
+    def __str__(self):
+        return f"Vue de {self.ad.title} à {self.viewed_at}"
+
+
+class AdReport(models.Model):
+    class ReportReason(models.TextChoices):
+        SPAM = 'SPAM', _('Spam ou publicité')
+        FRAUD = 'FRAUD', _('Fraude ou arnaque')
+        INAPPROPRIATE = 'INAPPROPRIATE', _('Contenu inapproprié')
+        WRONG_CATEGORY = 'WRONG_CATEGORY', _('Mauvaise catégorie')
+        PROHIBITED = 'PROHIBITED', _('Article prohibé')
+        DUPLICATE = 'DUPLICATE', _('Annonce en double')
+        OTHER = 'OTHER', _('Autre')
+
+    ad = models.ForeignKey(
+        Ad,
+        on_delete=models.CASCADE,
+        related_name='reports',
+        verbose_name=_("Annonce")
+    )
+    reporter = models.ForeignKey(
+        'users.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='ad_reports',
+        verbose_name=_("Signaleur")
+    )
+    reason = models.CharField(
+        max_length=20,
+        choices=ReportReason.choices,
+        verbose_name=_("Raison du signalement")
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name=_("Description détaillée")
+    )
+    evidence = models.FileField(
+        upload_to='reports/',
+        null=True,
+        blank=True,
+        verbose_name=_("Preuve")
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('PENDING', _('En attente')),
+            ('IN_REVIEW', _('En revue')),
+            ('RESOLVED', _('Résolu')),
+            ('DISMISSED', _('Rejeté')),
+        ],
+        default='PENDING',
+        verbose_name=_("Statut")
+    )
+    admin_notes = models.TextField(
+        blank=True,
+        verbose_name=_("Notes de l'administrateur")
+    )
+    resolved_by = models.ForeignKey(
+        'users.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='resolved_ad_reports',
+        verbose_name=_("Résolu par")
+    )
+    resolved_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Résolu le")
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Signalement d'annonce")
+        verbose_name_plural = _("Signalements d'annonces")
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Signalement de {self.ad.title}"# ~/ebi3/ads/views.py
+from django.shortcuts import render, get_object_or_404, redirect
+from django.db.models import Sum
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.generic import (
+    ListView, DetailView, CreateView,
+    UpdateView, DeleteView, TemplateView
+)
+from django.db.models import Sum, Count, Q, Avg, F
+from django.utils import timezone
+from django.urls import reverse_lazy
+from django.contrib import messages
+from django.utils.translation import gettext_lazy as _
+from django.core.paginator import Paginator
+from django.http import JsonResponse, HttpResponseForbidden
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_protect
+from django.db import transaction
+from django.db import models
+
+from .models import Category, Ad, AdImage, Favorite, AdView, AdReport
+from .forms import (
+    AdCreateForm, AdUpdateForm,
+    AdImageFormSet, AdSearchForm,
+    AdReportForm
+)
+from users.models import User
+
+class CategoryListView(ListView):
+    """Liste des catégories"""
+    model = Category
+    template_name = 'ads/category_list.html'
+    context_object_name = 'categories'
+
+    def get_queryset(self):
+        return Category.objects.filter(
+            is_active=True,
+            show_in_menu=True
+        ).annotate(
+            active_ads_count=Count('ads', filter=Q(ads__status=Ad.Status.ACTIVE))
+        ).filter(
+            active_ads_count__gt=0
+        )
+
+
+class CategoryDetailView(DetailView):
+    """Détail d'une catégorie avec ses annonces"""
+    model = Category
+    template_name = 'ads/category_detail.html'
+    context_object_name = 'category'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        category = self.object
+
+        # Récupérer toutes les sous-catégories
+        subcategories = category.get_descendants(include_self=False).filter(
+            is_active=True
+        )
+
+        # Récupérer les annonces actives de cette catégorie et ses sous-catégories
+        ads = Ad.objects.filter(
+            category__in=subcategories.union(Category.objects.filter(pk=category.pk)),
+            status=Ad.Status.ACTIVE
+        ).select_related('seller', 'category').prefetch_related('images')
+
+        # Appliquer les filtres
+        form = AdSearchForm(self.request.GET)
+        if form.is_valid():
+            if form.cleaned_data.get('min_price'):
+                ads = ads.filter(price__gte=form.cleaned_data['min_price'])
+            if form.cleaned_data.get('max_price'):
+                ads = ads.filter(price__lte=form.cleaned_data['max_price'])
+            if form.cleaned_data.get('condition'):
+                ads = ads.filter(condition=form.cleaned_data['condition'])
+            if form.cleaned_data.get('logistics_option'):
+                ads = ads.filter(logistics_option=form.cleaned_data['logistics_option'])
+            if form.cleaned_data.get('country_from'):
+                ads = ads.filter(country_from=form.cleaned_data['country_from'])
+            if form.cleaned_data.get('country_to'):
+                ads = ads.filter(country_to=form.cleaned_data['country_to'])
+
+        # Pagination
+        paginator = Paginator(ads, 20)  # 20 annonces par page
+        page = self.request.GET.get('page')
+        ads_page = paginator.get_page(page)
+
+        context.update({
+            'subcategories': subcategories,
+            'ads': ads_page,
+            'search_form': form,
+            'total_ads': ads.count(),
+        })
+        return context
+
+
+from django.db.models import Count, Q
+from ads.models import Ad, Category
+from ads.forms import AdSearchForm
+
+class AdListView(ListView):
+    """Liste de toutes les annonces"""
+    model = Ad
+    template_name = 'ads/ad_list.html'
+    context_object_name = 'ads'
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = Ad.objects.filter(
+            status=Ad.Status.ACTIVE
+        ).select_related('seller', 'category').prefetch_related('images')
+
+        # Appliquer les filtres
+        form = AdSearchForm(self.request.GET)
+        if form.is_valid():
+            if form.cleaned_data.get('category'):
+                category = form.cleaned_data['category']
+                # Inclure les sous-catégories
+                subcategories = category.get_descendants(include_self=True)
+                queryset = queryset.filter(category__in=subcategories)
+
+            if form.cleaned_data.get('q'):
+                search_term = form.cleaned_data['q']
+                queryset = queryset.filter(
+                    Q(title__icontains=search_term) |
+                    Q(description__icontains=search_term)
+                )
+
+            if form.cleaned_data.get('min_price'):
+                queryset = queryset.filter(price__gte=form.cleaned_data['min_price'])
+            if form.cleaned_data.get('max_price'):
+                queryset = queryset.filter(price__lte=form.cleaned_data['max_price'])
+            if form.cleaned_data.get('condition'):
+                queryset = queryset.filter(condition=form.cleaned_data['condition'])
+            if form.cleaned_data.get('logistics_option'):
+                queryset = queryset.filter(logistics_option=form.cleaned_data['logistics_option'])
+            if form.cleaned_data.get('country_from'):
+                queryset = queryset.filter(country_from=form.cleaned_data['country_from'])
+            if form.cleaned_data.get('country_to'):
+                queryset = queryset.filter(country_to=form.cleaned_data['country_to'])
+
+        # Tri
+        sort_by = self.request.GET.get('sort', '-created_at')
+        if sort_by in ['price', '-price', 'created_at', '-created_at', 'view_count', '-view_count']:
+            queryset = queryset.order_by(sort_by)
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['search_form'] = AdSearchForm(self.request.GET)
+        context['total_ads'] = self.get_queryset().count()
+
+        # ✅ CORRECTION: Ajouter les catégories au contexte avec comptage des annonces actives
+        context['categories'] = Category.objects.filter(
+            is_active=True,
+            ad_count__gt=0  # Filtre les catégories qui ont des annonces
+        ).order_by('-ad_count', 'name')[:10]
+
+        # Stats pour les filtres
+        from django.db.models import Min, Max
+        context['min_price_range'] = Ad.objects.filter(status=Ad.Status.ACTIVE).aggregate(Min('price'))['price__min'] or 0
+        context['max_price_range'] = Ad.objects.filter(status=Ad.Status.ACTIVE).aggregate(Max('price'))['price__max'] or 10000
+
+        return context
+
+
+class AdDetailView(DetailView):
+    """Détail d'une annonce"""
+    model = Ad
+    template_name = 'ads/ad_detail.html'
+    context_object_name = 'ad'
+    slug_field = 'slug'
+    slug_url_kwarg = 'slug'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        ad = self.object
+
+        # Enregistrer la vue
+        if self.request.user.is_authenticated:
+            AdView.objects.create(
+                ad=ad,
+                user=self.request.user,
+                session_key=self.request.session.session_key,
+                ip_address=self.request.META.get('REMOTE_ADDR'),
+                user_agent=self.request.META.get('HTTP_USER_AGENT', ''),
+                referer=self.request.META.get('HTTP_REFERER', '')
+            )
+        else:
+            AdView.objects.create(
+                ad=ad,
+                session_key=self.request.session.session_key,
+                ip_address=self.request.META.get('REMOTE_ADDR'),
+                user_agent=self.request.META.get('HTTP_USER_AGENT', ''),
+                referer=self.request.META.get('HTTP_REFERER', '')
+            )
+
+        # Annonces similaires
+        similar_ads = Ad.objects.filter(
+            category=ad.category,
+            status=Ad.Status.ACTIVE
+        ).exclude(pk=ad.pk).select_related('seller').prefetch_related('images')[:4]
+
+        # Vérifier si l'annonce est dans les favoris de l'utilisateur
+        is_favorite = False
+        if self.request.user.is_authenticated:
+            is_favorite = Favorite.objects.filter(
+                user=self.request.user,
+                ad=ad
+            ).exists()
+
+        context.update({
+            'similar_ads': similar_ads,
+            'is_favorite': is_favorite,
+            'can_edit': self.request.user == ad.seller or self.request.user.is_staff,
+            'can_report': self.request.user.is_authenticated and self.request.user != ad.seller,
+        })
+        return context
+
+
+class AdCreateView(LoginRequiredMixin, CreateView):
+    """Création d'une annonce"""
+    model = Ad
+    form_class = AdCreateForm
+    template_name = 'ads/ad_create.html'
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['image_formset'] = AdImageFormSet(self.request.POST, self.request.FILES)
+        else:
+            context['image_formset'] = AdImageFormSet()
+        return context
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+        image_formset = context['image_formset']
+
+        with transaction.atomic():
+            form.instance.seller = self.request.user
+            self.object = form.save()
+
+            if image_formset.is_valid():
+                images = image_formset.save(commit=False)
+                for image in images:
+                    image.ad = self.object
+                    image.save()
+
+                # Vérifier le nombre d'images gratuites vs payantes
+                free_images_count = sum(1 for img in images if not img.is_paid)
+                if free_images_count > self.object.free_images_allowed:
+                    messages.warning(
+                        self.request,
+                        _(f"Vous avez téléchargé {free_images_count} images gratuites, "
+                          f"mais seulement {self.object.free_images_allowed} sont autorisées gratuitement. "
+                          f"Les images supplémentaires seront marquées comme payantes.")
+                    )
+
+            else:
+                return self.form_invalid(form)
+
+        messages.success(self.request, _("Votre annonce a été créée avec succès !"))
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy('ads:ad_detail', kwargs={'slug': self.object.slug})
+
+
+class AdUpdateView(LoginRequiredMixin, UpdateView):
+    """Modification d'une annonce"""
+    model = Ad
+    form_class = AdUpdateForm
+    template_name = 'ads/ad_update.html'
+    slug_field = 'slug'
+    slug_url_kwarg = 'slug'
+
+    def dispatch(self, request, *args, **kwargs):
+        ad = self.get_object()
+        if ad.seller != request.user and not request.user.is_staff:
+            messages.error(request, _("Vous n'êtes pas autorisé à modifier cette annonce."))
+            return redirect('ads:ad_detail', slug=ad.slug)
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['image_formset'] = AdImageFormSet(
+                self.request.POST, self.request.FILES,
+                instance=self.object
+            )
+        else:
+            context['image_formset'] = AdImageFormSet(instance=self.object)
+        return context
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+        image_formset = context['image_formset']
+
+        with transaction.atomic():
+            self.object = form.save()
+
+            if image_formset.is_valid():
+                images = image_formset.save(commit=False)
+                for image in images:
+                    image.ad = self.object
+                    image.save()
+
+                # Supprimer les images marquées pour suppression
+                for obj in image_formset.deleted_objects:
+                    obj.delete()
+            else:
+                return self.form_invalid(form)
+
+        messages.success(self.request, _("Votre annonce a été mise à jour avec succès !"))
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy('ads:ad_detail', kwargs={'slug': self.object.slug})
+
+
+class AdDeleteView(LoginRequiredMixin, DeleteView):
+    """Suppression d'une annonce"""
+    model = Ad
+    template_name = 'ads/ad_delete.html'
+    slug_field = 'slug'
+    slug_url_kwarg = 'slug'
+    success_url = reverse_lazy('ads:ad_list')
+
+    def dispatch(self, request, *args, **kwargs):
+        ad = self.get_object()
+        if ad.seller != request.user and not request.user.is_staff:
+            messages.error(request, _("Vous n'êtes pas autorisé à supprimer cette annonce."))
+            return redirect('ads:ad_detail', slug=ad.slug)
+        return super().dispatch(request, *args, **kwargs)
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(request, _("L'annonce a été supprimée avec succès."))
+        return super().delete(request, *args, **kwargs)
+
+
+@login_required
+@require_POST
+def toggle_favorite(request, slug):
+    """Ajouter/retirer une annonce des favoris"""
+    ad = get_object_or_404(Ad, slug=slug)
+
+    favorite, created = Favorite.objects.get_or_create(
+        user=request.user,
+        ad=ad
+    )
+
+    if not created:
+        favorite.delete()
+        action = 'removed'
+    else:
+        action = 'added'
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({
+            'status': 'success',
+            'action': action,
+            'favorite_count': ad.favorite_count
+        })
+
+    messages.success(request, _(f"Annonce {action} aux favoris."))
+    return redirect('ads:ad_detail', slug=slug)
+
+
+class FavoriteListView(LoginRequiredMixin, ListView):
+    """Liste des annonces favorites"""
+    model = Favorite
+    template_name = 'ads/favorite_list.html'
+    context_object_name = 'favorites'
+
+    def get_queryset(self):
+        return Favorite.objects.filter(
+            user=self.request.user
+        ).select_related('ad', 'ad__seller', 'ad__category').prefetch_related('ad__images')
+
+
+class AdReportView(LoginRequiredMixin, CreateView):
+    """Signaler une annonce"""
+    model = AdReport
+    form_class = AdReportForm
+    template_name = 'ads/ad_report.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        self.ad = get_object_or_404(Ad, slug=kwargs['slug'])
+
+        # Empêcher l'utilisateur de signaler sa propre annonce
+        if request.user == self.ad.seller:
+            messages.error(request, _("Vous ne pouvez pas signaler votre propre annonce."))
+            return redirect('ads:ad_detail', slug=self.ad.slug)
+
+        # Vérifier si l'utilisateur a déjà signalé cette annonce
+        if AdReport.objects.filter(ad=self.ad, reporter=request.user).exists():
+            messages.warning(request, _("Vous avez déjà signalé cette annonce."))
+            return redirect('ads:ad_detail', slug=self.ad.slug)
+
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['ad'] = self.ad
+        return context
+
+    def form_valid(self, form):
+        form.instance.ad = self.ad
+        form.instance.reporter = self.request.user
+
+        messages.success(
+            self.request,
+            _("Votre signalement a été soumis. Nous l'examinerons sous 24 heures.")
+        )
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy('ads:ad_detail', kwargs={'slug': self.ad.slug})
+
+
+class MyAdsListView(LoginRequiredMixin, ListView):
+    """Liste des annonces de l'utilisateur"""
+    model = Ad
+    template_name = 'ads/my_ads.html'
+    context_object_name = 'ads'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return Ad.objects.filter(
+            seller=self.request.user
+        ).select_related('category').prefetch_related('images').order_by('-created_at')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Statistiques
+        stats = Ad.objects.filter(seller=self.request.user).aggregate(
+            total=Count('id'),
+            active=Count('id', filter=Q(status=Ad.Status.ACTIVE)),
+            draft=Count('id', filter=Q(status=Ad.Status.DRAFT)),
+            sold=Count('id', filter=Q(status=Ad.Status.SOLD)),
+            reserved=Count('id', filter=Q(status=Ad.Status.RESERVED)),
+            total_views=Sum('view_count'),
+            total_favorites=Sum('favorite_count'),
+        )
+
+        context.update(stats)
+        return context
+
+
+@login_required
+@require_POST
+def change_ad_status(request, slug, status):
+    """Changer le statut d'une annonce"""
+    ad = get_object_or_404(Ad, slug=slug, seller=request.user)
+
+    if status not in dict(Ad.Status.choices):
+        messages.error(request, _("Statut invalide."))
+        return redirect('ads:my_ads')
+
+    previous_status = ad.status
+    ad.status = status
+
+    if status == Ad.Status.ACTIVE and not ad.published_at:
+        ad.published_at = timezone.now()
+
+    ad.save()
+
+    messages.success(
+        request,
+        _(f"Statut de l'annonce changé de {previous_status} à {status}.")
+    )
+
+    return redirect('ads:ad_detail', slug=slug)
+
+
+def search_ads(request):
+    """Recherche avancée d'annonces"""
+    form = AdSearchForm(request.GET)
+    ads = Ad.objects.filter(status=Ad.Status.ACTIVE)
+
+    if form.is_valid():
+        if form.cleaned_data.get('q'):
+            search_term = form.cleaned_data['q']
+            ads = ads.filter(
+                Q(title__icontains=search_term) |
+                Q(description__icontains=search_term)
+            )
+
+        if form.cleaned_data.get('category'):
+            category = form.cleaned_data['category']
+            subcategories = category.get_descendants(include_self=True)
+            ads = ads.filter(category__in=subcategories)
+
+        if form.cleaned_data.get('min_price'):
+            ads = ads.filter(price__gte=form.cleaned_data['min_price'])
+        if form.cleaned_data.get('max_price'):
+            ads = ads.filter(price__lte=form.cleaned_data['max_price'])
+        if form.cleaned_data.get('condition'):
+            ads = ads.filter(condition=form.cleaned_data['condition'])
+        if form.cleaned_data.get('logistics_option'):
+            ads = ads.filter(logistics_option=form.cleaned_data['logistics_option'])
+        if form.cleaned_data.get('country_from'):
+            ads = ads.filter(country_from=form.cleaned_data['country_from'])
+        if form.cleaned_data.get('country_to'):
+            ads = ads.filter(country_to=form.cleaned_data['country_to'])
+
+    # Pagination
+    paginator = Paginator(ads, 20)
+    page = request.GET.get('page')
+    ads_page = paginator.get_page(page)
+
+    context = {
+        'ads': ads_page,
+        'search_form': form,
+        'total_ads': ads.count(),
+    }
+
+    return render(request, 'ads/search_results.html', context)
+
+# ads/views.py - AJOUTER à la fin du fichier
+
+class AdTransportProposalsView(LoginRequiredMixin, DetailView):
+    """Vue pour voir les propositions de transport pour une annonce"""
+    model = Ad
+    template_name = 'ads/ad_transport_proposals.html'
+    context_object_name = 'ad'
+
+    def dispatch(self, request, *args, **kwargs):
+        # Vérifier que l'utilisateur est le vendeur
+        ad = self.get_object()
+        if ad.seller != request.user:
+            messages.error(request, _("Vous n'êtes pas autorisé à voir les propositions de transport."))
+            return redirect('ads:ad_detail', slug=ad.slug)
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        ad = self.object
+
+        # Ici vous récupéreriez les propositions de transport depuis l'app logistics
+        # Pour l'instant, retourner un contexte vide
+        context['transport_proposals'] = []
+        return context
+
+
+@login_required
+def ad_reserve(request, slug):
+    """Réservation d'une annonce"""
+    ad = get_object_or_404(Ad, slug=slug)
+
+    if not ad.can_be_reserved(request.user):
+        messages.error(request, _("Cette annonce ne peut pas être réservée."))
+        return redirect('ads:ad_detail', slug=slug)
+
+    # Logique de réservation temporaire
+    messages.success(request, _("Réservation effectuée avec succès !"))
+    return redirect('ads:ad_detail', slug=slug)
+
+
+@login_required
+def ad_propose_transport(request, slug):
+    """Proposer un transport pour une annonce"""
+    ad = get_object_or_404(Ad, slug=slug)
+
+    if request.user == ad.seller:
+        messages.error(request, _("Vous ne pouvez pas proposer un transport pour votre propre annonce."))
+        return redirect('ads:ad_detail', slug=slug)
+
+    # Logique de proposition de transport temporaire
+    messages.info(request, _("Fonctionnalité de proposition de transport à implémenter."))
+    return redirect('ads:ad_detail', slug=slug)

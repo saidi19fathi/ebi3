@@ -1,0 +1,189 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static humanize %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .dashboard-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .stat-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .stat-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #4a5568;
+    }
+    .stat-label {
+        color: #718096;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .stat-card.success { border-left: 4px solid #48bb78; }
+    .stat-card.warning { border-left: 4px solid #ed8936; }
+    .stat-card.danger { border-left: 4px solid #f56565; }
+    .stat-card.info { border-left: 4px solid #4299e1; }
+
+    .chart-container {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .progress-bar {
+        height: 10px;
+        background: #e2e8f0;
+        border-radius: 5px;
+        overflow: hidden;
+        margin: 0.5rem 0;
+    }
+    .progress-fill {
+        height: 100%;
+        background: #4299e1;
+        transition: width 0.3s ease;
+    }
+
+    .language-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        background: #edf2f7;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        margin-right: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .recent-list {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <h1>{% trans "Tableau de bord des traductions" %}</h1>
+
+    <div class="dashboard-stats">
+        <div class="stat-card info">
+            <div class="stat-value">{{ total_translations|intcomma }}</div>
+            <div class="stat-label">{% trans "Traductions totales" %}</div>
+        </div>
+
+        <div class="stat-card success">
+            <div class="stat-value">{{ total_jobs|intcomma }}</div>
+            <div class="stat-label">{% trans "Travaux de traduction" %}</div>
+        </div>
+
+        <div class="stat-card warning">
+            <div class="stat-value">{{ active_jobs|intcomma }}</div>
+            <div class="stat-label">{% trans "Travaux en cours" %}</div>
+        </div>
+
+        <div class="stat-card danger">
+            <div class="stat-value">{{ failed_jobs|intcomma }}</div>
+            <div class="stat-label">{% trans "Travaux échoués" %}</div>
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <h2>{% trans "Distribution par langue" %}</h2>
+        <div class="recent-list">
+            {% for item in language_distribution %}
+            <div style="margin-bottom: 0.5rem;">
+                <div style="display: flex; justify-content: space-between;">
+                    <span class="language-badge">{{ item.language|upper }}</span>
+                    <span>{{ item.count|intcomma }}</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {% widthratio item.count total_translations 100 %}%"></div>
+                </div>
+            </div>
+            {% empty %}
+            <p>{% trans "Aucune donnée de traduction disponible." %}</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+        <div class="chart-container">
+            <h2>{% trans "Performance API (24h)" %}</h2>
+            {% if api_stats %}
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div>
+                    <div class="stat-value">{{ api_stats.total_calls|default:0|intcomma }}</div>
+                    <div class="stat-label">{% trans "Appels API" %}</div>
+                </div>
+                <div>
+                    <div class="stat-value">{{ api_stats.success_rate|default:0|floatformat:1 }}%</div>
+                    <div class="stat-label">{% trans "Taux de succès" %}</div>
+                </div>
+                <div>
+                    <div class="stat-value">{{ api_stats.avg_response_time|default:0|floatformat:2 }}s</div>
+                    <div class="stat-label">{% trans "Temps réponse moyen" %}</div>
+                </div>
+            </div>
+            {% else %}
+            <p>{% trans "Aucune donnée API disponible." %}</p>
+            {% endif %}
+        </div>
+
+        <div class="chart-container">
+            <h2>{% trans "Derniers travaux" %}</h2>
+            <div class="recent-list">
+                {% for job in recent_jobs %}
+                <div style="padding: 0.5rem 0; border-bottom: 1px solid #e2e8f0;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <strong>{{ job.field_name }}</strong>
+                        <span style="color: {% if job.status == 'completed' %}#48bb78{% elif job.status == 'failed' %}#f56565{% else %}#ed8936{% endif %};">
+                            {{ job.get_status_display }}
+                        </span>
+                    </div>
+                    <small style="color: #718096;">
+                        {{ job.content_type }} #{{ job.object_id }} •
+                        {{ job.created_at|timesince }}
+                    </small>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: {{ job.progress_percentage }}%"></div>
+                    </div>
+                </div>
+                {% empty %}
+                <p>{% trans "Aucun travail récent." %}</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <h2>{% trans "Erreurs récentes" %}</h2>
+        <div class="recent-list">
+            {% for error in recent_errors %}
+            <div style="padding: 0.5rem 0; border-bottom: 1px solid #e2e8f0;">
+                <div style="color: #f56565; font-weight: bold;">
+                    {{ error.endpoint }}
+                </div>
+                <div style="color: #718096; font-size: 0.875rem;">
+                    {{ error.source_language }} → {{ error.target_language }} •
+                    {{ error.created_at|timesince }}
+                </div>
+                <div style="font-size: 0.875rem; margin-top: 0.25rem;">
+                    {{ error.error_message|truncatechars:100 }}
+                </div>
+            </div>
+            {% empty %}
+            <p>{% trans "Aucune erreur récente." %}</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

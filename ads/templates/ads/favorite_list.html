@@ -1,0 +1,709 @@
+{# ~/ebi3/ads/templates/ads/favorite_list.html #}
+{% extends 'ads/base_ads.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Mes favoris" %} - Ebi3{% endblock %}
+
+{% block ads_content %}
+<div class="container-fluid">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h1 class="mb-0">
+                    <i class="fas fa-heart text-danger"></i> {% trans "Mes annonces favorites" %}
+                </h1>
+                <div>
+                    <a href="{% url 'ads:ad_list' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-search"></i> {% trans "Parcourir les annonces" %}
+                    </a>
+                </div>
+            </div>
+
+            <!-- Statistiques -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <div class="card bg-light border">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title text-muted mb-0">{% trans "Total favoris" %}</h6>
+                                    <h2 class="mb-0 text-primary">{{ favorites.count|default:0 }}</h2>
+                                </div>
+                                <i class="fas fa-heart fa-2x text-danger opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card bg-light border">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title text-muted mb-0">{% trans "Prix moyen" %}</h6>
+                                    <h2 class="mb-0 text-success">
+                                        {% if avg_price %}
+                                            {{ avg_price }} €
+                                        {% else %}
+                                            --
+                                        {% endif %}
+                                    </h2>
+                                </div>
+                                <i class="fas fa-euro-sign fa-2x text-success opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card bg-light border">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title text-muted mb-0">{% trans "Ajouté récemment" %}</h6>
+                                    <h6 class="mb-0 text-info">
+                                        {% if last_added %}
+                                            {{ last_added|timesince }}
+                                        {% else %}
+                                            --
+                                        {% endif %}
+                                    </h6>
+                                </div>
+                                <i class="fas fa-clock fa-2x text-info opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barre de contrôle -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-search"></i>
+                                </span>
+                                <input type="text" class="form-control" id="searchFavorites"
+                                       placeholder="{% trans 'Rechercher dans mes favoris...' %}">
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 text-end">
+                            <div class="dropdown d-inline-block me-2">
+                                <button class="btn btn-outline-secondary dropdown-toggle" type="button"
+                                        data-bs-toggle="dropdown">
+                                    <i class="fas fa-filter"></i> {% trans "Filtrer" %}
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item filter-option active" href="#" data-filter="all">
+                                        <i class="fas fa-layer-group"></i> {% trans "Tous" %}
+                                    </a></li>
+                                    <li><a class="dropdown-item filter-option" href="#" data-filter="active">
+                                        <i class="fas fa-check-circle"></i> {% trans "Annonces actives" %}
+                                    </a></li>
+                                    <li><a class="dropdown-item filter-option" href="#" data-filter="featured">
+                                        <i class="fas fa-star"></i> {% trans "En vedette" %}
+                                    </a></li>
+                                    <li><a class="dropdown-item filter-option" href="#" data-filter="negotiable">
+                                        <i class="fas fa-handshake"></i> {% trans "Prix négociable" %}
+                                    </a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item filter-option" href="#" data-filter="cheap">
+                                        <i class="fas fa-euro-sign"></i> {% trans "Moins de 100€" %}
+                                    </a></li>
+                                    <li><a class="dropdown-item filter-option" href="#" data-filter="medium">
+                                        <i class="fas fa-euro-sign"></i> {% trans "100€ - 500€" %}
+                                    </a></li>
+                                    <li><a class="dropdown-item filter-option" href="#" data-filter="expensive">
+                                        <i class="fas fa-euro-sign"></i> {% trans "Plus de 500€" %}
+                                    </a></li>
+                                </ul>
+                            </div>
+
+                            <div class="dropdown d-inline-block">
+                                <button class="btn btn-outline-secondary dropdown-toggle" type="button"
+                                        data-bs-toggle="dropdown">
+                                    <i class="fas fa-sort"></i> {% trans "Trier" %}
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item sort-option active" href="#" data-sort="date-desc">
+                                        <i class="fas fa-calendar"></i> {% trans "Date d'ajout (récent)" %}
+                                    </a></li>
+                                    <li><a class="dropdown-item sort-option" href="#" data-sort="date-asc">
+                                        <i class="fas fa-calendar"></i> {% trans "Date d'ajout (ancien)" %}
+                                    </a></li>
+                                    <li><a class="dropdown-item sort-option" href="#" data-sort="price-asc">
+                                        <i class="fas fa-euro-sign"></i> {% trans "Prix croissant" %}
+                                    </a></li>
+                                    <li><a class="dropdown-item sort-option" href="#" data-sort="price-desc">
+                                        <i class="fas fa-euro-sign"></i> {% trans "Prix décroissant" %}
+                                    </a></li>
+                                    <li><a class="dropdown-item sort-option" href="#" data-sort="views-desc">
+                                        <i class="fas fa-eye"></i> {% trans "Plus vues" %}
+                                    </a></li>
+                                    <li><a class="dropdown-item sort-option" href="#" data-sort="title-asc">
+                                        <i class="fas fa-font"></i> {% trans "Titre A-Z" %}
+                                    </a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des favoris -->
+    <div class="row" id="favorites-container">
+        {% if favorites %}
+            {% for favorite in favorites %}
+                <div class="col-md-6 col-lg-4 mb-4 favorite-item"
+                     data-id="{{ favorite.id }}"
+                     data-added="{{ favorite.created_at|date:'U' }}"
+                     data-price="{{ favorite.ad.price }}"
+                     data-views="{{ favorite.ad.view_count }}"
+                     data-title="{{ favorite.ad.title|lower }}"
+                     data-status="{{ favorite.ad.status }}"
+                     data-featured="{{ favorite.ad.is_featured|yesno:'true,false' }}"
+                     data-negotiable="{{ favorite.ad.is_negotiable|yesno:'true,false' }}">
+
+                    <!-- Carte d'annonce -->
+                    <div class="card h-100 border favorite-card">
+                        <!-- Bouton de suppression favori -->
+                        <div class="position-absolute top-0 end-0 m-2">
+                            <button class="btn btn-sm btn-danger remove-favorite-btn"
+                                    data-url="{% url 'ads:toggle_favorite' favorite.ad.slug %}"
+                                    data-ad-slug="{{ favorite.ad.slug }}"
+                                    title="{% trans 'Retirer des favoris' %}">
+                                <i class="fas fa-heart"></i>
+                            </button>
+                        </div>
+
+                        <!-- Badge de statut -->
+                        <div class="position-absolute top-0 start-0 m-2">
+                            {% if favorite.ad.status != 'ACTIVE' %}
+                                <span class="badge bg-warning">
+                                    {{ favorite.ad.get_status_display }}
+                                </span>
+                            {% endif %}
+                            {% if favorite.ad.is_featured %}
+                                <span class="badge bg-warning mt-1">
+                                    <i class="fas fa-star"></i> {% trans "Vedette" %}
+                                </span>
+                            {% endif %}
+                        </div>
+
+                        <!-- Image -->
+                        <div class="position-relative">
+                            {% with favorite.ad.images.first as main_image %}
+                                {% if main_image %}
+                                    <a href="{{ favorite.ad.get_absolute_url }}">
+                                        <img src="{{ main_image.thumbnail.url|default:main_image.image.url }}"
+                                             class="card-img-top"
+                                             style="height: 200px; object-fit: cover;"
+                                             alt="{{ favorite.ad.title }}"
+                                             loading="lazy">
+                                    </a>
+                                {% else %}
+                                    <a href="{{ favorite.ad.get_absolute_url }}">
+                                        <div class="bg-light d-flex align-items-center justify-content-center"
+                                             style="height: 200px;">
+                                            <i class="fas fa-image fa-3x text-muted"></i>
+                                        </div>
+                                    </a>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+
+                        <!-- Corps de la carte -->
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title">
+                                <a href="{{ favorite.ad.get_absolute_url }}" class="text-decoration-none text-dark">
+                                    {{ favorite.ad.title|truncatechars:45 }}
+                                </a>
+                            </h5>
+
+                            <p class="card-text text-muted small mb-2">
+                                <i class="fas fa-map-marker-alt"></i>
+                                {{ favorite.ad.city_from }} → {{ favorite.ad.city_to }}
+                            </p>
+
+                            <p class="card-text small text-muted mb-3">
+                                {{ favorite.ad.description|truncatechars:80 }}
+                            </p>
+
+                            <div class="mt-auto">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span class="fs-5 fw-bold text-primary">
+                                            {{ favorite.ad.get_price_with_currency }}
+                                        </span>
+                                        {% if favorite.ad.is_negotiable %}
+                                            <small class="text-muted">{% trans "(Négociable)" %}</small>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Actions -->
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                                                type="button" data-bs-toggle="dropdown">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <a class="dropdown-item" href="{{ favorite.ad.get_absolute_url }}">
+                                                    <i class="fas fa-eye"></i> {% trans "Voir l'annonce" %}
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'users:profile' favorite.ad.seller.username %}">
+                                                    <i class="fas fa-user"></i> {% trans "Voir le vendeur" %}
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'messaging:new_conversation' favorite.ad.seller.username %}">
+                                                    <i class="fas fa-envelope"></i> {% trans "Contacter" %}
+                                                </a>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <a class="dropdown-item text-danger remove-favorite-action"
+                                                   href="#" data-url="{% url 'ads:toggle_favorite' favorite.ad.slug %}">
+                                                    <i class="fas fa-trash"></i> {% trans "Supprimer des favoris" %}
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pied de carte -->
+                        <div class="card-footer bg-transparent border-top pt-2 pb-2">
+                            <div class="d-flex justify-content-between text-muted small">
+                                <div title="{% trans 'Date d\'ajout aux favoris' %}">
+                                    <i class="fas fa-calendar-plus"></i> {{ favorite.created_at|timesince }}
+                                </div>
+                                <div>
+                                    <i class="fas fa-eye"></i> {{ favorite.ad.view_count }}
+                                </div>
+                                <div>
+                                    <i class="fas fa-heart text-danger"></i> {{ favorite.ad.favorite_count }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <!-- Aucun favori -->
+            <div class="col-12">
+                <div class="text-center py-5">
+                    <div class="mb-4">
+                        <i class="fas fa-heart fa-4x text-muted"></i>
+                    </div>
+                    <h3 class="mb-3">{% trans "Vous n'avez pas encore de favoris" %}</h3>
+                    <p class="text-muted mb-4">
+                        {% trans "Parcourez les annonces et ajoutez celles qui vous intéressent à vos favoris !" %}
+                    </p>
+                    <a href="{% url 'ads:ad_list' %}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-search"></i> {% trans "Parcourir les annonces" %}
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Actions groupées -->
+    {% if favorites %}
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card border">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">
+                            <i class="fas fa-cogs"></i> {% trans "Actions groupées" %}
+                        </h5>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button class="btn btn-outline-danger" id="clear-all-favorites">
+                                <i class="fas fa-trash"></i> {% trans "Tout supprimer" %}
+                            </button>
+                            <button class="btn btn-outline-secondary" id="export-favorites">
+                                <i class="fas fa-download"></i> {% trans "Exporter la liste" %}
+                            </button>
+                            <button class="btn btn-outline-primary" id="compare-selected">
+                                <i class="fas fa-balance-scale"></i> {% trans "Comparer les sélectionnés" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Modal de confirmation -->
+<div class="modal fade" id="confirmRemoveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-heart-broken text-danger"></i> {% trans "Retirer des favoris" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Êtes-vous sûr de vouloir retirer cette annonce de vos favoris ?" %}</p>
+                <p class="text-muted small">
+                    {% trans "Vous pourrez toujours la retrouver plus tard si elle est toujours disponible." %}
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {% trans "Annuler" %}
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmRemoveBtn">
+                    <i class="fas fa-heart-broken"></i> {% trans "Retirer" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        let currentRemoveUrl = '';
+
+        // Recherche en temps réel
+        $('#searchFavorites').on('keyup', function() {
+            const searchTerm = $(this).val().toLowerCase();
+
+            $('.favorite-item').each(function() {
+                const title = $(this).data('title');
+                const matches = title.includes(searchTerm);
+
+                if (matches || searchTerm === '') {
+                    $(this).show();
+                } else {
+                    $(this).hide();
+                }
+            });
+        });
+
+        // Filtrage
+        $('.filter-option').click(function(e) {
+            e.preventDefault();
+            const filter = $(this).data('filter');
+
+            // Mettre à jour l'état actif
+            $('.filter-option').removeClass('active');
+            $(this).addClass('active');
+
+            $('.favorite-item').each(function() {
+                let show = false;
+
+                switch(filter) {
+                    case 'all':
+                        show = true;
+                        break;
+                    case 'active':
+                        show = $(this).data('status') === 'ACTIVE';
+                        break;
+                    case 'featured':
+                        show = $(this).data('featured') === 'true';
+                        break;
+                    case 'negotiable':
+                        show = $(this).data('negotiable') === 'true';
+                        break;
+                    case 'cheap':
+                        show = $(this).data('price') < 100;
+                        break;
+                    case 'medium':
+                        const price = $(this).data('price');
+                        show = price >= 100 && price <= 500;
+                        break;
+                    case 'expensive':
+                        show = $(this).data('price') > 500;
+                        break;
+                }
+
+                if (show) {
+                    $(this).show();
+                } else {
+                    $(this).hide();
+                }
+            });
+
+            $('.dropdown-toggle').dropdown('hide');
+        });
+
+        // Tri
+        $('.sort-option').click(function(e) {
+            e.preventDefault();
+            const sortBy = $(this).data('sort');
+
+            // Mettre à jour l'état actif
+            $('.sort-option').removeClass('active');
+            $(this).addClass('active');
+
+            const container = $('#favorites-container');
+            const items = container.find('.favorite-item').get();
+
+            items.sort(function(a, b) {
+                let aVal, bVal;
+
+                switch(sortBy) {
+                    case 'date-desc':
+                        aVal = $(a).data('added');
+                        bVal = $(b).data('added');
+                        return bVal - aVal;
+                    case 'date-asc':
+                        aVal = $(a).data('added');
+                        bVal = $(b).data('added');
+                        return aVal - bVal;
+                    case 'price-asc':
+                        aVal = $(a).data('price');
+                        bVal = $(b).data('price');
+                        return aVal - bVal;
+                    case 'price-desc':
+                        aVal = $(a).data('price');
+                        bVal = $(b).data('price');
+                        return bVal - aVal;
+                    case 'views-desc':
+                        aVal = $(a).data('views');
+                        bVal = $(b).data('views');
+                        return bVal - aVal;
+                    case 'title-asc':
+                        aVal = $(a).data('title');
+                        bVal = $(b).data('title');
+                        return aVal.localeCompare(bVal);
+                    default:
+                        return 0;
+                }
+            });
+
+            // Réorganiser les éléments
+            $.each(items, function(idx, item) {
+                container.append(item);
+            });
+
+            $('.dropdown-toggle').dropdown('hide');
+        });
+
+        // Retirer un favori
+        $('.remove-favorite-btn, .remove-favorite-action').click(function(e) {
+            e.preventDefault();
+            currentRemoveUrl = $(this).data('url');
+            const adSlug = $(this).data('ad-slug');
+
+            if (currentRemoveUrl) {
+                $('#confirmRemoveModal').modal('show');
+            }
+        });
+
+        // Confirmation de suppression
+        $('#confirmRemoveBtn').click(function() {
+            if (!currentRemoveUrl) return;
+
+            const $btn = $(this);
+            $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> {% trans "Suppression..." %}');
+
+            $.ajax({
+                url: currentRemoveUrl,
+                type: 'POST',
+                data: {
+                    csrfmiddlewaretoken: '{{ csrf_token }}'
+                },
+                success: function(data) {
+                    if (data.status === 'success') {
+                        // Trouver et supprimer l'élément du DOM
+                        $('.favorite-item').each(function() {
+                            if ($(this).data('id')) {
+                                // Vous devrez stocker l'ID du favori dans data-id
+                                // Pour l'instant, on fait une approche simplifiée
+                                $(this).fadeOut(300, function() {
+                                    $(this).remove();
+                                    updateStats();
+                                });
+                            }
+                        });
+
+                        // Afficher un toast
+                        showToast('{% trans "Annonce retirée des favoris" %}', 'success');
+
+                        // Masquer la modal
+                        $('#confirmRemoveModal').modal('hide');
+                    }
+                },
+                error: function() {
+                    showToast('{% trans "Une erreur est survenue" %}', 'error');
+                },
+                complete: function() {
+                    $btn.prop('disabled', false).html('<i class="fas fa-heart-broken"></i> {% trans "Retirer" %}');
+                }
+            });
+        });
+
+        // Supprimer tous les favoris
+        $('#clear-all-favorites').click(function() {
+            if (!confirm('{% trans "Êtes-vous sûr de vouloir retirer toutes les annonces de vos favoris ? Cette action est irréversible." %}')) {
+                return;
+            }
+
+            // Ici, vous devriez implémenter une vue pour supprimer tous les favoris
+            // Pour l'instant, on simule avec des requêtes individuelles
+            $('.remove-favorite-btn').each(function() {
+                // Vous devrez implémenter la logique réelle
+            });
+
+            showToast('{% trans "Fonctionnalité à implémenter" %}', 'info');
+        });
+
+        // Exporter la liste
+        $('#export-favorites').click(function() {
+            const favoritesData = [];
+
+            $('.favorite-item').each(function() {
+                favoritesData.push({
+                    title: $(this).find('.card-title a').text().trim(),
+                    price: $(this).data('price'),
+                    added: $(this).data('added'),
+                    url: window.location.origin + $(this).find('.card-title a').attr('href')
+                });
+            });
+
+            // Créer un fichier JSON téléchargeable
+            const dataStr = JSON.stringify(favoritesData, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+
+            const exportFileDefaultName = 'mes-favoris-ebi3.json';
+
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+
+            showToast('{% trans "Liste exportée avec succès" %}', 'success');
+        });
+
+        // Comparer les sélectionnés
+        $('#compare-selected').click(function() {
+            showToast('{% trans "Fonctionnalité à implémenter" %}', 'info');
+        });
+
+        // Mettre à jour les statistiques après suppression
+        function updateStats() {
+            const remaining = $('.favorite-item').length;
+
+            // Mettre à jour le compteur dans l'interface
+            $('.stat-card:first h2').text(remaining);
+
+            // Si plus de favoris, afficher le message vide
+            if (remaining === 0) {
+                location.reload(); // Recharger pour afficher l'état vide
+            }
+        }
+
+        // Fonction utilitaire pour afficher des toasts
+        function showToast(message, type) {
+            const toastHtml = `
+                <div class="toast align-items-center text-white bg-${type === 'success' ? 'success' : 'danger'} border-0" role="alert">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            ${message}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                </div>
+            `;
+
+            const container = $('#toast-container');
+            if (container.length === 0) {
+                $('body').append('<div id="toast-container" class="toast-container position-fixed top-0 end-0 p-3"></div>');
+            }
+
+            $('#toast-container').append(toastHtml);
+            $('.toast').toast('show');
+
+            // Supprimer après fermeture
+            $('.toast').on('hidden.bs.toast', function() {
+                $(this).remove();
+            });
+        }
+    });
+</script>
+
+<style>
+    .favorite-card {
+        transition: all 0.3s ease;
+        position: relative;
+    }
+
+    .favorite-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+
+    .remove-favorite-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        z-index: 10;
+    }
+
+    .dropdown-menu {
+        min-width: 220px;
+    }
+
+    .filter-option.active, .sort-option.active {
+        background-color: #f8f9fa;
+        font-weight: bold;
+    }
+
+    .stat-card {
+        border-radius: 8px;
+        transition: transform 0.2s;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-2px);
+    }
+
+    .card-title a {
+        color: inherit;
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+
+    .card-title a:hover {
+        color: #007bff;
+    }
+
+    @media (max-width: 768px) {
+        .d-flex.flex-wrap.gap-2 {
+            flex-direction: column;
+        }
+
+        .d-flex.flex-wrap.gap-2 .btn {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+    }
+
+    .text-muted.small i {
+        width: 16px;
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,539 @@
+{# ~/ebi3/colis/templates/colis/my_packages.html #}
+{% extends 'colis/base_colis.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Mes colis" %} - Ebi3{% endblock %}
+
+{% block colis_title %}{% trans "Mes colis" %}{% endblock %}
+
+{% block colis_content %}
+<div class="container">
+    <!-- En-tête avec statistiques -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h2 class="mb-0">{% trans "Mes colis" %}</h2>
+                            <p class="text-muted mb-0">{% trans "Gérez tous vos colis publiés" %}</p>
+                        </div>
+                        <div>
+                            <a href="{% url 'colis:package_create' %}" class="btn btn-success">
+                                <i class="fas fa-plus"></i> {% trans "Publier un nouveau colis" %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">{% trans "Statut" %}</label>
+                            <select name="status" class="form-select" onchange="this.form.submit()">
+                                <option value="">{% trans "Tous les statuts" %}</option>
+                                <option value="DRAFT" {% if request.GET.status == 'DRAFT' %}selected{% endif %}>
+                                    {% trans "Brouillon" %}
+                                </option>
+                                <option value="AVAILABLE" {% if request.GET.status == 'AVAILABLE' %}selected{% endif %}>
+                                    {% trans "Disponible" %}
+                                </option>
+                                <option value="RESERVED" {% if request.GET.status == 'RESERVED' %}selected{% endif %}>
+                                    {% trans "Réservé" %}
+                                </option>
+                                <option value="IN_TRANSIT" {% if request.GET.status == 'IN_TRANSIT' %}selected{% endif %}>
+                                    {% trans "En transit" %}
+                                </option>
+                                <option value="DELIVERED" {% if request.GET.status == 'DELIVERED' %}selected{% endif %}>
+                                    {% trans "Livré" %}
+                                </option>
+                                <option value="CANCELLED" {% if request.GET.status == 'CANCELLED' %}selected{% endif %}>
+                                    {% trans "Annulé" %}
+                                </option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">{% trans "Tri" %}</label>
+                            <select name="sort_by" class="form-select" onchange="this.form.submit()">
+                                <option value="-created_at" {% if request.GET.sort_by == '-created_at' %}selected{% endif %}>
+                                    {% trans "Plus récent" %}
+                                </option>
+                                <option value="created_at" {% if request.GET.sort_by == 'created_at' %}selected{% endif %}>
+                                    {% trans "Plus ancien" %}
+                                </option>
+                                <option value="title" {% if request.GET.sort_by == 'title' %}selected{% endif %}>
+                                    {% trans "Titre (A-Z)" %}
+                                </option>
+                                <option value="-title" {% if request.GET.sort_by == '-title' %}selected{% endif %}>
+                                    {% trans "Titre (Z-A)" %}
+                                </option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="input-group">
+                                <input type="text" name="q" class="form-control"
+                                       placeholder="{% trans 'Rechercher dans mes colis...' %}"
+                                       value="{{ request.GET.q|default:'' }}">
+                                <button class="btn btn-outline-primary" type="submit">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                                {% if request.GET %}
+                                <a href="{% url 'colis:my_packages' %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques rapides -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <div class="h3 text-primary">{{ total_packages }}</div>
+                            <small class="text-muted">{% trans "Total" %}</small>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="h3 text-success">{{ available_packages }}</div>
+                            <small class="text-muted">{% trans "Disponibles" %}</small>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="h3 text-info">{{ reserved_packages }}</div>
+                            <small class="text-muted">{% trans "Réservés" %}</small>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="h3 text-success">{{ delivered_packages }}</div>
+                            <small class="text-muted">{% trans "Livrés" %}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des colis -->
+    {% if packages %}
+    <div class="row">
+        {% for package in packages %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100 border">
+                <!-- Badge statut -->
+                <div class="card-header bg-transparent">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="badge
+                            {% if package.status == 'AVAILABLE' %}bg-success
+                            {% elif package.status == 'RESERVED' %}bg-info
+                            {% elif package.status == 'IN_TRANSIT' %}bg-warning
+                            {% elif package.status == 'DELIVERED' %}bg-primary
+                            {% elif package.status == 'CANCELLED' %}bg-danger
+                            {% else %}bg-secondary{% endif %}">
+                            {{ package.get_status_display }}
+                        </span>
+                        {% if package.is_featured %}
+                        <span class="badge bg-warning">
+                            <i class="fas fa-star"></i> {% trans "En vedette" %}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Image -->
+                <div class="position-relative">
+                    {% with package.images.first as main_image %}
+                        {% if main_image %}
+                            <img src="{{ main_image.image.url }}"
+                                 class="card-img-top"
+                                 alt="{{ package.title }}"
+                                 style="height: 180px; object-fit: cover;">
+                        {% else %}
+                            <div class="card-img-top bg-light d-flex align-items-center justify-content-center"
+                                 style="height: 180px;">
+                                <i class="fas fa-box fa-3x text-muted"></i>
+                            </div>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+
+                <!-- Contenu -->
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <a href="{{ package.get_absolute_url }}" class="text-decoration-none text-dark">
+                            {{ package.title|truncatechars:50 }}
+                        </a>
+                    </h5>
+
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fas fa-map-marker-alt text-danger me-2"></i>
+                            <small>{{ package.pickup_city|truncatechars:20 }}</small>
+                            <i class="fas fa-arrow-right mx-2 text-muted"></i>
+                            <i class="fas fa-map-marker-alt text-success me-2"></i>
+                            <small>{{ package.delivery_city|truncatechars:20 }}</small>
+                        </div>
+
+                        <div class="d-flex justify-content-between small text-muted mb-2">
+                            <span>
+                                <i class="fas fa-weight-hanging"></i> {{ package.weight }} kg
+                            </span>
+                            <span>
+                                <i class="fas fa-calendar-alt"></i> {{ package.pickup_date|date:"d/m/y" }}
+                            </span>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="h5 text-primary mb-0">
+                                {{ package.get_price_with_currency }}
+                            </span>
+                            <div class="small text-muted">
+                                <i class="fas fa-eye"></i> {{ package.view_count }}
+                                <i class="fas fa-gavel ms-2"></i> {{ package.offer_count }}
+                                <i class="fas fa-heart ms-2"></i> {{ package.favorite_count }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="card-footer bg-transparent">
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ package.get_absolute_url }}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-eye"></i>
+                        </a>
+
+                        {% if package.status == 'DRAFT' %}
+                        <a href="{% url 'colis:package_edit' package.slug %}" class="btn btn-sm btn-outline-warning">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        {% endif %}
+
+                        {% if package.status == 'AVAILABLE' and package.offer_count > 0 %}
+                        <a href="{% url 'colis:package_management' package.slug %}" class="btn btn-sm btn-outline-info">
+                            <i class="fas fa-handshake"></i> {{ package.offer_count }}
+                        </a>
+                        {% endif %}
+
+                        <button class="btn btn-sm btn-outline-danger"
+                                data-bs-toggle="modal"
+                                data-bs-target="#deleteModal{{ package.id }}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal de suppression -->
+            <div class="modal fade" id="deleteModal{{ package.id }}" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">{% trans "Confirmer la suppression" %}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>{% trans "Êtes-vous sûr de vouloir supprimer le colis" %} <strong>"{{ package.title }}"</strong> ?</p>
+                            {% if package.status == 'AVAILABLE' and package.offer_count > 0 %}
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                {% trans "Ce colis a des offres en cours. La suppression annulera toutes les offres." %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                {% trans "Annuler" %}
+                            </button>
+                            <form method="post" action="{% url 'colis:package_delete' package.slug %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger">
+                                    <i class="fas fa-trash"></i> {% trans "Supprimer" %}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            {{ num }}
+                        </a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <!-- Aucun colis -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-box-open fa-4x text-muted mb-3"></i>
+                    <h3>{% trans "Vous n'avez pas encore publié de colis" %}</h3>
+                    <p class="text-muted mb-4">
+                        {% trans "Commencez par publier votre premier colis pour trouver un transporteur." %}
+                    </p>
+                    <div class="d-flex justify-content-center gap-3">
+                        <a href="{% url 'colis:package_create' %}" class="btn btn-success btn-lg">
+                            <i class="fas fa-plus"></i> {% trans "Publier un colis" %}
+                        </a>
+                        <a href="{% url 'colis:package_list' %}" class="btn btn-outline-primary btn-lg">
+                            <i class="fas fa-search"></i> {% trans "Voir les colis disponibles" %}
+                        </a>
+                    </div>
+
+                    <!-- Conseils -->
+                    <div class="row mt-5">
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-body text-center">
+                                    <div class="bg-success bg-opacity-10 rounded-circle p-3 mb-3 d-inline-block">
+                                        <i class="fas fa-info-circle fa-2x text-success"></i>
+                                    </div>
+                                    <h5>{% trans "Comment ça marche" %}</h5>
+                                    <p class="small text-muted">
+                                        {% trans "Découvrez comment publier et gérer vos colis efficacement." %}
+                                    </p>
+                                    <a href="{% url 'colis:how_it_works' %}" class="btn btn-sm btn-outline-success">
+                                        {% trans "En savoir plus" %}
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-body text-center">
+                                    <div class="bg-warning bg-opacity-10 rounded-circle p-3 mb-3 d-inline-block">
+                                        <i class="fas fa-euro-sign fa-2x text-warning"></i>
+                                    </div>
+                                    <h5>{% trans "Guide des prix" %}</h5>
+                                    <p class="small text-muted">
+                                        {% trans "Fixez un prix attractif pour attirer plus de transporteurs." %}
+                                    </p>
+                                    <a href="{% url 'colis:price_guide' %}" class="btn btn-sm btn-outline-warning">
+                                        {% trans "Voir les prix" %}
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-body text-center">
+                                    <div class="bg-info bg-opacity-10 rounded-circle p-3 mb-3 d-inline-block">
+                                        <i class="fas fa-box fa-2x text-info"></i>
+                                    </div>
+                                    <h5>{% trans "Conseils d'emballage" %}</h5>
+                                    <p class="small text-muted">
+                                        {% trans "Apprenez à emballer vos colis pour un transport sécurisé." %}
+                                    </p>
+                                    <a href="{% url 'colis:packaging_tips' %}" class="btn btn-sm btn-outline-info">
+                                        {% trans "Voir les conseils" %}
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Actions groupées -->
+    {% if packages %}
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">{% trans "Actions groupées" %}</h5>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% if draft_packages %}
+                        <button class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#publishAllModal">
+                            <i class="fas fa-paper-plane"></i> {% trans "Publier tous les brouillons" %}
+                        </button>
+                        {% endif %}
+
+                        {% if available_packages %}
+                        <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#expireAllModal">
+                            <i class="fas fa-clock"></i> {% trans "Expirer tous les disponibles" %}
+                        </button>
+                        {% endif %}
+
+                        <a href="{% url 'colis:package_statistics' %}" class="btn btn-outline-info">
+                            <i class="fas fa-chart-bar"></i> {% trans "Voir les statistiques" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal pour publier tous les brouillons -->
+    <div class="modal fade" id="publishAllModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Publier tous les brouillons" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>{% trans "Êtes-vous sûr de vouloir publier tous vos colis en brouillon ?" %}</p>
+                    <p class="text-muted small">
+                        <i class="fas fa-info-circle"></i>
+                        {% trans "Cette action rendra tous vos brouillons visibles par les transporteurs." %}
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "Annuler" %}
+                    </button>
+                    <form method="post" action="{% url 'colis:bulk_publish' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-paper-plane"></i> {% trans "Publier tous" %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal pour expirer tous les disponibles -->
+    <div class="modal fade" id="expireAllModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Expirer tous les colis disponibles" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>{% trans "Êtes-vous sûr de vouloir marquer tous vos colis disponibles comme expirés ?" %}</p>
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        {% trans "Cette action est irréversible et les colis ne seront plus visibles par les transporteurs." %}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "Annuler" %}
+                    </button>
+                    <form method="post" action="{% url 'colis:bulk_expire' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-clock"></i> {% trans "Expirer tous" %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border-radius: 10px;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.card-header {
+    border-bottom: 1px solid rgba(0,0,0,0.125);
+}
+
+.card-footer {
+    border-top: 1px solid rgba(0,0,0,0.125);
+}
+
+.badge {
+    font-size: 0.75rem;
+    padding: 0.35em 0.65em;
+}
+
+.h3 {
+    font-weight: bold;
+}
+
+.pagination .page-link {
+    color: #667eea;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #667eea;
+    border-color: #667eea;
+}
+</style>
+
+<script>
+$(document).ready(function() {
+    // Tooltips pour les boutons d'action
+    $('[data-bs-toggle="tooltip"]').tooltip();
+
+    // Confirmation avant suppression
+    $('.delete-btn').click(function(e) {
+        if (!confirm('{% trans "Êtes-vous sûr de vouloir supprimer ce colis ?" %}')) {
+            e.preventDefault();
+        }
+    });
+
+    // Filtrage en temps réel
+    $('#search-input').on('keyup', function() {
+        const value = $(this).val().toLowerCase();
+        $('.package-card').filter(function() {
+            $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+        });
+    });
+});
+</script>
+{% endblock %}

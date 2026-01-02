@@ -9,3 +9,9 @@ copier les fichiers des dossiers
     done
   done
 } > uuuu.txt
+
+
+
+
+
+find colis -type f \( -name "*.py" -o -name "*.html" \) -exec sh -c 'echo "=== Fichier: {} ===" >> ffff.txt && cat {} >> ffff.txt && echo -e "\n" >> ffff.txt' \;

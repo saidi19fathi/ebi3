@@ -1,0 +1,556 @@
+{# ~/ebi3/ads/templates/ads/my_ads.html #}
+{% extends 'ads/base_ads.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Mes annonces" %} - Ebi3{% endblock %}
+
+{% block ads_content %}
+<div class="container-fluid">
+    <!-- En-tête avec statistiques -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h1 class="mb-0">
+                    <i class="fas fa-bullhorn"></i> {% trans "Mes annonces" %}
+                </h1>
+                <a href="{% url 'ads:ad_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> {% trans "Créer une annonce" %}
+                </a>
+            </div>
+
+            <!-- Cartes de statistiques -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title mb-0">{% trans "Total" %}</h6>
+                                    <h2 class="mb-0">{{ total|default:0 }}</h2>
+                                </div>
+                                <i class="fas fa-layer-group fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title mb-0">{% trans "Actives" %}</h6>
+                                    <h2 class="mb-0">{{ active|default:0 }}</h2>
+                                </div>
+                                <i class="fas fa-check-circle fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title mb-0">{% trans "Vues totales" %}</h6>
+                                    <h2 class="mb-0">{{ total_views|default:0 }}</h2>
+                                </div>
+                                <i class="fas fa-eye fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="card bg-warning text-dark">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title mb-0">{% trans "Favoris" %}</h6>
+                                    <h2 class="mb-0">{{ total_favorites|default:0 }}</h2>
+                                </div>
+                                <i class="fas fa-heart fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres et onglets -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <!-- Onglets -->
+                    <ul class="nav nav-tabs mb-3" id="myAdsTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="all-tab" data-bs-toggle="tab"
+                                    data-bs-target="#all" type="button" role="tab">
+                                <i class="fas fa-list"></i> {% trans "Toutes" %}
+                                <span class="badge bg-secondary ms-1">{{ total|default:0 }}</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="active-tab" data-bs-toggle="tab"
+                                    data-bs-target="#active" type="button" role="tab">
+                                <i class="fas fa-check-circle"></i> {% trans "Actives" %}
+                                <span class="badge bg-success ms-1">{{ active|default:0 }}</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="draft-tab" data-bs-toggle="tab"
+                                    data-bs-target="#draft" type="button" role="tab">
+                                <i class="fas fa-edit"></i> {% trans "Brouillons" %}
+                                <span class="badge bg-secondary ms-1">{{ draft|default:0 }}</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="sold-tab" data-bs-toggle="tab"
+                                    data-bs-target="#sold" type="button" role="tab">
+                                <i class="fas fa-check"></i> {% trans "Vendues" %}
+                                <span class="badge bg-primary ms-1">{{ sold|default:0 }}</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="reserved-tab" data-bs-toggle="tab"
+                                    data-bs-target="#reserved" type="button" role="tab">
+                                <i class="fas fa-shopping-cart"></i> {% trans "Réservées" %}
+                                <span class="badge bg-info ms-1">{{ reserved|default:0 }}</span>
+                            </button>
+                        </li>
+                    </ul>
+
+                    <!-- Barre de recherche et filtres -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-search"></i>
+                                </span>
+                                <input type="text" class="form-control" id="searchMyAds"
+                                       placeholder="{% trans 'Rechercher dans mes annonces...' %}">
+                            </div>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <div class="dropdown">
+                                <button class="btn btn-outline-secondary dropdown-toggle" type="button"
+                                        data-bs-toggle="dropdown">
+                                    <i class="fas fa-sort"></i> {% trans "Trier par" %}
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item sort-option" href="#" data-sort="-created_at">
+                                        <i class="fas fa-calendar"></i> {% trans "Plus récentes" %}
+                                    </a></li>
+                                    <li><a class="dropdown-item sort-option" href="#" data-sort="created_at">
+                                        <i class="fas fa-calendar"></i> {% trans "Plus anciennes" %}
+                                    </a></li>
+                                    <li><a class="dropdown-item sort-option" href="#" data-sort="-view_count">
+                                        <i class="fas fa-eye"></i> {% trans "Plus vues" %}
+                                    </a></li>
+                                    <li><a class="dropdown-item sort-option" href="#" data-sort="-favorite_count">
+                                        <i class="fas fa-heart"></i> {% trans "Plus favorites" %}
+                                    </a></li>
+                                    <li><a class="dropdown-item sort-option" href="#" data-sort="-price">
+                                        <i class="fas fa-euro-sign"></i> {% trans "Prix décroissant" %}
+                                    </a></li>
+                                    <li><a class="dropdown-item sort-option" href="#" data-sort="price">
+                                        <i class="fas fa-euro-sign"></i> {% trans "Prix croissant" %}
+                                    </a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenu des onglets -->
+    <div class="tab-content" id="myAdsTabContent">
+        <!-- Toutes les annonces -->
+        <div class="tab-pane fade show active" id="all" role="tabpanel">
+            {% if ads %}
+                <div class="row" id="all-ads-container">
+                    {% for ad in ads %}
+                        <div class="col-md-6 col-lg-4 mb-4 ad-item"
+                             data-status="{{ ad.status }}"
+                             data-created="{{ ad.created_at|date:'U' }}"
+                             data-views="{{ ad.view_count }}"
+                             data-favorites="{{ ad.favorite_count }}"
+                             data-price="{{ ad.price }}"
+                             data-title="{{ ad.title|lower }}">
+                            <div class="card h-100 border {% if ad.is_featured %}border-warning{% endif %}">
+                                {% if ad.is_featured %}
+                                    <div class="position-absolute top-0 end-0 m-2">
+                                        <span class="badge bg-warning">
+                                            <i class="fas fa-star"></i> {% trans "Vedette" %}
+                                        </span>
+                                    </div>
+                                {% endif %}
+
+                                <!-- Badge de statut -->
+                                <div class="position-absolute top-0 start-0 m-2">
+                                    <span class="badge
+                                        {% if ad.status == 'ACTIVE' %}bg-success
+                                        {% elif ad.status == 'DRAFT' %}bg-secondary
+                                        {% elif ad.status == 'SOLD' %}bg-primary
+                                        {% elif ad.status == 'RESERVED' %}bg-info
+                                        {% elif ad.status == 'EXPIRED' %}bg-dark
+                                        {% else %}bg-secondary{% endif %}">
+                                        {{ ad.get_status_display }}
+                                    </span>
+                                </div>
+
+                                <!-- Image -->
+                                <div class="position-relative">
+                                    {% with ad.images.first as main_image %}
+                                        {% if main_image %}
+                                            <img src="{{ main_image.thumbnail.url|default:main_image.image.url }}"
+                                                 class="card-img-top"
+                                                 style="height: 180px; object-fit: cover;"
+                                                 alt="{{ ad.title }}"
+                                                 loading="lazy">
+                                        {% else %}
+                                            <div class="bg-light d-flex align-items-center justify-content-center"
+                                                 style="height: 180px;">
+                                                <i class="fas fa-image fa-3x text-muted"></i>
+                                            </div>
+                                        {% endif %}
+                                    {% endwith %}
+                                </div>
+
+                                <!-- Corps de la carte -->
+                                <div class="card-body d-flex flex-column">
+                                    <h5 class="card-title">
+                                        <a href="{{ ad.get_absolute_url }}" class="text-decoration-none">
+                                            {{ ad.title|truncatechars:40 }}
+                                        </a>
+                                    </h5>
+
+                                    <p class="card-text text-muted small mb-2">
+                                        <i class="fas fa-map-marker-alt"></i>
+                                        {{ ad.city_from }} → {{ ad.city_to }}
+                                    </p>
+
+                                    <div class="mt-auto">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <span class="fs-5 fw-bold text-primary">
+                                                    {{ ad.get_price_with_currency }}
+                                                </span>
+                                                {% if ad.is_negotiable %}
+                                                    <small class="text-muted">{% trans "(Négociable)" %}</small>
+                                                {% endif %}
+                                            </div>
+
+                                            <!-- Actions rapides -->
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                                                        type="button" data-bs-toggle="dropdown">
+                                                    <i class="fas fa-ellipsis-v"></i>
+                                                </button>
+                                                <ul class="dropdown-menu dropdown-menu-end">
+                                                    <li>
+                                                        <a class="dropdown-item" href="{{ ad.get_absolute_url }}">
+                                                            <i class="fas fa-eye"></i> {% trans "Voir" %}
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a class="dropdown-item" href="{% url 'ads:ad_edit' ad.slug %}">
+                                                            <i class="fas fa-edit"></i> {% trans "Modifier" %}
+                                                        </a>
+                                                    </li>
+                                                    {% if ad.status == 'ACTIVE' %}
+                                                        <li>
+                                                            <a class="dropdown-item" href="{% url 'ads:change_status' ad.slug 'RESERVED' %}">
+                                                                <i class="fas fa-shopping-cart"></i> {% trans "Marquer comme réservée" %}
+                                                            </a>
+                                                        </li>
+                                                        <li>
+                                                            <a class="dropdown-item" href="{% url 'ads:change_status' ad.slug 'SOLD' %}">
+                                                                <i class="fas fa-check"></i> {% trans "Marquer comme vendue" %}
+                                                            </a>
+                                                        </li>
+                                                    {% endif %}
+                                                    <li><hr class="dropdown-divider"></li>
+                                                    <li>
+                                                        <a class="dropdown-item text-danger"
+                                                           href="{% url 'ads:ad_delete' ad.slug %}">
+                                                            <i class="fas fa-trash"></i> {% trans "Supprimer" %}
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Pied de carte avec statistiques -->
+                                <div class="card-footer bg-transparent border-top pt-2 pb-2">
+                                    <div class="d-flex justify-content-between text-muted small">
+                                        <div>
+                                            <i class="fas fa-eye"></i> {{ ad.view_count }}
+                                        </div>
+                                        <div>
+                                            <i class="fas fa-heart"></i> {{ ad.favorite_count }}
+                                        </div>
+                                        <div>
+                                            <i class="fas fa-comments"></i> {{ ad.inquiry_count }}
+                                        </div>
+                                        <div title="{{ ad.created_at }}">
+                                            <i class="fas fa-calendar"></i> {{ ad.created_at|timesince }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                    <nav aria-label="Page navigation" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+
+            {% else %}
+                <!-- Aucune annonce -->
+                <div class="text-center py-5">
+                    <div class="mb-4">
+                        <i class="fas fa-bullhorn fa-4x text-muted"></i>
+                    </div>
+                    <h3 class="mb-3">{% trans "Vous n'avez pas encore d'annonces" %}</h3>
+                    <p class="text-muted mb-4">
+                        {% trans "Commencez par créer votre première annonce !" %}
+                    </p>
+                    <a href="{% url 'ads:ad_create' %}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-plus"></i> {% trans "Créer ma première annonce" %}
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Annonces actives -->
+        <div class="tab-pane fade" id="active" role="tabpanel">
+            <div class="text-center py-5">
+                <div class="mb-4">
+                    <i class="fas fa-check-circle fa-4x text-success"></i>
+                </div>
+                <p class="text-muted">
+                    {% trans "Utilisez le filtre de recherche pour voir vos annonces actives." %}
+                </p>
+            </div>
+        </div>
+
+        <!-- Brouillons -->
+        <div class="tab-pane fade" id="draft" role="tabpanel">
+            <div class="text-center py-5">
+                <div class="mb-4">
+                    <i class="fas fa-edit fa-4x text-secondary"></i>
+                </div>
+                <p class="text-muted">
+                    {% trans "Utilisez le filtre de recherche pour voir vos brouillons." %}
+                </p>
+            </div>
+        </div>
+
+        <!-- Vendues -->
+        <div class="tab-pane fade" id="sold" role="tabpanel">
+            <div class="text-center py-5">
+                <div class="mb-4">
+                    <i class="fas fa-check fa-4x text-primary"></i>
+                </div>
+                <p class="text-muted">
+                    {% trans "Utilisez le filtre de recherche pour voir vos annonces vendues." %}
+                </p>
+            </div>
+        </div>
+
+        <!-- Réservées -->
+        <div class="tab-pane fade" id="reserved" role="tabpanel">
+            <div class="text-center py-5">
+                <div class="mb-4">
+                    <i class="fas fa-shopping-cart fa-4x text-info"></i>
+                </div>
+                <p class="text-muted">
+                    {% trans "Utilisez le filtre de recherche pour voir vos annonces réservées." %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Filtrage en temps réel
+        $('#searchMyAds').on('keyup', function() {
+            const searchTerm = $(this).val().toLowerCase();
+
+            $('.ad-item').each(function() {
+                const title = $(this).data('title');
+                const matches = title.includes(searchTerm);
+
+                if (matches || searchTerm === '') {
+                    $(this).show();
+                } else {
+                    $(this).hide();
+                }
+            });
+        });
+
+        // Tri des annonces
+        $('.sort-option').click(function(e) {
+            e.preventDefault();
+            const sortBy = $(this).data('sort');
+
+            const container = $('#all-ads-container');
+            const items = container.find('.ad-item').get();
+
+            items.sort(function(a, b) {
+                const aVal = $(a).data(sortBy.replace('-', ''));
+                const bVal = $(b).data(sortBy.replace('-', ''));
+
+                if (sortBy.startsWith('-')) {
+                    // Ordre décroissant
+                    return bVal - aVal;
+                } else {
+                    // Ordre croissant
+                    return aVal - bVal;
+                }
+            });
+
+            // Réorganiser les éléments
+            $.each(items, function(idx, item) {
+                container.append(item);
+            });
+
+            // Mettre à jour l'interface
+            $('.dropdown-toggle').dropdown('hide');
+        });
+
+        // Filtrage par onglet
+        $('.nav-tabs button').click(function() {
+            const target = $(this).data('bs-target');
+            const status = target.replace('#', '');
+
+            if (status === 'all') {
+                $('.ad-item').show();
+            } else {
+                $('.ad-item').each(function() {
+                    const itemStatus = $(this).data('status').toLowerCase();
+                    if (itemStatus === status) {
+                        $(this).show();
+                    } else {
+                        $(this).hide();
+                    }
+                });
+            }
+
+            // Réinitialiser la recherche
+            $('#searchMyAds').val('');
+        });
+
+        // Confirmation pour le changement de statut
+        $('a[href*="change_status"]').click(function(e) {
+            if (!confirm('{% trans "Confirmez-vous le changement de statut de cette annonce ?" %}')) {
+                e.preventDefault();
+            }
+        });
+
+        // Animation de chargement pour les actions
+        $('.dropdown-item').click(function() {
+            if ($(this).attr('href') && !$(this).hasClass('text-danger')) {
+                $(this).append(' <i class="fas fa-spinner fa-spin"></i>');
+            }
+        });
+    });
+</script>
+
+<style>
+    .card {
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+
+    .nav-tabs .nav-link {
+        border: none;
+        position: relative;
+    }
+
+    .nav-tabs .nav-link.active {
+        border-bottom: 3px solid #007bff;
+        background-color: transparent;
+    }
+
+    .nav-tabs .nav-link .badge {
+        font-size: 0.6rem;
+        padding: 0.2rem 0.4rem;
+    }
+
+    .stat-card {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .stat-card i {
+        opacity: 0.8;
+    }
+
+    .dropdown-menu {
+        min-width: 200px;
+    }
+
+    .ad-item {
+        transition: opacity 0.3s;
+    }
+
+    @media (max-width: 768px) {
+        .stat-card h2 {
+            font-size: 1.5rem;
+        }
+
+        .nav-tabs .nav-link {
+            padding: 0.5rem;
+            font-size: 0.9rem;
+        }
+    }
+</style>
+{% endblock %}

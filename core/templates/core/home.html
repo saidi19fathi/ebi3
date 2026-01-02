@@ -5,56 +5,19 @@
 {% block title %}{{ SITE_NAME }} - {% trans "Plateforme Logistique Transfrontalière" %}{% endblock %}
 
 {% block content %}
-<!-- Hero Section Compacte -->
-<section class="hero-section py-4 py-md-5" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-    <div class="container">
-        <div class="row align-items-center">
-            <div class="col-lg-7 text-white">
-                <h1 class="fw-bold mb-3 display-5">
-                    {% trans "Logistique simplifiée entre pays" %}
-                </h1>
-                <p class="lead mb-4">
-                    {% trans "Ebi3 connecte les expatriés pour vendre, acheter et transporter des objets entre pays en toute sécurité." %}
-                </p>
-                <div class="d-flex flex-wrap gap-2">
-                    <a href="{% url 'ads:ad_list' %}" class="btn btn-light btn-lg px-4">
-                        <i class="fas fa-search me-2"></i> {% trans "Explorer" %}
-                    </a>
-                    <a href="{% url 'carriers:carrier_list' %}" class="btn btn-outline-light btn-lg px-4">
-                        <i class="fas fa-truck me-2"></i> {% trans "Transporteurs" %}
-                    </a>
-                    {% if not user.is_authenticated %}
-                    <a href="{% url 'users:register' %}" class="btn btn-outline-light btn-lg px-4">
-                        <i class="fas fa-user-plus me-2"></i> {% trans "S'inscrire" %}
-                    </a>
-                    {% endif %}
-                </div>
-            </div>
-            <div class="col-lg-5 d-none d-lg-block">
-                <img src="{% static 'img/hero-illustration.svg' %}"
-                     alt="{% trans 'Illustration logistique' %}"
-                     class="img-fluid" style="max-height: 300px;">
-            </div>
-        </div>
-    </div>
-</section>
-
 <!-- Actions Rapides pour Utilisateurs Connectés -->
 {% if user.is_authenticated %}
-<section class="py-4 bg-light">
+<section class="py-3 bg-light">
     <div class="container">
         <div class="row">
             <div class="col-12">
                 <div class="card border-0 shadow-sm">
-                    <div class="card-body py-3">
+                    <div class="card-body py-2">
                         <div class="row align-items-center">
-                            <div class="col-md-8">
+                            <div class="col-md-12">
                                 <h5 class="mb-2">{% trans "Actions rapides" %}</h5>
-                                <p class="text-muted mb-0 small">{% trans "Gérez vos annonces, colis et transporteurs" %}</p>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="d-flex flex-wrap gap-2 justify-content-md-end">
-                                    <!-- Éditer une annonce (si l'utilisateur a des annonces) -->
+                                <div class="d-flex flex-wrap gap-2">
+                                    <!-- Créer une annonce -->
                                     {% if user.ads.exists %}
                                     <a href="{% url 'ads:my_ads' %}" class="btn btn-outline-primary btn-sm">
                                         <i class="fas fa-edit me-1"></i> {% trans "Mes annonces" %}
@@ -65,8 +28,13 @@
                                     </a>
                                     {% endif %}
 
-                                    <!-- Éditer un colis (à adapter selon votre logique) -->
-                                    <a href="{% url 'carriers:carrier_list' %}" class="btn btn-outline-success btn-sm">
+                                    <!-- Créer un colis -->
+                                    <a href="{% url 'colis:package_create' %}" class="btn btn-success btn-sm">
+                                        <i class="fas fa-plus me-1"></i> {% trans "Publier colis" %}
+                                    </a>
+
+                                    <!-- Voir mes colis -->
+                                    <a href="{% url 'colis:my_packages' %}" class="btn btn-outline-success btn-sm">
                                         <i class="fas fa-box me-1"></i> {% trans "Mes colis" %}
                                     </a>
 
@@ -91,175 +59,8 @@
 </section>
 {% endif %}
 
-<!-- Services Principaux -->
-<section class="py-5">
-    <div class="container">
-        <div class="text-center mb-5">
-            <h2 class="fw-bold mb-3">{% trans "Nos services" %}</h2>
-            <p class="text-muted">{% trans "Trois solutions pour vos besoins transfrontaliers" %}</p>
-        </div>
-
-        <div class="row g-4">
-            <!-- Service 1 -->
-            <div class="col-md-4">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body text-center p-4">
-                        <div class="icon-wrapper bg-primary bg-opacity-10 rounded-circle p-4 mb-3 d-inline-block">
-                            <i class="fas fa-exchange-alt fa-2x text-primary"></i>
-                        </div>
-                        <h4 class="fw-bold mb-3">{% trans "Vente P2P" %}</h4>
-                        <p class="text-muted mb-4">
-                            {% trans "Vendez ou achetez directement entre particuliers" %}
-                        </p>
-                        <div class="mt-3">
-                            <a href="{% url 'ads:ad_list' %}" class="btn btn-outline-primary mb-2">
-                                <i class="fas fa-search"></i> {% trans "Explorer" %}
-                            </a>
-                            {% if user.is_authenticated %}
-                            <a href="{% url 'ads:ad_create' %}" class="btn btn-primary mb-2">
-                                <i class="fas fa-plus"></i> {% trans "Créer" %}
-                            </a>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Service 2 -->
-            <div class="col-md-4">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body text-center p-4">
-                        <div class="icon-wrapper bg-success bg-opacity-10 rounded-circle p-4 mb-3 d-inline-block">
-                            <i class="fas fa-truck fa-2x text-success"></i>
-                        </div>
-                        <h4 class="fw-bold mb-3">{% trans "Transport Pro" %}</h4>
-                        <p class="text-muted mb-4">
-                            {% trans "Transporteurs professionnels avec suivi et assurance" %}
-                        </p>
-                        <div class="mt-3">
-                            <a href="{% url 'carriers:carrier_list' %}" class="btn btn-outline-success mb-2">
-                                <i class="fas fa-search"></i> {% trans "Trouver" %}
-                            </a>
-                            <a href="{% url 'ads:ad_list' %}?logistics_option=WITH_CARRIER" class="btn btn-success mb-2">
-                                <i class="fas fa-box"></i> {% trans "Colis avec transport" %}
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Service 3 -->
-            <div class="col-md-4">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body text-center p-4">
-                        <div class="icon-wrapper bg-warning bg-opacity-10 rounded-circle p-4 mb-3 d-inline-block">
-                            <i class="fas fa-users fa-2x text-warning"></i>
-                        </div>
-                        <h4 class="fw-bold mb-3">{% trans "Transport Communautaire" %}</h4>
-                        <p class="text-muted mb-4">
-                            {% trans "Expatriés qui transportent lors de leurs voyages" %}
-                        </p>
-                        <div class="mt-3">
-                            <a href="{% url 'carriers:carrier_list' %}?carrier_type=PERSONAL" class="btn btn-outline-warning mb-2">
-                                <i class="fas fa-search"></i> {% trans "Voir expatriés" %}
-                            </a>
-                            {% if user.is_authenticated and not user.carrier_profile %}
-                            <a href="{% url 'carriers:apply' %}" class="btn btn-warning mb-2">
-                                <i class="fas fa-truck"></i> {% trans "Devenir transporteur" %}
-                            </a>
-                            {% elif not user.is_authenticated %}
-                            <a href="{% url 'users:register' %}" class="btn btn-warning mb-2">
-                                <i class="fas fa-user-plus"></i> {% trans "S'inscrire" %}
-                            </a>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Liens de gestion pour utilisateurs connectés -->
-        {% if user.is_authenticated %}
-        <div class="row mt-5">
-            <div class="col-12">
-                <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
-                    <div class="card-body p-4">
-                        <h5 class="card-title mb-3 text-center">
-                            <i class="fas fa-cogs text-primary me-2"></i>
-                            {% trans "Gestion de votre compte" %}
-                        </h5>
-                        <div class="row">
-                            <div class="col-md-4 mb-3 mb-md-0">
-                                <div class="d-flex flex-column align-items-center text-center">
-                                    <div class="bg-primary bg-opacity-10 rounded-circle p-3 mb-2">
-                                        <i class="fas fa-edit fa-lg text-primary"></i>
-                                    </div>
-                                    <h6 class="fw-bold">{% trans "Annonces" %}</h6>
-                                    <p class="small text-muted mb-2">{% trans "Gérez vos publications" %}</p>
-                                    <div class="d-flex gap-1">
-                                        <a href="{% url 'ads:my_ads' %}" class="btn btn-outline-primary btn-sm">
-                                            <i class="fas fa-list"></i> {% trans "Mes annonces" %}
-                                        </a>
-                                        <a href="{% url 'ads:ad_create' %}" class="btn btn-primary btn-sm">
-                                            <i class="fas fa-plus"></i> {% trans "Nouvelle" %}
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4 mb-3 mb-md-0">
-                                <div class="d-flex flex-column align-items-center text-center">
-                                    <div class="bg-success bg-opacity-10 rounded-circle p-3 mb-2">
-                                        <i class="fas fa-box fa-lg text-success"></i>
-                                    </div>
-                                    <h6 class="fw-bold">{% trans "Colis" %}</h6>
-                                    <p class="small text-muted mb-2">{% trans "Suivez vos envois" %}</p>
-                                    <div class="d-flex gap-1">
-                                        <a href="{% url 'carriers:carrier_list' %}" class="btn btn-outline-success btn-sm">
-                                            <i class="fas fa-truck"></i> {% trans "Transporteurs" %}
-                                        </a>
-                                        <a href="{% url 'ads:ad_list' %}?logistics_option=WITH_CARRIER" class="btn btn-success btn-sm">
-                                            <i class="fas fa-shipping-fast"></i> {% trans "Colis à envoyer" %}
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="d-flex flex-column align-items-center text-center">
-                                    <div class="bg-warning bg-opacity-10 rounded-circle p-3 mb-2">
-                                        <i class="fas fa-truck fa-lg text-warning"></i>
-                                    </div>
-                                    <h6 class="fw-bold">{% trans "Transport" %}</h6>
-                                    <p class="small text-muted mb-2">{% trans "Gérez le transport" %}</p>
-                                    <div class="d-flex gap-1">
-                                        {% if user.carrier_profile %}
-                                        <a href="{% url 'carriers:carrier_dashboard' %}" class="btn btn-outline-warning btn-sm">
-                                            <i class="fas fa-tachometer-alt"></i> {% trans "Dashboard" %}
-                                        </a>
-                                        <a href="{% url 'carriers:carrier_dashboard' %}" class="btn btn-warning btn-sm">
-                                            <i class="fas fa-edit"></i> {% trans "Profil" %}
-                                        </a>
-                                        {% else %}
-                                        <a href="{% url 'carriers:apply' %}" class="btn btn-warning btn-sm">
-                                            <i class="fas fa-truck"></i> {% trans "Devenir transporteur" %}
-                                        </a>
-                                        <a href="{% url 'carriers:carrier_list' %}" class="btn btn-outline-warning btn-sm">
-                                            <i class="fas fa-search"></i> {% trans "Rechercher" %}
-                                        </a>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-    </div>
-</section>
-
 <!-- Aperçu des Annonces -->
-<section class="py-5 bg-light">
+<section class="py-4">
     <div class="container">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
@@ -284,7 +85,7 @@
             <div class="col-md-3">
                 <div class="card h-100 border">
                     {% if ad.images.first %}
-                    <img src="{{ ad.images.first.thumbnail.url|default:ad.images.first.image.url }}"
+                    <img src="{{ ad.images.first.image.url }}"
                          class="card-img-top" alt="{{ ad.title }}" style="height: 150px; object-fit: cover;">
                     {% else %}
                     <div class="card-img-top bg-secondary d-flex align-items-center justify-content-center" style="height: 150px;">
@@ -325,8 +126,300 @@
     </div>
 </section>
 
-<!-- Aperçu des Transporteurs -->
+<!-- Services Principaux -->
+<section class="py-5 bg-light">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="fw-bold mb-3">{% trans "Nos services" %}</h2>
+            <p class="text-muted">{% trans "Trois solutions pour vos besoins transfrontaliers" %}</p>
+        </div>
+
+        <div class="row g-4">
+            <!-- Service 1 : Annonces -->
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body text-center p-4">
+                        <div class="icon-wrapper bg-primary bg-opacity-10 rounded-circle p-4 mb-3 d-inline-block">
+                            <i class="fas fa-exchange-alt fa-2x text-primary"></i>
+                        </div>
+                        <h4 class="fw-bold mb-3">{% trans "Vente P2P" %}</h4>
+                        <p class="text-muted mb-4">
+                            {% trans "Vendez ou achetez directement entre particuliers" %}
+                        </p>
+                        <div class="mt-3">
+                            <a href="{% url 'ads:ad_list' %}" class="btn btn-outline-primary mb-2">
+                                <i class="fas fa-search"></i> {% trans "Explorer" %}
+                            </a>
+                            {% if user.is_authenticated %}
+                            <a href="{% url 'ads:ad_create' %}" class="btn btn-primary mb-2">
+                                <i class="fas fa-plus"></i> {% trans "Créer" %}
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Service 2 : Colis -->
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body text-center p-4">
+                        <div class="icon-wrapper bg-success bg-opacity-10 rounded-circle p-4 mb-3 d-inline-block">
+                            <i class="fas fa-box fa-2x text-success"></i>
+                        </div>
+                        <h4 class="fw-bold mb-3">{% trans "Colis à transporter" %}</h4>
+                        <p class="text-muted mb-4">
+                            {% trans "Trouvez des colis à transporter ou proposez votre colis" %}
+                        </p>
+                        <div class="mt-3">
+                            <a href="{% url 'colis:package_list' %}" class="btn btn-outline-success mb-2">
+                                <i class="fas fa-search"></i> {% trans "Voir colis" %}
+                            </a>
+                            {% if user.is_authenticated %}
+                            <a href="{% url 'colis:package_create' %}" class="btn btn-success mb-2">
+                                <i class="fas fa-plus"></i> {% trans "Publier" %}
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Service 3 : Transport Pro -->
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body text-center p-4">
+                        <div class="icon-wrapper bg-warning bg-opacity-10 rounded-circle p-4 mb-3 d-inline-block">
+                            <i class="fas fa-truck fa-2x text-warning"></i>
+                        </div>
+                        <h4 class="fw-bold mb-3">{% trans "Transport Pro" %}</h4>
+                        <p class="text-muted mb-4">
+                            {% trans "Transporteurs professionnels avec suivi et assurance" %}
+                        </p>
+                        <div class="mt-3">
+                            <a href="{% url 'carriers:carrier_list' %}" class="btn btn-outline-warning mb-2">
+                                <i class="fas fa-search"></i> {% trans "Trouver" %}
+                            </a>
+                            <a href="{% url 'ads:ad_list' %}?logistics_option=WITH_CARRIER" class="btn btn-warning mb-2">
+                                <i class="fas fa-box"></i> {% trans "Colis avec transport" %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Service 4 : Transport Communautaire -->
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body text-center p-4">
+                        <div class="icon-wrapper bg-info bg-opacity-10 rounded-circle p-4 mb-3 d-inline-block">
+                            <i class="fas fa-users fa-2x text-info"></i>
+                        </div>
+                        <h4 class="fw-bold mb-3">{% trans "Transport Communautaire" %}</h4>
+                        <p class="text-muted mb-4">
+                            {% trans "Expatriés qui transportent lors de leurs voyages" %}
+                        </p>
+                        <div class="mt-3">
+                            <a href="{% url 'carriers:carrier_list' %}?carrier_type=PERSONAL" class="btn btn-outline-info mb-2">
+                                <i class="fas fa-search"></i> {% trans "Voir expatriés" %}
+                            </a>
+                            {% if user.is_authenticated and not user.carrier_profile %}
+                            <a href="{% url 'carriers:apply' %}" class="btn btn-info mb-2">
+                                <i class="fas fa-truck"></i> {% trans "Devenir transporteur" %}
+                            </a>
+                            {% elif not user.is_authenticated %}
+                            <a href="{% url 'users:register' %}" class="btn btn-info mb-2">
+                                <i class="fas fa-user-plus"></i> {% trans "S'inscrire" %}
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Liens de gestion pour utilisateurs connectés -->
+        {% if user.is_authenticated %}
+        <div class="row mt-5">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+                    <div class="card-body p-4">
+                        <h5 class="card-title mb-3 text-center">
+                            <i class="fas fa-cogs text-primary me-2"></i>
+                            {% trans "Gestion de votre compte" %}
+                        </h5>
+                        <div class="row">
+                            <!-- Annonces -->
+                            <div class="col-md-3 mb-3 mb-md-0">
+                                <div class="d-flex flex-column align-items-center text-center">
+                                    <div class="bg-primary bg-opacity-10 rounded-circle p-3 mb-2">
+                                        <i class="fas fa-edit fa-lg text-primary"></i>
+                                    </div>
+                                    <h6 class="fw-bold">{% trans "Annonces" %}</h6>
+                                    <p class="small text-muted mb-2">{% trans "Gérez vos publications" %}</p>
+                                    <div class="d-flex gap-1">
+                                        <a href="{% url 'ads:my_ads' %}" class="btn btn-outline-primary btn-sm">
+                                            <i class="fas fa-list"></i> {% trans "Mes annonces" %}
+                                        </a>
+                                        <a href="{% url 'ads:ad_create' %}" class="btn btn-primary btn-sm">
+                                            <i class="fas fa-plus"></i> {% trans "Nouvelle" %}
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Colis -->
+                            <div class="col-md-3 mb-3 mb-md-0">
+                                <div class="d-flex flex-column align-items-center text-center">
+                                    <div class="bg-success bg-opacity-10 rounded-circle p-3 mb-2">
+                                        <i class="fas fa-box fa-lg text-success"></i>
+                                    </div>
+                                    <h6 class="fw-bold">{% trans "Colis" %}</h6>
+                                    <p class="small text-muted mb-2">{% trans "Publiez ou gérez vos colis" %}</p>
+                                    <div class="d-flex gap-1">
+                                        <a href="{% url 'colis:my_packages' %}" class="btn btn-outline-success btn-sm">
+                                            <i class="fas fa-boxes"></i> {% trans "Mes colis" %}
+                                        </a>
+                                        <a href="{% url 'colis:package_create' %}" class="btn btn-success btn-sm">
+                                            <i class="fas fa-plus"></i> {% trans "Nouveau" %}
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Offres de transport -->
+                            <div class="col-md-3 mb-3 mb-md-0">
+                                <div class="d-flex flex-column align-items-center text-center">
+                                    <div class="bg-warning bg-opacity-10 rounded-circle p-3 mb-2">
+                                        <i class="fas fa-handshake fa-lg text-warning"></i>
+                                    </div>
+                                    <h6 class="fw-bold">{% trans "Offres" %}</h6>
+                                    <p class="small text-muted mb-2">{% trans "Vos offres de transport" %}</p>
+                                    <div class="d-flex gap-1">
+                                        <a href="{% url 'colis:my_offers' %}" class="btn btn-outline-warning btn-sm">
+                                            <i class="fas fa-list"></i> {% trans "Mes offres" %}
+                                        </a>
+                                        <a href="{% url 'colis:package_list' %}" class="btn btn-warning btn-sm">
+                                            <i class="fas fa-search"></i> {% trans "Trouver colis" %}
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Transport -->
+                            <div class="col-md-3">
+                                <div class="d-flex flex-column align-items-center text-center">
+                                    <div class="bg-info bg-opacity-10 rounded-circle p-3 mb-2">
+                                        <i class="fas fa-truck fa-lg text-info"></i>
+                                    </div>
+                                    <h6 class="fw-bold">{% trans "Transport" %}</h6>
+                                    <p class="small text-muted mb-2">{% trans "Gérez le transport" %}</p>
+                                    <div class="d-flex gap-1">
+                                        {% if user.carrier_profile %}
+                                        <a href="{% url 'carriers:carrier_dashboard' %}" class="btn btn-outline-info btn-sm">
+                                            <i class="fas fa-tachometer-alt"></i> {% trans "Dashboard" %}
+                                        </a>
+                                        <a href="{% url 'carriers:carrier_dashboard' %}" class="btn btn-info btn-sm">
+                                            <i class="fas fa-edit"></i> {% trans "Profil" %}
+                                        </a>
+                                        {% else %}
+                                        <a href="{% url 'carriers:apply' %}" class="btn btn-info btn-sm">
+                                            <i class="fas fa-truck"></i> {% trans "Devenir transporteur" %}
+                                        </a>
+                                        <a href="{% url 'carriers:carrier_list' %}" class="btn btn-outline-info btn-sm">
+                                            <i class="fas fa-search"></i> {% trans "Rechercher" %}
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<!-- Section : Derniers colis disponibles -->
 <section class="py-5">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h3 class="fw-bold mb-1">{% trans "Colis récemment publiés" %}</h3>
+                <p class="text-muted">{% trans "Trouvez des colis à transporter" %}</p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{% url 'colis:package_list' %}" class="btn btn-outline-success">
+                    {% trans "Tous les colis" %}
+                </a>
+                {% if user.is_authenticated %}
+                <a href="{% url 'colis:package_create' %}" class="btn btn-success">
+                    <i class="fas fa-plus me-1"></i> {% trans "Publier un colis" %}
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if recent_packages %}
+        <div class="row g-3">
+            {% for package in recent_packages|slice:":4" %}
+            <div class="col-md-3">
+                <div class="card h-100 border">
+                    {% if package.images.first %}
+                    <img src="{{ package.images.first.image.url }}"
+                         class="card-img-top" alt="{{ package.title }}" style="height: 150px; object-fit: cover;">
+                    {% else %}
+                    <div class="card-img-top bg-secondary d-flex align-items-center justify-content-center" style="height: 150px;">
+                        <i class="fas fa-box fa-2x text-light"></i>
+                    </div>
+                    {% endif %}
+                    <div class="card-body">
+                        <h6 class="card-title">{{ package.title|truncatechars:40 }}</h6>
+                        <div class="small text-muted mb-2">
+                            <i class="fas fa-map-marker-alt text-danger"></i> {{ package.pickup_city }}
+                            <i class="fas fa-arrow-right mx-1"></i>
+                            <i class="fas fa-map-marker-alt text-success"></i> {{ package.delivery_city }}
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <span class="fw-bold text-success">{{ package.get_price_with_currency }}</span>
+                            <div class="d-flex gap-1">
+                                <a href="{{ package.get_absolute_url }}" class="btn btn-sm btn-outline-success">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if user.is_authenticated and user != package.sender %}
+                                <a href="{% url 'colis:offer_create' package.slug %}" class="btn btn-sm btn-success">
+                                    <i class="fas fa-handshake"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-4">
+            <i class="fas fa-box fa-3x text-muted mb-3"></i>
+            <p class="text-muted">{% trans "Aucun colis disponible pour le moment" %}</p>
+            {% if user.is_authenticated %}
+            <a href="{% url 'colis:package_create' %}" class="btn btn-success">
+                <i class="fas fa-plus me-1"></i> {% trans "Publier le premier colis" %}
+            </a>
+            {% else %}
+            <a href="{% url 'users:register' %}" class="btn btn-success">
+                <i class="fas fa-user-plus me-1"></i> {% trans "Inscrivez-vous pour publier" %}
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<!-- Aperçu des Transporteurs -->
+<section class="py-5 bg-light">
     <div class="container">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
@@ -425,6 +518,9 @@
                     <a href="{% url 'ads:ad_create' %}" class="btn btn-outline-primary px-4">
                         <i class="fas fa-plus me-2"></i> {% trans "Publier une annonce" %}
                     </a>
+                    <a href="{% url 'colis:package_create' %}" class="btn btn-success px-4">
+                        <i class="fas fa-box me-2"></i> {% trans "Publier un colis" %}
+                    </a>
                     <a href="{% url 'carriers:apply' %}" class="btn btn-outline-warning px-4">
                         <i class="fas fa-truck me-2"></i> {% trans "Devenir transporteur" %}
                     </a>
@@ -438,10 +534,6 @@
 </section>
 
 <style>
-.hero-section {
-    border-radius: 0 0 15px 15px;
-}
-
 .icon-wrapper {
     transition: transform 0.3s ease;
 }
@@ -461,19 +553,6 @@
 
 .rating-stars {
     font-size: 0.9rem;
-}
-
-/* Styles pour les boutons d'action rapide */
-.btn-action {
-    padding: 0.5rem 1rem;
-    border-radius: 8px;
-    font-weight: 500;
-    transition: all 0.3s ease;
-}
-
-.btn-action:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
 /* Styles pour les cartes de gestion */

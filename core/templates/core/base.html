@@ -108,11 +108,16 @@
                                             </a>
                                         </li>
                                         <li>
+                                            <a class="dropdown-item" href="{% url 'colis:my_packages' %}">
+                                                <i class="fas fa-box"></i> {% trans "Mes colis" %}
+                                            </a>
+                                        </li>
+                                        <li>
                                             <a class="dropdown-item" href="{% url 'ads:favorite_list' %}">
                                                 <i class="fas fa-heart"></i> {% trans "Mes favoris" %}
                                             </a>
                                         </li>
-                                        <!-- NOUVEAU : Lien vers le dashboard transporteur si applicable -->
+                                        <!-- Lien vers le dashboard transporteur si applicable -->
                                         {% if user.carrier_profile %}
                                             <li>
                                                 <a class="dropdown-item" href="{% url 'carriers:carrier_dashboard' %}">
@@ -177,42 +182,19 @@
                                 <i class="fas fa-list"></i> {% trans "Annonces" %}
                             </a>
                         </li>
-                        <!-- NOUVEAU : Lien vers les transporteurs -->
+                        <!-- Lien vers les colis -->
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.resolver_match.namespace == 'colis' %}active{% endif %}"
+                               href="{% url 'colis:package_list' %}">
+                                <i class="fas fa-box"></i> {% trans "Colis" %}
+                            </a>
+                        </li>
+                        <!-- Lien vers les transporteurs -->
                         <li class="nav-item">
                             <a class="nav-link {% if request.resolver_match.namespace == 'carriers' %}active{% endif %}"
                                href="{% url 'carriers:carrier_list' %}">
                                 <i class="fas fa-truck"></i> {% trans "Transporteurs" %}
                             </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'core:about' %}">
-                                <i class="fas fa-info-circle"></i> {% trans "À propos" %}
-                            </a>
-                        </li>
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" role="button"
-                               data-bs-toggle="dropdown">
-                                <i class="fas fa-question-circle"></i> {% trans "Aide" %}
-                            </a>
-                            <ul class="dropdown-menu">
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'core:faq' %}">
-                                        <i class="fas fa-question"></i> {% trans "FAQ" %}
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'core:contact' %}">
-                                        <i class="fas fa-envelope"></i> {% trans "Contact" %}
-                                    </a>
-                                </li>
-                                {% for page in MENU_PAGES %}
-                                    <li>
-                                        <a class="dropdown-item" href="{{ page.get_absolute_url }}">
-                                            {{ page.title }}
-                                        </a>
-                                    </li>
-                                {% endfor %}
-                            </ul>
                         </li>
 
                         <!-- Pages du menu -->
@@ -242,19 +224,24 @@
                     <!-- Boutons d'action -->
                     <div class="d-flex gap-2">
                         <!-- Bouton créer annonce -->
-                        {% if user.is_authenticated and user.role == 'SELLER' %}
-                            <a href="{% url 'ads:ad_create' %}" class="btn btn-success">
+                        {% if user.is_authenticated %}
+                            <a href="{% url 'ads:ad_create' %}" class="btn btn-success btn-sm">
                                 <i class="fas fa-plus"></i> {% trans "Créer une annonce" %}
+                            </a>
+
+                            <!-- Bouton publier colis -->
+                            <a href="{% url 'colis:package_create' %}" class="btn btn-primary btn-sm">
+                                <i class="fas fa-box"></i> {% trans "Publier un colis" %}
                             </a>
                         {% endif %}
 
-                        <!-- NOUVEAU : Bouton devenir transporteur -->
+                        <!-- Bouton devenir transporteur -->
                         {% if user.is_authenticated and not user.carrier_profile %}
-                            <a href="{% url 'carriers:apply' %}" class="btn btn-warning">
+                            <a href="{% url 'carriers:apply' %}" class="btn btn-warning btn-sm">
                                 <i class="fas fa-truck"></i> {% trans "Devenir transporteur" %}
                             </a>
                         {% elif user.is_authenticated and user.carrier_profile %}
-                            <a href="{% url 'carriers:carrier_dashboard' %}" class="btn btn-info">
+                            <a href="{% url 'carriers:carrier_dashboard' %}" class="btn btn-info btn-sm">
                                 <i class="fas fa-tachometer-alt"></i> {% trans "Dashboard Transport" %}
                             </a>
                         {% endif %}
@@ -331,6 +318,11 @@
                         </a>
                     </li>
                     <li class="mb-2">
+                        <a href="{% url 'colis:package_list' %}" class="text-dark text-decoration-none">
+                            <i class="fas fa-chevron-right me-1 text-success"></i> {% trans "Colis" %}
+                        </a>
+                    </li>
+                    <li class="mb-2">
                         <a href="{% url 'carriers:carrier_list' %}" class="text-dark text-decoration-none">
                             <i class="fas fa-chevron-right me-1 text-primary"></i> {% trans "Transporteurs" %}
                         </a>
@@ -355,6 +347,11 @@
                     <li class="mb-2">
                         <a href="{% url 'core:contact' %}" class="text-dark text-decoration-none">
                             <i class="fas fa-chevron-right me-1 text-primary"></i> {% trans "Contact" %}
+                        </a>
+                    </li>
+                    <li class="mb-2">
+                        <a href="{% url 'colis:how_it_works' %}" class="text-dark text-decoration-none">
+                            <i class="fas fa-chevron-right me-1 text-info"></i> {% trans "Comment ça marche" %}
                         </a>
                     </li>
                 </ul>

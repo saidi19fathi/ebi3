@@ -1,0 +1,52 @@
+{# ~/ebi3/colis/templates/colis/includes/help_widget.html #}
+{% load i18n %}
+
+{% if user.is_authenticated %}
+<div class="help-widget position-fixed bottom-0 end-0 m-3" style="z-index: 1000;">
+    <div class="dropdown">
+        <button class="btn btn-primary btn-lg rounded-circle shadow-lg"
+                type="button"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
+                style="width: 60px; height: 60px;">
+            <i class="fas fa-question"></i>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end p-3" style="min-width: 300px;">
+            <li class="dropdown-header mb-2">
+                <strong>{% trans "Aide rapide" %}</strong>
+            </li>
+            <li>
+                <a class="dropdown-item" href="{% url 'colis:how_it_works' %}">
+                    <i class="fas fa-info-circle text-primary me-2"></i>
+                    {% trans "Comment ça marche" %}
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="{% url 'colis:price_guide' %}">
+                    <i class="fas fa-euro-sign text-success me-2"></i>
+                    {% trans "Guide des prix" %}
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="{% url 'core:faq' %}">
+                    <i class="fas fa-question-circle text-info me-2"></i>
+                    {% trans "FAQ" %}
+                </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+                <a class="dropdown-item" href="{% url 'core:contact' %}">
+                    <i class="fas fa-envelope text-warning me-2"></i>
+                    {% trans "Contactez-nous" %}
+                </a>
+            </li>
+            <li class="mt-2">
+                <small class="text-muted">
+                    <i class="fas fa-clock me-1"></i>
+                    {% trans "Support disponible 7j/7" %}
+                </small>
+            </li>
+        </ul>
+    </div>
+</div>
+{% endif %}

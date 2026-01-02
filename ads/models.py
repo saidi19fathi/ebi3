@@ -144,6 +144,52 @@ class Category(MPTTModel):
         # Mise à jour directe en base pour éviter la récursion
         Category.objects.filter(pk=self.pk).update(ad_count=count)
 
+# Dans ~/ebi3/ads/models.py, classe AdImage
+
+def save(self, *args, **kwargs):
+    super().save(*args, **kwargs)
+
+    # Générer la miniature si elle n'existe pas
+    if self.image and not self.thumbnail:
+        from PIL import Image
+        import os
+        from django.core.files.base import ContentFile
+
+        # Ouvrir l'image originale
+        img = Image.open(self.image.path)
+
+        # Calculer les dimensions de la miniature (200x200)
+        img.thumbnail((200, 200))
+
+        # Préparer le nom du fichier thumbnail
+        thumb_name, thumb_extension = os.path.splitext(self.image.name)
+        thumb_extension = thumb_extension.lower()
+        thumb_filename = thumb_name + '_thumb' + thumb_extension
+
+        # Sauvegarder la miniature
+        if thumb_extension in ['.jpg', '.jpeg']:
+            FTYPE = 'JPEG'
+        elif thumb_extension == '.gif':
+            FTYPE = 'GIF'
+        elif thumb_extension == '.png':
+            FTYPE = 'PNG'
+        else:
+            FTYPE = 'JPEG'  # Par défaut
+
+        temp_thumb = BytesIO()
+        img.save(temp_thumb, FTYPE)
+        temp_thumb.seek(0)
+
+        # Sauvegarder dans le champ thumbnail
+        self.thumbnail.save(
+            thumb_filename,
+            ContentFile(temp_thumb.read()),
+            save=False
+        )
+        temp_thumb.close()
+
+        super().save(*args, **kwargs)
+
 
 class Ad(models.Model):
     class Status(models.TextChoices):

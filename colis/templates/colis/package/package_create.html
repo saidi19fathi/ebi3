@@ -1,0 +1,842 @@
+{# ~/ebi3/colis/templates/colis/package_create.html #}
+{% extends 'colis/base_colis.html' %}
+{% load i18n crispy_forms_tags %}
+
+{% block title %}{% trans "Publier un colis" %} - Ebi3{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    .form-section {
+        background: #fff;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border: 1px solid #e9ecef;
+    }
+
+    .form-section-title {
+        color: #667eea;
+        border-bottom: 2px solid #667eea;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1.5rem;
+        font-weight: 600;
+    }
+
+    .image-upload-area {
+        border: 2px dashed #dee2e6;
+        border-radius: 10px;
+        padding: 2rem;
+        text-align: center;
+        background: #f8f9fa;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .image-upload-area:hover {
+        border-color: #667eea;
+        background: #f0f7ff;
+    }
+
+    .image-preview-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 1rem;
+    }
+
+    .image-preview {
+        width: 100px;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 8px;
+        border: 2px solid #dee2e6;
+    }
+
+    .required-field::after {
+        content: " *";
+        color: #dc3545;
+    }
+
+    .form-check-input:checked {
+        background-color: #667eea;
+        border-color: #667eea;
+    }
+
+    .calculator-badge {
+        background: #e7f1ff;
+        color: #667eea;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.875rem;
+        margin-left: 0.5rem;
+    }
+
+    .location-help {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+
+    .price-estimate {
+        background: #d4edda;
+        border: 1px solid #c3e6cb;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block colis_title %}{% trans "Publier un nouveau colis" %}{% endblock %}
+
+{% block colis_content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Informations d'orientation -->
+            <div class="alert alert-info mb-4">
+                <h5 class="alert-heading"><i class="fas fa-info-circle"></i> {% trans "Comment publier un colis ?" %}</h5>
+                <ul class="mb-0">
+                    <li>{% trans "Remplissez tous les champs obligatoires (*)" %}</li>
+                    <li>{% trans "Ajoutez des photos de qualité pour attirer plus de transporteurs" %}</li>
+                    <li>{% trans "Soyez précis sur les dimensions et le poids" %}</li>
+                    <li>{% trans "Fixez un prix réaliste pour augmenter vos chances" %}</li>
+                </ul>
+            </div>
+
+            <form method="post" enctype="multipart/form-data" id="package-form" novalidate>
+                {% csrf_token %}
+
+                <!-- Section 1: Informations de base -->
+                <div class="form-section">
+                    <h3 class="form-section-title">
+                        <i class="fas fa-info-circle"></i> {% trans "1. Informations de base" %}
+                    </h3>
+
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="{{ form.title.id_for_label }}" class="form-label required-field">
+                                    {% trans "Titre de votre annonce" %}
+                                </label>
+                                {{ form.title }}
+                                {% if form.title.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.title.errors }}
+                                    </div>
+                                {% endif %}
+                                <small class="text-muted">
+                                    {% trans "Ex: Déménagement Paris → Lyon - Meubles et cartons" %}
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.category.id_for_label }}" class="form-label required-field">
+                                    {% trans "Catégorie" %}
+                                </label>
+                                {{ form.category }}
+                                {% if form.category.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.category.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.description.id_for_label }}" class="form-label required-field">
+                            {% trans "Description détaillée" %}
+                        </label>
+                        {{ form.description }}
+                        {% if form.description.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.description.errors }}
+                            </div>
+                        {% endif %}
+                        <small class="text-muted">
+                            {% trans "Décrivez précisément votre colis : contenu, état, instructions spéciales..." %}
+                        </small>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.package_type.id_for_label }}" class="form-label required-field">
+                                    {% trans "Type de colis" %}
+                                </label>
+                                {{ form.package_type }}
+                                {% if form.package_type.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.package_type.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 2: Dimensions et poids -->
+                <div class="form-section">
+                    <h3 class="form-section-title">
+                        <i class="fas fa-ruler-combined"></i> {% trans "2. Dimensions et poids" %}
+                    </h3>
+
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        {% trans "Ces informations sont essentielles pour que les transporteurs puissent vous faire une offre précise." %}
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.weight.id_for_label }}" class="form-label required-field">
+                                    {% trans "Poids (kg)" %}
+                                </label>
+                                <div class="input-group">
+                                    {{ form.weight }}
+                                    <span class="input-group-text">kg</span>
+                                </div>
+                                {% if form.weight.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.weight.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label class="form-label required-field">{% trans "Dimensions (cm)" %}</label>
+                                <div class="row g-2">
+                                    <div class="col-4">
+                                        <div class="input-group">
+                                            <span class="input-group-text">L</span>
+                                            {{ form.length }}
+                                        </div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="input-group">
+                                            <span class="input-group-text">l</span>
+                                            {{ form.width }}
+                                        </div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="input-group">
+                                            <span class="input-group-text">H</span>
+                                            {{ form.height }}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% if form.length.errors or form.width.errors or form.height.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.length.errors }}
+                                        {{ form.width.errors }}
+                                        {{ form.height.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Calcul de volume -->
+                    <div class="price-estimate">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{% trans "Volume estimé :" %}</strong>
+                                <span id="volume-display" class="ms-2">{% trans "À calculer..." %}</span>
+                            </div>
+                            <span class="calculator-badge">
+                                <i class="fas fa-calculator"></i> {% trans "Calcul automatique" %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 3: Trajet -->
+                <div class="form-section">
+                    <h3 class="form-section-title">
+                        <i class="fas fa-route"></i> {% trans "3. Trajet" %}
+                    </h3>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.pickup_country.id_for_label }}" class="form-label required-field">
+                                    <i class="fas fa-map-marker-alt text-danger"></i> {% trans "Départ - Pays" %}
+                                </label>
+                                {{ form.pickup_country }}
+                                {% if form.pickup_country.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.pickup_country.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.pickup_city.id_for_label }}" class="form-label required-field">
+                                    {% trans "Départ - Ville" %}
+                                </label>
+                                {{ form.pickup_city }}
+                                {% if form.pickup_city.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.pickup_city.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.pickup_address.id_for_label }}" class="form-label">
+                            {% trans "Adresse de départ (optionnel)" %}
+                        </label>
+                        {{ form.pickup_address }}
+                        <div class="location-help">
+                            {% trans "L'adresse complète ne sera visible que par le transporteur sélectionné" %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            {{ form.use_current_location }}
+                            <label class="form-check-label" for="{{ form.use_current_location.id_for_label }}">
+                                {% trans "Utiliser ma position actuelle pour le départ" %}
+                            </label>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.delivery_country.id_for_label }}" class="form-label required-field">
+                                    <i class="fas fa-map-marker-alt text-success"></i> {% trans "Destination - Pays" %}
+                                </label>
+                                {{ form.delivery_country }}
+                                {% if form.delivery_country.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.delivery_country.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.delivery_city.id_for_label }}" class="form-label required-field">
+                                    {% trans "Destination - Ville" %}
+                                </label>
+                                {{ form.delivery_city }}
+                                {% if form.delivery_city.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.delivery_city.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.delivery_address.id_for_label }}" class="form-label">
+                            {% trans "Adresse de destination (optionnel)" %}
+                        </label>
+                        {{ form.delivery_address }}
+                    </div>
+
+                    <!-- Calcul de distance -->
+                    <div id="distance-estimate" class="price-estimate" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{% trans "Distance estimée :" %}</strong>
+                                <span id="distance-display" class="ms-2"></span>
+                            </div>
+                            <span class="calculator-badge">
+                                <i class="fas fa-road"></i> {% trans "Estimation" %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 4: Dates -->
+                <div class="form-section">
+                    <h3 class="form-section-title">
+                        <i class="fas fa-calendar-alt"></i> {% trans "4. Dates" %}
+                    </h3>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.pickup_date.id_for_label }}" class="form-label required-field">
+                                    {% trans "Date de départ souhaitée" %}
+                                </label>
+                                {{ form.pickup_date }}
+                                {% if form.pickup_date.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.pickup_date.errors }}
+                                    </div>
+                                {% endif %}
+                                <small class="text-muted">
+                                    {% trans "Date à laquelle le colis sera disponible" %}
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.delivery_date.id_for_label }}" class="form-label required-field">
+                                    {% trans "Date de livraison souhaitée" %}
+                                </label>
+                                {{ form.delivery_date }}
+                                {% if form.delivery_date.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.delivery_date.errors }}
+                                    </div>
+                                {% endif %}
+                                <small class="text-muted">
+                                    {% trans "Date limite pour la livraison" %}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            {{ form.flexible_dates }}
+                            <label class="form-check-label" for="{{ form.flexible_dates.id_for_label }}">
+                                {% trans "Dates flexibles" %}
+                            </label>
+                            <small class="text-muted d-block">
+                                {% trans "Accepte des dates différentes de celles demandées" %}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 5: Prix -->
+                <div class="form-section">
+                    <h3 class="form-section-title">
+                        <i class="fas fa-euro-sign"></i> {% trans "5. Prix" %}
+                    </h3>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.price_type.id_for_label }}" class="form-label required-field">
+                                    {% trans "Type de prix" %}
+                                </label>
+                                {{ form.price_type }}
+                                {% if form.price_type.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.price_type.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.asking_price.id_for_label }}" class="form-label required-field">
+                                    {% trans "Prix demandé" %}
+                                </label>
+                                <div class="input-group">
+                                    {{ form.asking_price }}
+                                    {{ form.currency }}
+                                </div>
+                                {% if form.asking_price.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.asking_price.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.currency.id_for_label }}" class="form-label">
+                                    {% trans "Devise" %}
+                                </label>
+                                {{ form.currency }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Estimation de prix basée sur la distance -->
+                    <div id="price-estimate" class="price-estimate" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>{% trans "Prix estimé basé sur la distance :" %}</strong>
+                                <div class="mt-2">
+                                    <span id="estimated-price-min" class="h5 text-primary"></span>
+                                    <span class="text-muted"> - </span>
+                                    <span id="estimated-price-max" class="h5 text-primary"></span>
+                                    <span id="estimated-price-currency"></span>
+                                </div>
+                                <small class="text-muted">{% trans "Fourchette indicative pour les transporteurs" %}</small>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <span class="calculator-badge">
+                                    <i class="fas fa-chart-line"></i> {% trans "Recommandation" %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 6: Options -->
+                <div class="form-section">
+                    <h3 class="form-section-title">
+                        <i class="fas fa-cog"></i> {% trans "6. Options" %}
+                    </h3>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    {{ form.is_fragile }}
+                                    <label class="form-check-label" for="{{ form.is_fragile.id_for_label }}">
+                                        <i class="fas fa-exclamation-triangle text-danger"></i>
+                                        {% trans "Colis fragile" %}
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    {{ form.requires_insurance }}
+                                    <label class="form-check-label" for="{{ form.requires_insurance.id_for_label }}">
+                                        <i class="fas fa-shield-alt text-warning"></i>
+                                        {% trans "Assurance requise" %}
+                                    </label>
+                                </div>
+
+                                <div id="insurance-value-field" class="mt-2" style="display: none;">
+                                    <label for="{{ form.insurance_value.id_for_label }}" class="form-label">
+                                        {% trans "Valeur à assurer" %}
+                                    </label>
+                                    <div class="input-group">
+                                        {{ form.insurance_value }}
+                                        <span class="input-group-text">€</span>
+                                    </div>
+                                    {% if form.insurance_value.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.insurance_value.errors }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    {{ form.requires_packaging }}
+                                    <label class="form-check-label" for="{{ form.requires_packaging.id_for_label }}">
+                                        <i class="fas fa-box text-info"></i>
+                                        {% trans "Emballage requis" %}
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    {{ form.requires_loading_help }}
+                                    <label class="form-check-label" for="{{ form.requires_loading_help.id_for_label }}">
+                                        <i class="fas fa-arrow-up text-success"></i>
+                                        {% trans "Aide au chargement" %}
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    {{ form.requires_unloading_help }}
+                                    <label class="form-check-label" for="{{ form.requires_unloading_help.id_for_label }}">
+                                        <i class="fas fa-arrow-down text-success"></i>
+                                        {% trans "Aide au déchargement" %}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 7: Images -->
+                <div class="form-section">
+                    <h3 class="form-section-title">
+                        <i class="fas fa-images"></i> {% trans "7. Photos" %}
+                    </h3>
+
+                    <div class="alert alert-warning">
+                        <i class="fas fa-lightbulb"></i>
+                        {% trans "Les colis avec photos reçoivent 5 fois plus d'offres !" %}
+                    </div>
+
+                    <!-- Zone de dépôt -->
+                    <div class="image-upload-area" id="image-drop-zone">
+                        <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                        <h5>{% trans "Glissez-déposez vos photos ici" %}</h5>
+                        <p class="text-muted mb-3">{% trans "ou cliquez pour sélectionner" %}</p>
+                        <input type="file" name="images" id="image-upload" multiple
+                               accept="image/*" style="display: none;">
+                        <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('image-upload').click()">
+                            <i class="fas fa-folder-open"></i> {% trans "Parcourir" %}
+                        </button>
+                        <p class="small text-muted mt-3">
+                            <i class="fas fa-info-circle"></i>
+                            {% trans "Formats acceptés : JPG, PNG, GIF, WebP. Max 10MB par image." %}
+                        </p>
+                    </div>
+
+                    <!-- Prévisualisation -->
+                    <div class="image-preview-container" id="image-preview-container">
+                        <!-- Les images prévisualisées apparaîtront ici -->
+                    </div>
+
+                    <!-- Informations sur le formset -->
+                    <div class="mt-3">
+                        <p class="mb-1">
+                            <strong>{% trans "Photos gratuites incluses :" %}</strong>
+                            <span class="badge bg-success">{{ form.instance.free_images_allowed }}</span>
+                        </p>
+                        <p class="text-muted small">
+                            {% trans "Vous pouvez ajouter jusqu'à 5 photos gratuitement. Des photos supplémentaires peuvent être ajoutées après publication." %}
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Section 8: Conditions générales -->
+                <div class="form-section">
+                    <div class="form-check mb-4">
+                        {{ form.accept_terms }}
+                        <label class="form-check-label" for="{{ form.accept_terms.id_for_label }}">
+                            {% trans "J'accepte les " %}
+                            <a href="{% url 'colis:terms' %}" target="_blank">{% trans "conditions générales" %}</a>
+                            {% trans " et la " %}
+                            <a href="{% url 'colis:privacy' %}" target="_blank">{% trans "politique de confidentialité" %}</a>
+                        </label>
+                        {% if form.accept_terms.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.accept_terms.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Boutons d'action -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'colis:package_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times"></i> {% trans "Annuler" %}
+                        </a>
+
+                        <div>
+                            <button type="submit" name="save_draft" value="true" class="btn btn-outline-primary me-2">
+                                <i class="fas fa-save"></i> {% trans "Enregistrer comme brouillon" %}
+                            </button>
+                            <button type="submit" name="publish" value="true" class="btn btn-success">
+                                <i class="fas fa-paper-plane"></i> {% trans "Publier le colis" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+$(document).ready(function() {
+    // Calcul automatique du volume
+    function calculateVolume() {
+        const length = parseFloat($('#{{ form.length.id_for_label }}').val()) || 0;
+        const width = parseFloat($('#{{ form.width.id_for_label }}').val()) || 0;
+        const height = parseFloat($('#{{ form.height.id_for_label }}').val()) || 0;
+
+        if (length > 0 && width > 0 && height > 0) {
+            const volume = (length * width * height) / 1000;
+            $('#volume-display').html(volume.toFixed(2) + ' L');
+
+            // Mettre à jour l'estimation de prix
+            updatePriceEstimate(volume);
+        }
+    }
+
+    // Mettre à jour l'estimation de prix
+    function updatePriceEstimate(volume) {
+        const distance = parseFloat($('#distance-display').text().replace(' km', '')) || 0;
+        if (distance > 0 && volume > 0) {
+            const basePricePerKm = 0.5;
+            const basePricePerVolume = 10;
+
+            const estimatedPrice = (distance * basePricePerKm) + (volume / 1000 * basePricePerVolume);
+            const minPrice = estimatedPrice * 0.8;
+            const maxPrice = estimatedPrice * 1.2;
+
+            $('#estimated-price-min').text(minPrice.toFixed(2));
+            $('#estimated-price-max').text(maxPrice.toFixed(2));
+            $('#estimated-price-currency').text(' {{ form.currency.value }}');
+            $('#price-estimate').show();
+        }
+    }
+
+    // Écouter les changements de dimensions
+    $('#{{ form.length.id_for_label }}, #{{ form.width.id_for_label }}, #{{ form.height.id_for_label }}').on('input', calculateVolume);
+
+    // Gestion de l'assurance
+    $('#{{ form.requires_insurance.id_for_label }}').change(function() {
+        if ($(this).is(':checked')) {
+            $('#insurance-value-field').show();
+        } else {
+            $('#insurance-value-field').hide();
+        }
+    });
+
+    // Initialiser l'état de l'assurance
+    if ($('#{{ form.requires_insurance.id_for_label }}').is(':checked')) {
+        $('#insurance-value-field').show();
+    }
+
+    // Gestion du téléchargement d'images
+    const imageUpload = document.getElementById('image-upload');
+    const previewContainer = document.getElementById('image-preview-container');
+    const dropZone = document.getElementById('image-drop-zone');
+
+    imageUpload.addEventListener('change', function(e) {
+        handleFiles(e.target.files);
+    });
+
+    // Glisser-déposer
+    dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        dropZone.style.borderColor = '#667eea';
+        dropZone.style.background = '#f0f7ff';
+    });
+
+    dropZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        dropZone.style.borderColor = '#dee2e6';
+        dropZone.style.background = '#f8f9fa';
+    });
+
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropZone.style.borderColor = '#dee2e6';
+        dropZone.style.background = '#f8f9fa';
+
+        if (e.dataTransfer.files.length) {
+            handleFiles(e.dataTransfer.files);
+        }
+    });
+
+    function handleFiles(files) {
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+
+            // Vérifier le type de fichier
+            if (!file.type.startsWith('image/')) {
+                continue;
+            }
+
+            // Vérifier la taille (10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                alert('Le fichier ' + file.name + ' est trop grand (max 10MB)');
+                continue;
+            }
+
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const img = document.createElement('img');
+                img.src = e.target.result;
+                img.className = 'image-preview';
+                img.title = file.name;
+
+                const container = document.createElement('div');
+                container.className = 'position-relative';
+                container.appendChild(img);
+
+                // Bouton supprimer
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'btn btn-danger btn-sm position-absolute top-0 end-0';
+                removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+                removeBtn.onclick = function() {
+                    container.remove();
+                };
+                container.appendChild(removeBtn);
+
+                previewContainer.appendChild(container);
+            };
+
+            reader.readAsDataURL(file);
+        }
+    }
+
+    // Estimation de distance (simulée - à remplacer par API réelle)
+    function estimateDistance() {
+        const fromCity = $('#{{ form.pickup_city.id_for_label }}').val();
+        const toCity = $('#{{ form.delivery_city.id_for_label }}').val();
+
+        if (fromCity && toCity && fromCity !== toCity) {
+            // Simulation - dans la réalité, utiliser une API comme Google Maps
+            const simulatedDistance = Math.floor(Math.random() * 500) + 50;
+            $('#distance-display').text(simulatedDistance + ' km');
+            $('#distance-estimate').show();
+
+            // Recalculer l'estimation de prix
+            calculateVolume();
+        } else {
+            $('#distance-estimate').hide();
+            $('#price-estimate').hide();
+        }
+    }
+
+    $('#{{ form.pickup_city.id_for_label }}, #{{ form.delivery_city.id_for_label }}').on('input', estimateDistance);
+
+    // Utiliser la position actuelle
+    $('#{{ form.use_current_location.id_for_label }}').change(function() {
+        if ($(this).is(':checked') && navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                // Remplir automatiquement la ville basée sur la géolocalisation
+                // Note: Dans la réalité, utiliser une API de géocodage inversé
+                $('#{{ form.pickup_city.id_for_label }}').val('Position actuelle détectée');
+                alert('Position détectée ! Veuillez entrer manuellement votre ville.');
+            });
+        }
+    });
+
+    // Validation du formulaire
+    $('#package-form').submit(function(e) {
+        const priceType = $('#{{ form.price_type.id_for_label }}').val();
+        const askingPrice = parseFloat($('#{{ form.asking_price.id_for_label }}').val()) || 0;
+
+        if (priceType === 'FIXED' && askingPrice < 5) {
+            alert('Le prix fixe minimum est de 5€.');
+            e.preventDefault();
+            return false;
+        }
+
+        if (!document.getElementById('{{ form.accept_terms.id_for_label }}').checked) {
+            alert('Vous devez accepter les conditions générales.');
+            e.preventDefault();
+            return false;
+        }
+
+        return true;
+    });
+
+    // Initialiser les calculs
+    calculateVolume();
+    estimateDistance();
+});
+</script>
+{% endblock %}

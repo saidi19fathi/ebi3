@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% load i18n static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>{% trans "Préférences de traduction" %}</h1>
+    <p class="text-muted">{% trans "Configurez vos préférences pour la traduction automatique." %}</p>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        {{ form.auto_translate_enabled }}
+                        <label class="form-check-label" for="{{ form.auto_translate_enabled.id_for_label }}">
+                            {{ form.auto_translate_enabled.label }}
+                        </label>
+                    </div>
+                    {% if form.auto_translate_enabled.help_text %}
+                    <div class="form-text">{{ form.auto_translate_enabled.help_text }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        {{ form.show_translation_badge }}
+                        <label class="form-check-label" for="{{ form.show_translation_badge.id_for_label }}">
+                            {{ form.show_translation_badge.label }}
+                        </label>
+                    </div>
+                    {% if form.show_translation_badge.help_text %}
+                    <div class="form-text">{{ form.show_translation_badge.help_text }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        {{ form.allow_translation_editing }}
+                        <label class="form-check-label" for="{{ form.allow_translation_editing.id_for_label }}">
+                            {{ form.allow_translation_editing.label }}
+                        </label>
+                    </div>
+                    {% if form.allow_translation_editing.help_text %}
+                    <div class="form-text">{{ form.allow_translation_editing.help_text }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.preferred_languages.id_for_label }}" class="form-label">
+                        {{ form.preferred_languages.label }}
+                    </label>
+                    {{ form.preferred_languages }}
+                    {% if form.preferred_languages.help_text %}
+                    <div class="form-text">{{ form.preferred_languages.help_text }}</div>
+                    {% endif %}
+                    {% if form.preferred_languages.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ form.preferred_languages.errors }}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.quality_threshold.id_for_label }}" class="form-label">
+                        {{ form.quality_threshold.label }}
+                    </label>
+                    {{ form.quality_threshold }}
+                    {% if form.quality_threshold.help_text %}
+                    <div class="form-text">{{ form.quality_threshold.help_text }}</div>
+                    {% endif %}
+                    {% if form.quality_threshold.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ form.quality_threshold.errors }}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <button type="submit" class="btn btn-primary">
+                        {% trans "Enregistrer les préférences" %}
+                    </button>
+                    <a href="{% url 'home' %}" class="btn btn-secondary">
+                        {% trans "Annuler" %}
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">{% trans "Statistiques de vos traductions" %}</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4 text-center">
+                    <h3>{{ user_translations_count|default:0 }}</h3>
+                    <p class="text-muted">{% trans "Traductions créées" %}</p>
+                </div>
+                <div class="col-md-4 text-center">
+                    <h3>{{ user_translations_edited|default:0 }}</h3>
+                    <p class="text-muted">{% trans "Traductions éditées" %}</p>
+                </div>
+                <div class="col-md-4 text-center">
+                    <h3>{{ user_favorite_language|default:"-" }}</h3>
+                    <p class="text-muted">{% trans "Langue la plus utilisée" %}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-switch {
+        padding-left: 2.5em;
+    }
+    .form-switch .form-check-input {
+        width: 2em;
+        margin-left: -2.5em;
+    }
+    select[multiple] {
+        height: auto;
+        min-height: 100px;
+    }
+</style>
+
+<script>
+    // Initialise les selects multiples avec des tags
+    document.addEventListener('DOMContentLoaded', function() {
+        const languageSelect = document.getElementById('{{ form.preferred_languages.id_for_label }}');
+        if (languageSelect) {
+            // Option: ajouter un plugin de sélection améliorée comme Select2
+            // $(languageSelect).select2({placeholder: "Sélectionnez les langues..."});
+        }
+    });
+</script>
+{% endblock %}

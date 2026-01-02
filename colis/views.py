@@ -370,7 +370,7 @@ class PackageCreateView(LoginRequiredMixin, CreateView):
     """Création d'un colis"""
     model = Package
     form_class = PackageCreateForm
-    template_name = 'colis/package_create.html'
+    template_name = 'colis/package/package_create.html'
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()

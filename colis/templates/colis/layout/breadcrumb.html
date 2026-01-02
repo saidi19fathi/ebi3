@@ -1,0 +1,117 @@
+{# ~/ebi3/colis/templates/colis/layout/breadcrumb.html #}
+{% load i18n %}
+
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item">
+            <a href="{% url 'core:home' %}">
+                <i class="fas fa-home"></i> {% trans "Accueil" %}
+            </a>
+        </li>
+
+        {% if request.resolver_match.namespace == 'colis' %}
+            <li class="breadcrumb-item">
+                <a href="{% url 'colis:package_list' %}">
+                    <i class="fas fa-box"></i> {% trans "Colis" %}
+                </a>
+            </li>
+
+            {% if request.resolver_match.url_name == 'package_create' %}
+                <li class="breadcrumb-item active" aria-current="page">
+                    <i class="fas fa-plus-circle"></i> {% trans "Publier un colis" %}
+                </li>
+
+            {% elif request.resolver_match.url_name == 'package_detail' and package %}
+                <li class="breadcrumb-item active" aria-current="page">
+                    {{ package.title|truncatechars:30 }}
+                </li>
+
+            {% elif request.resolver_match.url_name == 'category_detail' and category %}
+                <li class="breadcrumb-item active" aria-current="page">
+                    {{ category.name }}
+                </li>
+
+            {% elif request.resolver_match.url_name == 'my_packages' %}
+                <li class="breadcrumb-item active" aria-current="page">
+                    <i class="fas fa-boxes"></i> {% trans "Mes colis" %}
+                </li>
+
+            {% elif request.resolver_match.url_name == 'favorite_list' %}
+                <li class="breadcrumb-item active" aria-current="page">
+                    <i class="fas fa-heart"></i> {% trans "Mes favoris" %}
+                </li>
+
+            {% elif request.resolver_match.url_name == 'my_offers' %}
+                <li class="breadcrumb-item active" aria-current="page">
+                    <i class="fas fa-handshake"></i> {% trans "Mes offres" %}
+                </li>
+
+            {% elif request.resolver_match.url_name == 'available_packages' %}
+                <li class="breadcrumb-item active" aria-current="page">
+                    <i class="fas fa-search"></i> {% trans "Colis disponibles" %}
+                </li>
+
+            {% elif request.resolver_match.url_name == 'carrier_dashboard' %}
+                <li class="breadcrumb-item active" aria-current="page">
+                    <i class="fas fa-tachometer-alt"></i> {% trans "Dashboard transporteur" %}
+                </li>
+
+            {% elif request.resolver_match.url_name == 'how_it_works' %}
+                <li class="breadcrumb-item active" aria-current="page">
+                    <i class="fas fa-info-circle"></i> {% trans "Comment ça marche" %}
+                </li>
+
+            {% elif request.resolver_match.url_name == 'price_guide' %}
+                <li class="breadcrumb-item active" aria-current="page">
+                    <i class="fas fa-euro-sign"></i> {% trans "Guide des prix" %}
+                </li>
+
+            {% elif request.resolver_match.url_name == 'search' %}
+                <li class="breadcrumb-item active" aria-current="page">
+                    <i class="fas fa-search"></i> {% trans "Recherche" %}
+                </li>
+
+            {% else %}
+                <li class="breadcrumb-item active" aria-current="page">
+                    {% trans "Navigation" %}
+                </li>
+            {% endif %}
+
+        {% else %}
+            <li class="breadcrumb-item active" aria-current="page">
+                {% trans "Page" %}
+            </li>
+        {% endif %}
+    </ol>
+</nav>
+
+<style>
+.breadcrumb {
+    background-color: transparent;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+}
+
+.breadcrumb-item a {
+    color: #667eea;
+    text-decoration: none;
+    transition: color 0.3s;
+}
+
+.breadcrumb-item a:hover {
+    color: #764ba2;
+    text-decoration: underline;
+}
+
+.breadcrumb-item.active {
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.breadcrumb-item + .breadcrumb-item::before {
+    content: "›";
+    color: #6c757d;
+    padding: 0 0.5rem;
+}
+</style>

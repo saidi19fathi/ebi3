@@ -1,0 +1,273 @@
+{# ~/ebi3/ads/templates/ads/ad_report.html #}
+{% extends 'ads/base_ads.html' %}
+{% load i18n crispy_forms_tags %}
+
+{% block title %}{% trans "Signaler l'annonce" %} - Ebi3{% endblock %}
+
+{% block ads_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h2 class="mb-0">
+                    <i class="fas fa-flag"></i> {% trans "Signaler cette annonce" %}
+                </h2>
+            </div>
+            <div class="card-body">
+
+                <!-- Aperçu de l'annonce signalée -->
+                <div class="card mb-4 border-secondary">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">{% trans "Annonce concernée" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex">
+                            {% with ad.images.first as main_image %}
+                                <div class="flex-shrink-0 me-3">
+                                    {% if main_image %}
+                                        <img src="{{ main_image.thumbnail.url|default:main_image.image.url }}"
+                                             class="rounded"
+                                             style="width: 100px; height: 100px; object-fit: cover;"
+                                             alt="{{ ad.title }}">
+                                    {% else %}
+                                        <div class="bg-light d-flex align-items-center justify-content-center rounded"
+                                             style="width: 100px; height: 100px;">
+                                            <i class="fas fa-image fa-2x text-muted"></i>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% endwith %}
+                            <div class="flex-grow-1">
+                                <h5 class="mb-1">
+                                    <a href="{{ ad.get_absolute_url }}" class="text-decoration-none">
+                                        {{ ad.title }}
+                                    </a>
+                                </h5>
+                                <p class="text-muted mb-1">
+                                    <i class="fas fa-user"></i>
+                                    {% trans "Vendeur:" %}
+                                    <a href="{% url 'users:profile' ad.seller.username %}" class="text-decoration-none">
+                                        {{ ad.seller.username }}
+                                    </a>
+                                </p>
+                                <p class="text-muted mb-1">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    {{ ad.city_from }} → {{ ad.city_to }}
+                                </p>
+                                <p class="text-muted mb-0">
+                                    <i class="fas fa-tag"></i>
+                                    {{ ad.get_price_with_currency }}
+                                    • {{ ad.get_condition_display }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Informations sur le signalement -->
+                <div class="alert alert-info mb-4">
+                    <h5 class="alert-heading">
+                        <i class="fas fa-info-circle"></i> {% trans "Comment fonctionne le signalement ?" %}
+                    </h5>
+                    <ul class="mb-0">
+                        <li>{% trans "Votre signalement sera examiné par notre équipe de modération sous 24h" %}</li>
+                        <li>{% trans "Le vendeur ne sera pas informé de votre identité" %}</li>
+                        <li>{% trans "En cas d'urgence, contactez-nous directement via le support" %}</li>
+                        <li>{% trans "Les signalements abusifs peuvent entraîner la suspension de votre compte" %}</li>
+                    </ul>
+                </div>
+
+                <!-- Formulaire de signalement -->
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <div class="mb-4">
+                        <h5 class="mb-3">{% trans "Pourquoi signalez-vous cette annonce ?" %}</h5>
+                        {{ form.reason|as_crispy_field }}
+
+                        <div class="mt-3" id="reason-descriptions">
+                            <div class="alert alert-light border">
+                                <small>
+                                    <strong>{% trans "Spam ou publicité :" %}</strong>
+                                    {% trans "Contenu promotionnel non autorisé, publicité abusive" %}
+                                </small>
+                            </div>
+                            <div class="alert alert-light border mt-2">
+                                <small>
+                                    <strong>{% trans "Fraude ou arnaque :" %}</strong>
+                                    {% trans "Tentative de fraude, escroquerie, informations trompeuses" %}
+                                </small>
+                            </div>
+                            <div class="alert alert-light border mt-2">
+                                <small>
+                                    <strong>{% trans "Contenu inapproprié :" %}</strong>
+                                    {% trans "Contenu offensant, discriminatoire, ou contraire aux CGU" %}
+                                </small>
+                            </div>
+                            <div class="alert alert-light border mt-2">
+                                <small>
+                                    <strong>{% trans "Mauvaise catégorie :" %}</strong>
+                                    {% trans "L'annonce est placée dans une catégorie incorrecte" %}
+                                </small>
+                            </div>
+                            <div class="alert alert-light border mt-2">
+                                <small>
+                                    <strong>{% trans "Article prohibé :" %}</strong>
+                                    {% trans "Article interdit par la loi ou nos conditions d'utilisation" %}
+                                </small>
+                            </div>
+                            <div class="alert alert-light border mt-2">
+                                <small>
+                                    <strong>{% trans "Annonce en double :" %}</strong>
+                                    {% trans "Même annonce publiée plusieurs fois" %}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <h5 class="mb-3">{% trans "Description détaillée" %}</h5>
+                        {{ form.description|as_crispy_field }}
+                        <small class="form-text text-muted">
+                            {% trans "Décrivez précisément le problème. Soyez aussi factuel que possible." %}
+                        </small>
+                    </div>
+
+                    <div class="mb-4">
+                        <h5 class="mb-3">{% trans "Preuves (optionnel)" %}</h5>
+                        {{ form.evidence|as_crispy_field }}
+                        <small class="form-text text-muted">
+                            {% trans "Vous pouvez joindre des captures d'écran, documents, etc. Formats acceptés : JPG, PNG, PDF, DOC. Taille max : 10MB." %}
+                        </small>
+                    </div>
+
+                    <!-- Engagement d'exactitude -->
+                    <div class="card border-primary mb-4">
+                        <div class="card-body">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="confirmAccuracy" required>
+                                <label class="form-check-label" for="confirmAccuracy">
+                                    <strong>{% trans "Je certifie sur l'honneur que les informations fournies sont exactes et véridiques." %}</strong>
+                                </label>
+                            </div>
+                            <small class="text-muted">
+                                {% trans "Les fausses déclarations peuvent entraîner des sanctions conformément à nos conditions d'utilisation." %}
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'ads:ad_detail' slug=ad.slug %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times"></i> {% trans "Annuler" %}
+                        </a>
+
+                        <button type="submit" class="btn btn-warning" id="submitBtn" disabled>
+                            <i class="fas fa-paper-plane"></i> {% trans "Envoyer le signalement" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Activer/désactiver le bouton d'envoi selon la confirmation
+        $('#confirmAccuracy').change(function() {
+            $('#submitBtn').prop('disabled', !$(this).is(':checked'));
+        });
+
+        // Masquer les descriptions par défaut, les afficher selon le choix
+        $('#reason-descriptions').hide();
+
+        $('#id_reason').change(function() {
+            const selectedReason = $(this).val();
+            if (selectedReason) {
+                $('#reason-descriptions').show();
+                // Vous pourriez ici afficher seulement la description pertinente
+            } else {
+                $('#reason-descriptions').hide();
+            }
+        });
+
+        // Initialiser si une raison est déjà sélectionnée
+        if ($('#id_reason').val()) {
+            $('#reason-descriptions').show();
+        }
+
+        // Validation du formulaire
+        $('form').submit(function(e) {
+            const reason = $('#id_reason').val();
+            const description = $('#id_description').val().trim();
+
+            if (!reason) {
+                e.preventDefault();
+                alert('{% trans "Veuillez sélectionner une raison pour votre signalement." %}');
+                $('#id_reason').focus();
+                return false;
+            }
+
+            if (description.length < 10) {
+                e.preventDefault();
+                alert('{% trans "Veuillez fournir une description détaillée (au moins 10 caractères)." %}');
+                $('#id_description').focus();
+                return false;
+            }
+
+            if (!confirm('{% trans "Confirmez-vous l\'envoi de ce signalement ? Il sera examiné par notre équipe sous 24h." %}')) {
+                e.preventDefault();
+                return false;
+            }
+
+            return true;
+        });
+
+        // Prévisualisation du fichier
+        $('#id_evidence').change(function() {
+            const file = this.files[0];
+            if (file) {
+                const fileSize = file.size / 1024 / 1024; // en MB
+                if (fileSize > 10) {
+                    alert('{% trans "Le fichier est trop volumineux (max 10MB). Veuillez choisir un fichier plus petit." %}');
+                    $(this).val('');
+                }
+            }
+        });
+    });
+</script>
+
+<style>
+    .card.border-warning {
+        border-width: 2px;
+    }
+
+    #submitBtn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .alert-info ul {
+        padding-left: 1.5rem;
+    }
+
+    .alert-info li {
+        margin-bottom: 0.25rem;
+    }
+
+    #reason-descriptions .alert {
+        display: none;
+    }
+
+    /* Pourrait être utilisé pour afficher la description spécifique */
+    .reason-desc {
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-left: 4px solid #007bff;
+        margin-top: 10px;
+        border-radius: 4px;
+    }
+</style>
+{% endblock %}
