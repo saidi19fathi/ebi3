@@ -1,0 +1,83 @@
+{# ~/ebi3/colis/templates/colis/favorite_list.html #}
+{% extends 'colis/base_colis.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Mes colis favoris" %} - Ebi3{% endblock %}
+
+{% block colis_title %}{% trans "Mes colis favoris" %}{% endblock %}
+
+{% block colis_content %}
+<div class="container">
+    {% if favorites %}
+        <div class="row">
+            {% for favorite in favorites %}
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card h-100">
+                        {% if favorite.package.images.all %}
+                            <img src="{{ favorite.package.images.first.image.url }}"
+                                 class="card-img-top"
+                                 alt="{{ favorite.package.title }}"
+                                 style="height: 200px; object-fit: cover;">
+                        {% else %}
+                            <div class="card-img-top bg-light d-flex align-items-center justify-content-center"
+                                 style="height: 200px;">
+                                <i class="fas fa-box-open fa-3x text-muted"></i>
+                            </div>
+                        {% endif %}
+
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <a href="{% url 'colis:package_detail' slug=favorite.package.slug %}">
+                                    {{ favorite.package.title }}
+                                </a>
+                            </h5>
+
+                            <p class="card-text text-muted small">
+                                <i class="fas fa-map-marker-alt"></i>
+                                {{ favorite.package.pickup_city }} → {{ favorite.package.delivery_city }}
+                            </p>
+
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-primary">
+                                    {{ favorite.package.get_package_type_display }}
+                                </span>
+
+                                <strong class="text-success">
+                                    {{ favorite.package.asking_price }} {{ favorite.package.currency }}
+                                </strong>
+                            </div>
+                        </div>
+
+                        <div class="card-footer">
+                            <div class="d-flex justify-content-between">
+                                <small class="text-muted">
+                                    <i class="far fa-clock"></i>
+                                    {{ favorite.package.created_at|timesince }}
+                                </small>
+
+                                <a href="{% url 'colis:toggle_favorite' slug=favorite.package.slug %}"
+                                   class="btn btn-sm btn-outline-danger">
+                                    <i class="fas fa-heart-broken"></i>
+                                    {% trans "Retirer" %}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-heart fa-4x text-muted mb-3"></i>
+            <h3>{% trans "Vous n'avez pas encore de colis favoris" %}</h3>
+            <p class="text-muted">
+                {% trans "Ajoutez des colis à vos favoris pour les retrouver facilement plus tard." %}
+            </p>
+            <a href="{% url 'colis:package_list' %}" class="btn btn-primary">
+                <i class="fas fa-search"></i>
+                {% trans "Parcourir les colis" %}
+            </a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

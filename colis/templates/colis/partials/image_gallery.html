@@ -1,0 +1,196 @@
+{# ~/ebi3/colis/templates/colis/partials/image_gallery.html #}
+{% load i18n %}
+
+<div class="image-gallery">
+    {% if images %}
+        <div class="row">
+            <!-- Image principale -->
+            <div class="col-12 mb-3">
+                <div id="mainImageContainer" class="position-relative">
+                    {% with images|first as main_image %}
+                        <img id="mainImage"
+                             src="{{ main_image.image.url }}"
+                             alt="{{ main_image.caption|default:'' }}"
+                             class="img-fluid rounded w-100 package-detail-image"
+                             data-image-id="{{ main_image.id }}">
+                    {% endwith %}
+
+                    <!-- Badge image principale -->
+                    <span class="position-absolute top-0 start-0 m-2 badge bg-primary">
+                        <i class="fas fa-star"></i> {% trans "Image principale" %}
+                    </span>
+
+                    <!-- Contrôles -->
+                    <button class="position-absolute top-50 start-0 translate-middle-y btn btn-light btn-sm rounded-circle"
+                            onclick="prevImage()">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button class="position-absolute top-50 end-0 translate-middle-y btn btn-light btn-sm rounded-circle"
+                            onclick="nextImage()">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Miniatures -->
+            <div class="col-12">
+                <div class="d-flex flex-wrap gap-2 justify-content-center">
+                    {% for image in images %}
+                        <div class="thumbnail-container position-relative" style="width: 80px; height: 80px;">
+                            <img src="{% if image.thumbnail and image.thumbnail.url %}{{ image.thumbnail.url }}{% else %}{{ image.image.url }}{% endif %}"
+                                 alt="{{ image.caption|default:'' }}"
+                                 class="img-thumbnail thumbnail-image cursor-pointer {% if forloop.first %}active{% endif %}"
+                                 style="width: 100%; height: 100%; object-fit: cover;"
+                                 onclick="changeMainImage('{{ image.image.url }}', '{{ image.id }}', this)"
+                                 data-image-id="{{ image.id }}"
+                                 data-full-image="{{ image.image.url }}"
+                                 data-caption="{{ image.caption|default:'' }}">
+
+                            {% if image.is_primary %}
+                                <div class="position-absolute top-0 start-0">
+                                    <i class="fas fa-star text-warning"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Légende -->
+            <div class="col-12 mt-3 text-center">
+                <p id="imageCaption" class="text-muted mb-0">
+                    {{ images.first.caption|default:"" }}
+                </p>
+            </div>
+        </div>
+    {% else %}
+        <!-- Aucune image -->
+        <div class="text-center py-5">
+            <div class="no-image-placeholder bg-light rounded d-inline-flex align-items-center justify-content-center mb-3"
+                 style="width: 200px; height: 200px;">
+                <i class="fas fa-camera fa-3x text-muted"></i>
+            </div>
+            <h5 class="text-muted">{% trans "Aucune image disponible" %}</h5>
+            <p class="text-muted small">
+                {% trans "Cet expéditeur n'a pas ajouté de photos pour ce colis" %}
+            </p>
+        </div>
+    {% endif %}
+</div>
+
+<style>
+.thumbnail-image {
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.thumbnail-image:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.thumbnail-image.active {
+    border-color: #667eea;
+    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+}
+
+.no-image-placeholder {
+    border: 2px dashed #dee2e6;
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+</style>
+
+<script>
+let currentImageIndex = 0;
+const thumbnails = document.querySelectorAll('.thumbnail-image');
+
+function changeMainImage(imageUrl, imageId, thumbnailElement) {
+    // Mettre à jour l'image principale
+    const mainImage = document.getElementById('mainImage');
+    mainImage.src = imageUrl;
+    mainImage.setAttribute('data-image-id', imageId);
+
+    // Mettre à jour la légende
+    const caption = thumbnailElement.getAttribute('data-caption');
+    document.getElementById('imageCaption').textContent = caption || '';
+
+    // Mettre à jour les miniatures actives
+    thumbnails.forEach(thumb => thumb.classList.remove('active'));
+    thumbnailElement.classList.add('active');
+
+    // Mettre à jour l'index courant
+    currentImageIndex = Array.from(thumbnails).findIndex(thumb =>
+        thumb.getAttribute('data-image-id') === imageId
+    );
+}
+
+function nextImage() {
+    if (thumbnails.length === 0) return;
+
+    currentImageIndex = (currentImageIndex + 1) % thumbnails.length;
+    const nextThumbnail = thumbnails[currentImageIndex];
+
+    changeMainImage(
+        nextThumbnail.getAttribute('data-full-image'),
+        nextThumbnail.getAttribute('data-image-id'),
+        nextThumbnail
+    );
+}
+
+function prevImage() {
+    if (thumbnails.length === 0) return;
+
+    currentImageIndex = (currentImageIndex - 1 + thumbnails.length) % thumbnails.length;
+    const prevThumbnail = thumbnails[currentImageIndex];
+
+    changeMainImage(
+        prevThumbnail.getAttribute('data-full-image'),
+        prevThumbnail.getAttribute('data-image-id'),
+        prevThumbnail
+    );
+}
+
+// Navigation au clavier
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowRight') nextImage();
+    if (e.key === 'ArrowLeft') prevImage();
+});
+
+// Zoom sur l'image au clic
+document.getElementById('mainImage').addEventListener('click', function() {
+    const modalHtml = `
+        <div class="modal fade" id="imageModal" tabindex="-1">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+                <div class="modal-content border-0 bg-transparent">
+                    <div class="modal-header border-0">
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <img src="${this.src}"
+                             alt="${this.alt}"
+                             class="img-fluid rounded"
+                             style="max-height: 70vh;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Créer et afficher le modal
+    const modalContainer = document.createElement('div');
+    modalContainer.innerHTML = modalHtml;
+    document.body.appendChild(modalContainer);
+
+    const modal = new bootstrap.Modal(modalContainer.querySelector('#imageModal'));
+    modal.show();
+
+    // Supprimer le modal après fermeture
+    modalContainer.querySelector('#imageModal').addEventListener('hidden.bs.modal', function() {
+        modalContainer.remove();
+    });
+});
+</script>

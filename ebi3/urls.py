@@ -10,19 +10,20 @@ urlpatterns = [
     path('set-language/', set_language, name='set_language'),
     path('admin/', admin.site.urls),
     path('rosetta/', include('rosetta.urls')),
-    # REMOVED: path('logistics-admin/', logistics_admin_site.urls),  # Cette ligne cause l'erreur
+    # REMOVED: path('logistics-admin/', logistics_admin_site.urls),  # Cette ligne a été supprimée
 ]
 
 # URLs avec support de langue
 urlpatterns += i18n_patterns(
-    path('', include('core.urls', namespace='core')),
+    path('', include('core.urls')),
     path('users/', include('users.urls', namespace='users')),
     path('ads/', include('ads.urls', namespace='ads')),
     path('carriers/', include('carriers.urls', namespace='carriers')),
     path('colis/', include('colis.urls', namespace='colis')),
     path('payments/', include('payments.urls', namespace='payments')),
     path('dashboard/', include('dashboard.urls', namespace='dashboard')),
-    path('logistics/', include('logistics.urls', namespace='logistics')),
+    # COMMENTEZ TEMPORAIREMENT CETTE LIGNE POUR DIAGNOSTIQUER
+    # path('logistics/', include('logistics.urls', namespace='logistics')),
     path('messages/', include('messaging.urls', namespace='messaging')),
     path('reviews/', include('reviews.urls', namespace='reviews')),
     path('tracking/', include('tracking.urls', namespace='tracking')),
@@ -31,8 +32,8 @@ urlpatterns += i18n_patterns(
 
 # Fichiers statiques et médias en développement
 if settings.DEBUG:
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
 # Handlers d'erreur
 handler404 = 'core.views.handler404'

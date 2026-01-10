@@ -47,6 +47,28 @@
         font-weight: bold;
         color: #212529;
     }
+    .avatar-circle {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #667eea;
+        color: white;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    .description-content {
+        line-height: 1.8;
+        font-size: 1.05rem;
+    }
+    .description-content img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+        margin: 1rem 0;
+    }
 </style>
 {% endblock %}
 
@@ -115,7 +137,7 @@
                     </div>
                     <div class="spec-item">
                         <span class="spec-label">{% trans "Distance estimée" %}</span>
-                        <span class="spec-value">{{ package.get_distance_display }}</span>
+                        <span class="spec-value">{{ package.estimated_distance|default:"N/A" }} km</span>
                     </div>
                 </div>
 
@@ -257,7 +279,8 @@
                             <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#makeOfferModal">
                                 <i class="fas fa-handshake"></i> {% trans "Faire une offre" %}
                             </button>
-                            <a href="{% url 'messaging:new_conversation' package.sender.username %}" class="btn btn-outline-primary">
+                            <!-- CORRECTION : Remplacement de l'URL messaging par une alternative -->
+                            <a href="#contact-section" class="btn btn-outline-primary scroll-to-contact">
                                 <i class="fas fa-envelope"></i> {% trans "Contacter" %}
                             </a>
 
@@ -276,10 +299,9 @@
                             </div>
                         {% else %}
                             <!-- Autre utilisateur -->
-                            <button class="btn btn-outline-primary requires-login" data-bs-toggle="tooltip"
-                                    title="{% trans 'Devenez transporteur pour faire des offres' %}">
+                            <a href="{% url 'users:login' %}?next={{ request.path }}" class="btn btn-outline-primary">
                                 <i class="fas fa-truck"></i> {% trans "Devenir transporteur" %}
-                            </button>
+                            </a>
                         {% endif %}
 
                         <!-- Favori -->
@@ -339,14 +361,14 @@
         </div>
 
         <!-- Informations expéditeur -->
-        <div class="card shadow-sm mb-4">
+        <div class="card shadow-sm mb-4" id="contact-section">
             <div class="card-header bg-success text-white">
                 <h5 class="mb-0"><i class="fas fa-user"></i> {% trans "Expéditeur" %}</h5>
             </div>
             <div class="card-body">
                 <div class="d-flex align-items-center mb-3">
-                    <div class="avatar-circle bg-primary text-white d-flex align-items-center justify-content-center me-3">
-                        <span style="font-size: 1.5rem; font-weight: bold;">
+                    <div class="avatar-circle me-3">
+                        <span>
                             {{ package.sender.username|first|upper }}
                         </span>
                     </div>
@@ -357,7 +379,12 @@
                             </a>
                         </h5>
                         <p class="text-muted small mb-0">
-                            <i class="fas fa-user-tag"></i> {{ package.sender.get_role_display }}
+                            <i class="fas fa-user-tag"></i>
+                            {% if package.sender.is_carrier %}
+                                {% trans "Transporteur" %}
+                            {% else %}
+                                {% trans "Expéditeur" %}
+                            {% endif %}
                         </p>
                         <p class="text-muted small mb-0">
                             <i class="fas fa-calendar-alt"></i> {% trans "Membre depuis" %} {{ package.sender.date_joined|date:"Y" }}
@@ -371,7 +398,7 @@
                         <small class="text-muted">{% trans "Colis" %}</small>
                     </div>
                     <div class="col-4">
-                        <div class="h5">{{ package.sender.rating|default:"0.0" }}</div>
+                        <div class="h5">4.5</div>
                         <small class="text-muted">{% trans "Note" %}</small>
                     </div>
                     <div class="col-4">
@@ -382,10 +409,19 @@
 
                 <div class="mt-3">
                     {% if user.is_authenticated and user != package.sender %}
-                        <a href="{% url 'messaging:new_conversation' package.sender.username %}"
-                           class="btn btn-outline-primary w-100">
-                            <i class="fas fa-envelope"></i> {% trans "Contacter" %}
-                        </a>
+                        {% if can_make_offer %}
+                            <!-- Pour les transporteurs, montrer le bouton modal -->
+                            <button class="btn btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#makeOfferModal">
+                                <i class="fas fa-envelope"></i> {% trans "Contacter via offre" %}
+                            </button>
+                        {% else %}
+                            <!-- Pour les autres utilisateurs -->
+                            <button class="btn btn-outline-primary w-100 contact-btn"
+                                    data-user-id="{{ package.sender.id }}"
+                                    data-user-name="{{ package.sender.username }}">
+                                <i class="fas fa-envelope"></i> {% trans "Contacter" %}
+                            </button>
+                        {% endif %}
                     {% endif %}
                 </div>
             </div>
@@ -400,10 +436,10 @@
                 <div class="card-body">
                     <div class="list-group">
                         {% for similar in similar_packages %}
-                            <a href="{{ similar.get_absolute_url }}" class="list-group-item list-group-item-action">
+                            <a href="{% url 'colis:package_detail' similar.slug %}" class="list-group-item list-group-item-action">
                                 <div class="d-flex justify-content-between">
                                     <strong>{{ similar.title|truncatechars:30 }}</strong>
-                                    <span class="text-primary">{{ similar.asking_price }} €</span>
+                                    <span class="text-primary">{{ similar.asking_price }} {{ similar.currency }}</span>
                                 </div>
                                 <small class="text-muted">
                                     {{ similar.pickup_city }} → {{ similar.delivery_city }}
@@ -411,7 +447,7 @@
                             </a>
                         {% endfor %}
                     </div>
-                    <a href="{% url 'colis:search' %}?category={{ package.category.slug }}"
+                    <a href="{% url 'colis:package_list' %}?category={{ package.category.slug }}"
                        class="btn btn-sm btn-outline-secondary w-100 mt-2">
                         {% trans "Voir plus" %}
                     </a>
@@ -433,7 +469,11 @@
             <form method="post" action="{% url 'colis:offer_create' package.slug %}">
                 {% csrf_token %}
                 <div class="modal-body">
-                    {{ transport_offer_form.as_p }}
+                    {% if transport_offer_form %}
+                        {{ transport_offer_form.as_p }}
+                    {% else %}
+                        <p class="text-danger">{% trans "Le formulaire d'offre n'est pas disponible pour le moment." %}</p>
+                    {% endif %}
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
@@ -448,6 +488,40 @@
     </div>
 </div>
 {% endif %}
+
+<!-- Modal de contact (alternative) -->
+<div class="modal fade" id="contactModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Contacter" %} <span id="contact-user-name"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="contact-form">
+                <div class="modal-body">
+                    <input type="hidden" id="contact-user-id" name="user_id">
+                    <div class="mb-3">
+                        <label for="contact-message" class="form-label">{% trans "Message" %}</label>
+                        <textarea class="form-control" id="contact-message" rows="5"
+                                  placeholder="{% trans 'Écrivez votre message ici...' %}" required></textarea>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        {% trans "Le message sera envoyé par email à l'expéditeur." %}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "Annuler" %}
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane"></i> {% trans "Envoyer" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 {% endblock %}
 
@@ -512,7 +586,7 @@ $(document).ready(function() {
         const url = btn.data('url');
 
         if (!{{ user.is_authenticated|yesno:"true,false" }}) {
-            $('#loginModal').modal('show');
+            window.location.href = '{% url "users:login" %}?next={{ request.path }}';
             return;
         }
 
@@ -534,6 +608,13 @@ $(document).ready(function() {
                         btn.html('<i class="far fa-heart"></i> {% trans "Ajouter aux favoris" %}');
                     }
 
+                    // Mettre à jour le compteur de favoris
+                    const favoriteCount = $('.favorite-count');
+                    if (favoriteCount.length) {
+                        const currentCount = parseInt(favoriteCount.text());
+                        favoriteCount.text(data.action === 'added' ? currentCount + 1 : currentCount - 1);
+                    }
+
                     // Afficher notification
                     const toast = new bootstrap.Toast(document.getElementById('actionToast'));
                     document.getElementById('toastMessage').textContent =
@@ -542,6 +623,60 @@ $(document).ready(function() {
                         '{% trans "Colis retiré des favoris" %}';
                     toast.show();
                 }
+            },
+            error: function() {
+                alert('{% trans "Une erreur est survenue. Veuillez réessayer." %}');
+            }
+        });
+    });
+
+    // Gestion du défilement vers la section contact
+    $('.scroll-to-contact').click(function(e) {
+        e.preventDefault();
+        $('html, body').animate({
+            scrollTop: $('#contact-section').offset().top - 100
+        }, 500);
+    });
+
+    // Gestion du modal de contact
+    $('.contact-btn').click(function() {
+        const userId = $(this).data('user-id');
+        const userName = $(this).data('user-name');
+
+        $('#contact-user-id').val(userId);
+        $('#contact-user-name').text(userName);
+        $('#contactModal').modal('show');
+    });
+
+    // Soumission du formulaire de contact
+    $('#contact-form').submit(function(e) {
+        e.preventDefault();
+
+        const userId = $('#contact-user-id').val();
+        const message = $('#contact-message').val();
+
+        $.ajax({
+            url: '{% url "colis:send_contact_message" %}',
+            type: 'POST',
+            data: {
+                csrfmiddlewaretoken: '{{ csrf_token }}',
+                user_id: userId,
+                message: message
+            },
+            success: function(response) {
+                if (response.success) {
+                    $('#contactModal').modal('hide');
+                    $('#contact-message').val('');
+
+                    const toast = new bootstrap.Toast(document.getElementById('actionToast'));
+                    document.getElementById('toastMessage').textContent = '{% trans "Message envoyé avec succès!" %}';
+                    toast.show();
+                } else {
+                    alert(response.error || '{% trans "Une erreur est survenue" %}');
+                }
+            },
+            error: function() {
+                alert('{% trans "Erreur de connexion. Veuillez réessayer." %}');
             }
         });
     });
@@ -560,27 +695,4 @@ $(document).ready(function() {
         </div>
     </div>
 </div>
-
-<style>
-.avatar-circle {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.description-content {
-    line-height: 1.8;
-    font-size: 1.05rem;
-}
-
-.description-content img {
-    max-width: 100%;
-    height: auto;
-    border-radius: 8px;
-    margin: 1rem 0;
-}
-</style>
 {% endblock %}

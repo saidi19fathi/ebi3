@@ -1,25 +1,30 @@
 # ~/ebi3/colis/views.py
 from django.shortcuts import render, get_object_or_404, redirect
-from django.db.models import Q, Count, Avg, Sum, F, ExpressionWrapper, DecimalField
+from django.db.models import Q, Count, Avg, Sum, F, ExpressionWrapper, DecimalField, Min, Max
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.views.generic import (
     ListView, DetailView, CreateView,
     UpdateView, DeleteView, TemplateView, FormView
 )
+from django.utils.translation import gettext as _
 from django.utils import timezone
 from django.urls import reverse_lazy, reverse
 from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
 from django.core.paginator import Paginator
-from django.http import JsonResponse, HttpResponseForbidden, HttpResponseRedirect
+from django.http import JsonResponse, HttpResponseForbidden, HttpResponseRedirect, HttpResponse
 from django.views.decorators.http import require_POST, require_GET
-from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.csrf import csrf_protect, csrf_exempt
 from django.db import transaction
 from django.db.models.functions import Coalesce
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth import get_user_model
+import json
+from datetime import datetime, timedelta
+from importlib import import_module
 
+# Import des modèles
 from .models import (
     Package, PackageCategory, PackageImage,
     TransportOffer, PackageView, PackageFavorite, PackageReport
@@ -29,16 +34,78 @@ from .forms import (
     TransportOfferForm, PackageSearchForm, PackageReportForm,
     QuickQuoteForm, PackageFilterForm
 )
-from users.models import User
-from carriers.models import Carrier, CarrierReview
-from messaging.models import Conversation, Message
-from datetime import datetime, timedelta
-from django.views.generic import TemplateView
-from django.utils import timezone
-from .models import Package
-from django.http import HttpResponse
+
+# Import conditionnel des autres apps
+try:
+    from users.models import User as UsersUser
+except ImportError:
+    UsersUser = None
+
+try:
+    from carriers.models import Carrier, CarrierReview
+except ImportError:
+    Carrier = None
+    CarrierReview = None
+
+try:
+    from messaging.models import Conversation, Message
+except ImportError:
+    Conversation = None
+    Message = None
 
 User = get_user_model()
+
+
+# ============================================================================
+# VUES API POUR CATÉGORIES
+# ============================================================================
+
+@require_GET
+@csrf_exempt
+def get_categories_api(request):
+    """API pour charger les catégories hiérarchiques"""
+    parent_id = request.GET.get('parent_id')
+    level = request.GET.get('level', 'sub')  # 'sub' ou 'final'
+
+    try:
+        if not parent_id:
+            # Retourner les catégories racines
+            categories = PackageCategory.objects.filter(
+                parent__isnull=True,
+                is_active=True
+            ).order_by('name')
+        else:
+            parent_category = PackageCategory.objects.get(id=parent_id, is_active=True)
+
+            if level == 'sub':
+                # Charger les sous-catégories directes
+                categories = PackageCategory.objects.filter(
+                    parent=parent_category,
+                    is_active=True
+                ).order_by('name')
+            else:  # level == 'final'
+                # Charger les catégories finales
+                categories = PackageCategory.objects.filter(
+                    parent=parent_category,
+                    is_active=True
+                ).order_by('name')
+
+        categories_data = []
+        for category in categories:
+            has_children = category.get_children().filter(is_active=True).exists()
+            categories_data.append({
+                'id': category.id,
+                'name': category.name,
+                'has_children': has_children,
+                'slug': category.slug,
+            })
+
+        return JsonResponse({'categories': categories_data})
+
+    except PackageCategory.DoesNotExist:
+        return JsonResponse({'categories': []})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 
 # ============================================================================
@@ -157,7 +224,7 @@ class CategoryDetailView(DetailView):
 class PackageListView(ListView):
     """Liste de tous les colis disponibles"""
     model = Package
-    template_name = 'colis/package_list.html'
+    template_name = 'colis/package/package_list.html'
     context_object_name = 'packages'
     paginate_by = 20
 
@@ -240,23 +307,66 @@ class PackageListView(ListView):
         context['categories'] = PackageCategory.objects.filter(
             is_active=True
         ).annotate(
-            package_count=Count('packages', filter=Q(packages__status=Package.Status.AVAILABLE))
-        ).order_by('-package_count', 'name')[:10]
+            active_packages=Count('packages', filter=Q(packages__status=Package.Status.AVAILABLE))
+        ).filter(
+            active_packages__gt=0
+        ).order_by('-active_packages', 'name')[:10]
 
         # Stats pour les filtres
-        from django.db.models import Min, Max
-        context['min_price_range'] = Package.objects.filter(status=Package.Status.AVAILABLE).aggregate(
-            Min('asking_price'))['asking_price__min'] or 0
-        context['max_price_range'] = Package.objects.filter(status=Package.Status.AVAILABLE).aggregate(
-            Max('asking_price'))['asking_price__max'] or 10000
+        price_stats = Package.objects.filter(status=Package.Status.AVAILABLE).aggregate(
+            min_price=Min('asking_price'),
+            max_price=Max('asking_price')
+        )
+
+        context['min_price_range'] = price_stats['min_price'] or 0
+        context['max_price_range'] = price_stats['max_price'] or 10000
 
         return context
+
+
+# Ajoutez cette fonction dans views.py
+@login_required
+@require_POST
+def send_contact_message(request):
+    """Envoie un message de contact à un utilisateur"""
+    user_id = request.POST.get('user_id')
+    message = request.POST.get('message')
+
+    if not user_id or not message:
+        return JsonResponse({
+            'success': False,
+            'error': _('Données manquantes')
+        })
+
+    try:
+        recipient = User.objects.get(id=user_id)
+
+        # Ici, vous pouvez implémenter l'envoi d'email ou de notification
+        # Pour l'instant, on retourne juste un succès
+
+        # Exemple d'envoi d'email (à implémenter)
+        # send_mail(
+        #     subject=_('Nouveau message de contact sur Ebi3'),
+        #     message=f"{request.user.username} vous a envoyé un message:\n\n{message}",
+        #     from_email=settings.DEFAULT_FROM_EMAIL,
+        #     recipient_list=[recipient.email],
+        # )
+
+        return JsonResponse({
+            'success': True,
+            'message': _('Message envoyé avec succès')
+        })
+    except User.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': _('Utilisateur non trouvé')
+        })
 
 
 class PackageDetailView(DetailView):
     """Détail d'un colis"""
     model = Package
-    template_name = 'colis/package_detail.html'
+    template_name = 'colis/package/package_detail.html'
     context_object_name = 'package'
     slug_field = 'slug'
     slug_url_kwarg = 'slug'
@@ -343,12 +453,13 @@ class PackageDetailView(DetailView):
 
         # Vérifier si l'utilisateur est un transporteur approuvé
         try:
-            carrier_profile = self.request.user.carrier_profile
-            if carrier_profile.status != Carrier.Status.APPROVED:
-                return False
-            if not carrier_profile.is_available:
-                return False
-        except Carrier.DoesNotExist:
+            if Carrier:
+                carrier_profile = self.request.user.carrier_profile
+                if carrier_profile.status != Carrier.Status.APPROVED:
+                    return False
+                if not carrier_profile.is_available:
+                    return False
+        except AttributeError:
             return False
 
         # Vérifier si le colis est disponible
@@ -380,14 +491,24 @@ class PackageCreateView(LoginRequiredMixin, CreateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         if self.request.POST:
-            context['image_formset'] = PackageImageFormSet(self.request.POST, self.request.FILES)
+            context['image_formset'] = PackageImageFormSet(
+                self.request.POST,
+                self.request.FILES,
+                prefix='images'
+            )
         else:
-            context['image_formset'] = PackageImageFormSet()
+            context['image_formset'] = PackageImageFormSet(
+                prefix='images'
+            )
         return context
 
     def form_valid(self, form):
         context = self.get_context_data()
         image_formset = context['image_formset']
+
+        # Valider d'abord le formulaire principal
+        if not form.is_valid():
+            return self.form_invalid(form)
 
         with transaction.atomic():
             form.instance.sender = self.request.user
@@ -398,10 +519,16 @@ class PackageCreateView(LoginRequiredMixin, CreateView):
                 images = image_formset.save(commit=False)
                 for image in images:
                     image.package = self.object
-                    image.save()
+                    # Vérifier si une image a été uploadée
+                    if image.image:
+                        image.save()
+
+                # Gérer les images marquées pour suppression
+                for obj in image_formset.deleted_objects:
+                    obj.delete()
 
                 # Vérifier le nombre d'images
-                free_images_count = len([img for img in images if not img.is_paid])
+                free_images_count = self.object.packageimage_set.filter(is_paid=False).count()
                 if free_images_count > self.object.free_images_allowed:
                     messages.warning(
                         self.request,
@@ -409,10 +536,19 @@ class PackageCreateView(LoginRequiredMixin, CreateView):
                           f"mais seulement {self.object.free_images_allowed} sont autorisées gratuitement.")
                     )
             else:
+                # Ajouter les erreurs du formset au formulaire
+                for form in image_formset.forms:
+                    for field, errors in form.errors.items():
+                        for error in errors:
+                            messages.error(self.request, f"Image: {error}")
                 return self.form_invalid(form)
 
         messages.success(self.request, _("Votre colis a été publié avec succès !"))
         return super().form_valid(form)
+
+    def form_invalid(self, form):
+        # Log des erreurs pour le débogage
+        return super().form_invalid(form)
 
     def get_success_url(self):
         return reverse_lazy('colis:package_detail', kwargs={'slug': self.object.slug})
@@ -422,34 +558,24 @@ class PackageUpdateView(LoginRequiredMixin, UpdateView):
     """Modification d'un colis"""
     model = Package
     form_class = PackageUpdateForm
-    template_name = 'colis/package_edit.html'
+    template_name = 'colis/package/package_create.html'
     slug_field = 'slug'
     slug_url_kwarg = 'slug'
-
-    def dispatch(self, request, *args, **kwargs):
-        package = self.get_object()
-
-        # Vérifier les permissions
-        if package.sender != request.user and not request.user.is_staff:
-            messages.error(request, _("Vous n'êtes pas autorisé à modifier ce colis."))
-            return redirect('colis:package_detail', slug=package.slug)
-
-        # Empêcher la modification si le colis est réservé ou en transit
-        if package.status in [Package.Status.RESERVED, Package.Status.IN_TRANSIT]:
-            messages.error(request, _("Ce colis ne peut pas être modifié car il est réservé ou en transit."))
-            return redirect('colis:package_detail', slug=package.slug)
-
-        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         if self.request.POST:
             context['image_formset'] = PackageImageFormSet(
-                self.request.POST, self.request.FILES,
-                instance=self.object
+                self.request.POST,
+                self.request.FILES,
+                instance=self.object,
+                prefix='images'
             )
         else:
-            context['image_formset'] = PackageImageFormSet(instance=self.object)
+            context['image_formset'] = PackageImageFormSet(
+                instance=self.object,
+                prefix='images'
+            )
         return context
 
     def form_valid(self, form):
@@ -463,12 +589,19 @@ class PackageUpdateView(LoginRequiredMixin, UpdateView):
                 images = image_formset.save(commit=False)
                 for image in images:
                     image.package = self.object
-                    image.save()
+                    # Vérifier si une image a été uploadée
+                    if image.image:
+                        image.save()
 
                 # Supprimer les images marquées pour suppression
                 for obj in image_formset.deleted_objects:
                     obj.delete()
             else:
+                # Log des erreurs
+                for form in image_formset.forms:
+                    for field, errors in form.errors.items():
+                        for error in errors:
+                            messages.error(self.request, f"Image: {error}")
                 return self.form_invalid(form)
 
         messages.success(self.request, _("Votre colis a été mis à jour avec succès !"))
@@ -544,9 +677,6 @@ class MyPackagesListView(LoginRequiredMixin, ListView):
             in_transit=Count('id', filter=Q(status=Package.Status.IN_TRANSIT)),
             delivered=Count('id', filter=Q(status=Package.Status.DELIVERED)),
             cancelled=Count('id', filter=Q(status=Package.Status.CANCELLED)),
-            total_views=Sum('view_count'),
-            total_offers=Sum('offer_count'),
-            total_favorites=Sum('favorite_count'),
         )
 
         context.update(stats)
@@ -621,12 +751,14 @@ class TransportOfferCreateView(LoginRequiredMixin, CreateView):
 
         # Vérifier si l'utilisateur est un transporteur approuvé
         try:
+            if not Carrier:
+                return False
             carrier_profile = user.carrier_profile
             if carrier_profile.status != Carrier.Status.APPROVED:
                 return False
             if not carrier_profile.is_available:
                 return False
-        except Carrier.DoesNotExist:
+        except AttributeError:
             return False
 
         # Vérifier si le colis est disponible
@@ -657,13 +789,13 @@ class TransportOfferCreateView(LoginRequiredMixin, CreateView):
 
     def calculate_estimated_price(self):
         """Calcule une estimation de prix basée sur la distance et le volume"""
-        # Logique simplifiée - à améliorer avec un service de calcul réel
-        if self.package.estimated_distance and self.package.volume:
-            base_price_per_km = 0.5  # € par km
-            base_price_per_volume = 10  # € par m³
+        # Logique simplifiée
+        if self.package.weight and self.package.volume:
+            base_price_per_kg = 0.5
+            base_price_per_volume = 10
 
             estimated_price = (
-                self.package.estimated_distance * base_price_per_km +
+                float(self.package.weight) * base_price_per_kg +
                 float(self.package.volume) / 1000 * base_price_per_volume
             )
 
@@ -684,27 +816,25 @@ class TransportOfferCreateView(LoginRequiredMixin, CreateView):
 
             # Créer une conversation entre l'expéditeur et le transporteur
             try:
-                conversation = Conversation.objects.get_or_create_conversation(
-                    self.package.sender,
-                    self.request.user,
-                    f"Offre pour colis: {self.package.title}"
-                )
-
-                # Ajouter un message initial
-                Message.objects.create(
-                    conversation=conversation,
-                    sender=self.request.user,
-                    content=_("Bonjour, je vous propose de transporter votre colis pour {price}€. {message}").format(
-                        price=self.object.price,
-                        message=self.object.message or ""
+                if Conversation and Message:
+                    conversation = Conversation.objects.get_or_create_conversation(
+                        self.package.sender,
+                        self.request.user,
+                        f"Offre pour colis: {self.package.title}"
                     )
-                )
+
+                    # Ajouter un message initial
+                    Message.objects.create(
+                        conversation=conversation,
+                        sender=self.request.user,
+                        content=_("Bonjour, je vous propose de transporter votre colis pour {price}€. {message}").format(
+                            price=self.object.price,
+                            message=self.object.message or ""
+                        )
+                    )
             except Exception as e:
                 # Ne pas bloquer l'offre si la conversation échoue
                 pass
-
-            # Notifier l'expéditeur (à implémenter avec Celery)
-            # send_new_offer_notification.delay(self.object.id)
 
         messages.success(
             self.request,
@@ -747,7 +877,7 @@ def accept_transport_offer(request, pk):
         raise PermissionDenied(_("Vous n'êtes pas autorisé à accepter cette offre."))
 
     # Vérifier que l'offre peut être acceptée
-    if not offer.can_be_accepted():
+    if offer.status != TransportOffer.Status.PENDING:
         messages.error(request, _("Cette offre ne peut pas être acceptée."))
         return redirect('colis:my_transport_offers')
 
@@ -771,24 +901,22 @@ def accept_transport_offer(request, pk):
             rejection_reason=_("Une autre offre a été acceptée")
         )
 
-        # Notifier le transporteur (à implémenter avec Celery)
-        # send_offer_accepted_notification.delay(offer.id)
-
         # Mettre à jour la conversation
         try:
-            conversation = Conversation.objects.get_or_create_conversation(
-                offer.package.sender,
-                offer.carrier.user,
-                f"Colis accepté: {offer.package.title}"
-            )
-
-            Message.objects.create(
-                conversation=conversation,
-                sender=request.user,
-                content=_("Bonjour, j'ai accepté votre offre de {price}€. Merci ! Nous pouvons maintenant organiser les détails du transport.").format(
-                    price=offer.price
+            if Conversation and Message:
+                conversation = Conversation.objects.get_or_create_conversation(
+                    offer.package.sender,
+                    offer.carrier.user,
+                    f"Colis accepté: {offer.package.title}"
                 )
-            )
+
+                Message.objects.create(
+                    conversation=conversation,
+                    sender=request.user,
+                    content=_("Bonjour, j'ai accepté votre offre de {price}€. Merci ! Nous pouvons maintenant organiser les détails du transport.").format(
+                        price=offer.price
+                    )
+                )
         except Exception as e:
             pass
 
@@ -817,24 +945,22 @@ def reject_transport_offer(request, pk):
         offer.rejection_reason = reason
         offer.save()
 
-        # Notifier le transporteur
-        # send_offer_rejected_notification.delay(offer.id, reason)
-
         # Mettre à jour la conversation
         try:
-            conversation = Conversation.objects.get_or_create_conversation(
-                offer.package.sender,
-                offer.carrier.user,
-                f"Colis: {offer.package.title}"
-            )
-
-            Message.objects.create(
-                conversation=conversation,
-                sender=request.user,
-                content=_("Bonjour, je regrette mais je ne peux pas accepter votre offre. {reason}").format(
-                    reason=f"Raison: {reason}" if reason else ""
+            if Conversation and Message:
+                conversation = Conversation.objects.get_or_create_conversation(
+                    offer.package.sender,
+                    offer.carrier.user,
+                    f"Colis: {offer.package.title}"
                 )
-            )
+
+                Message.objects.create(
+                    conversation=conversation,
+                    sender=request.user,
+                    content=_("Bonjour, je regrette mais je ne peux pas accepter votre offre. {reason}").format(
+                        reason=f"Raison: {reason}" if reason else ""
+                    )
+                )
         except Exception as e:
             pass
 
@@ -860,22 +986,20 @@ def cancel_transport_offer(request, pk):
         offer.status = TransportOffer.Status.CANCELLED
         offer.save()
 
-        # Notifier l'expéditeur
-        # send_offer_cancelled_notification.delay(offer.id)
-
         # Mettre à jour la conversation
         try:
-            conversation = Conversation.objects.get_or_create_conversation(
-                offer.package.sender,
-                offer.carrier.user,
-                f"Colis: {offer.package.title}"
-            )
+            if Conversation and Message:
+                conversation = Conversation.objects.get_or_create_conversation(
+                    offer.package.sender,
+                    offer.carrier.user,
+                    f"Colis: {offer.package.title}"
+                )
 
-            Message.objects.create(
-                conversation=conversation,
-                sender=request.user,
-                content=_("Je regrette mais je dois annuler mon offre pour votre colis.")
-            )
+                Message.objects.create(
+                    conversation=conversation,
+                    sender=request.user,
+                    content=_("Je regrette mais je dois annuler mon offre pour votre colis.")
+                )
         except Exception as e:
             pass
 
@@ -900,6 +1024,10 @@ class AvailablePackagesView(LoginRequiredMixin, ListView):
             messages.error(request, _("Vous devez être transporteur pour voir les colis disponibles."))
             return redirect('carriers:apply')
 
+        if not Carrier:
+            messages.error(request, _("Module transporteur non disponible."))
+            return redirect('colis:package_list')
+
         carrier = request.user.carrier_profile
         if carrier.status != Carrier.Status.APPROVED:
             messages.error(request, _("Votre compte transporteur n'est pas encore approuvé."))
@@ -919,8 +1047,7 @@ class AvailablePackagesView(LoginRequiredMixin, ListView):
         # Filtrer par capacités du transporteur
         carrier = self.request.user.carrier_profile
         queryset = queryset.filter(
-            weight__lte=carrier.max_weight,
-            volume__lte=carrier.max_volume * 1000  # Convertir m³ en L
+            weight__lte=carrier.max_weight
         )
 
         # Exclure les colis pour lesquels le transporteur a déjà fait une offre
@@ -1194,7 +1321,6 @@ def quick_quote(request):
 
     if form.is_valid():
         # Calcul simplifié du prix
-        # À remplacer par un service de calcul réel
         weight = form.cleaned_data['weight']
         length = form.cleaned_data.get('length', 0)
         width = form.cleaned_data.get('width', 0)
@@ -1266,9 +1392,6 @@ def update_package_status(request, slug, status):
 
     package.save()
 
-    # Notifier les parties concernées
-    # send_package_status_update.delay(package.id, previous_status, status)
-
     return JsonResponse({
         'success': True,
         'new_status': status,
@@ -1317,16 +1440,9 @@ def package_management(request, slug):
     # Récupérer toutes les offres
     offers = package.transport_offers.all().select_related('carrier', 'carrier__user')
 
-    # Récupérer les conversations liées
-    conversations = []
-    if hasattr(request, 'messaging'):
-        # À adapter selon votre app messaging
-        pass
-
     context = {
         'package': package,
         'offers': offers,
-        'conversations': conversations,
         'can_edit': package.status in [Package.Status.AVAILABLE, Package.Status.DRAFT],
         'can_delete': package.status in [Package.Status.AVAILABLE, Package.Status.DRAFT, Package.Status.CANCELLED],
     }
@@ -1366,19 +1482,9 @@ class PackageStatisticsView(LoginRequiredMixin, TemplateView):
                     'percentage': round((count / stats['total']) * 100, 1) if stats['total'] > 0 else 0
                 })
 
-        # Évolution mensuelle
-        monthly_stats = packages.extra(
-            select={'month': "strftime('%%Y-%%m', created_at)"}
-        ).values('month').annotate(
-            count=Count('id'),
-            total_views=Sum('view_count'),
-            total_offers=Sum('offer_count'),
-        ).order_by('month')
-
         context.update({
             'stats': stats,
             'status_stats': status_stats,
-            'monthly_stats': monthly_stats,
         })
 
         return context
@@ -1399,8 +1505,7 @@ class NewsSitemapView(TemplateView):
 
         news_packages = Package.objects.filter(
             created_at__gte=two_days_ago,
-            status='AVAILABLE',
-            is_archived=False
+            status='AVAILABLE'
         ).order_by('-created_at')[:1000]
 
         context['news_packages'] = news_packages
@@ -1420,8 +1525,6 @@ def robots_txt(request):
         "",
         "# Sitemaps",
         f"Sitemap: https://{request.get_host()}/colis/sitemap.xml",
-        f"Sitemap: https://{request.get_host()}/colis/sitemap_index.xml",
-        f"Sitemap: https://{request.get_host()}/colis/news-sitemap.xml",
         "",
         "# Disallow certaines pages",
         "Disallow: /admin/",
@@ -1433,16 +1536,143 @@ def robots_txt(request):
         "",
         "# Crawl-delay pour éviter de surcharger le serveur",
         "Crawl-delay: 2",
-        "",
-        "# User-agents spécifiques",
-        "User-agent: GPTBot",
-        "Disallow: /",
-        "",
-        "User-agent: ChatGPT-User",
-        "Disallow: /",
-        "",
-        "# Host (facultatif mais recommandé)",
-        f"Host: {request.get_host()}",
     ]
 
     return HttpResponse("\n".join(lines), content_type="text/plain")
+
+
+# ============================================================================
+# VUES D'ACTIONS EN MASSE
+# ============================================================================
+
+@login_required
+def bulk_publish_packages(request):
+    """Publie tous les colis en brouillon de l'utilisateur"""
+    if request.method == 'POST':
+        # Récupérer tous les brouillons de l'utilisateur
+        draft_packages = Package.objects.filter(
+            sender=request.user,
+            status=Package.Status.DRAFT
+        )
+
+        count = draft_packages.count()
+
+        if count > 0:
+            # Mettre à jour le statut
+            draft_packages.update(
+                status=Package.Status.AVAILABLE,
+                published_at=timezone.now()
+            )
+
+            messages.success(
+                request,
+                _(f'{count} colis ont été publiés avec succès.')
+            )
+        else:
+            messages.info(
+                request,
+                _("Vous n'avez aucun colis en brouillon à publier.")
+            )
+
+    return redirect('colis:my_packages')
+
+
+@login_required
+def bulk_expire_packages(request):
+    """Marque tous les colis disponibles de l'utilisateur comme expirés"""
+    if request.method == 'POST':
+        # Récupérer tous les colis disponibles de l'utilisateur
+        available_packages = Package.objects.filter(
+            sender=request.user,
+            status=Package.Status.AVAILABLE
+        )
+
+        count = available_packages.count()
+
+        if count > 0:
+            # Mettre à jour le statut
+            available_packages.update(
+                status=Package.Status.EXPIRED,
+                expired_at=timezone.now()
+            )
+
+            messages.warning(
+                request,
+                _(f'{count} colis ont été marqués comme expirés.')
+            )
+        else:
+            messages.info(
+                request,
+                _("Vous n'avez aucun colis disponible à expirer.")
+            )
+
+    return redirect('colis:my_packages')
+
+
+@login_required
+def bulk_delete_packages(request):
+    """Supprime tous les brouillons de l'utilisateur"""
+    if request.method == 'POST':
+        # Récupérer tous les brouillons de l'utilisateur
+        draft_packages = Package.objects.filter(
+            sender=request.user,
+            status=Package.Status.DRAFT
+        )
+
+        count = draft_packages.count()
+
+        if count > 0:
+            # Supprimer les brouillons
+            draft_packages.delete()
+
+            messages.success(
+                request,
+                _(f'{count} brouillons ont été supprimés.')
+            )
+        else:
+            messages.info(
+                request,
+                _("Vous n'avez aucun brouillon à supprimer.")
+            )
+
+    return redirect('colis:my_packages')
+
+
+@login_required
+def bulk_archive_packages(request):
+    """Archive tous les colis livrés/annulés/expirés"""
+    if request.method == 'POST':
+        # Récupérer les colis terminés
+        completed_packages = Package.objects.filter(
+            sender=request.user,
+            status__in=[Package.Status.DELIVERED, Package.Status.CANCELLED, Package.Status.EXPIRED]
+        )
+
+        count = completed_packages.count()
+
+        if count > 0:
+            messages.info(
+                request,
+                _(f'{count} colis ont été marqués comme terminés.')
+            )
+        else:
+            messages.info(
+                request,
+                _("Vous n'avez aucun colis terminé à archiver.")
+            )
+
+    return redirect('colis:my_packages')
+
+
+# ============================================================================
+# VUES D'ERREUR
+# ============================================================================
+
+def custom_404(request, exception):
+    """Vue personnalisée pour l'erreur 404"""
+    return render(request, 'colis/errors/404.html', status=404)
+
+
+def custom_500(request):
+    """Vue personnalisée pour l'erreur 500"""
+    return render(request, 'colis/errors/500.html', status=500)

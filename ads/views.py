@@ -26,6 +26,8 @@ from .forms import (
     AdReportForm
 )
 from users.models import User
+from django.views.decorators.http import require_GET
+
 
 class CategoryListView(ListView):
     """Liste des catégories"""
@@ -233,10 +235,24 @@ class AdCreateView(LoginRequiredMixin, CreateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+
+        # ✅ AJOUTER LES CATÉGORIES AU CONTEXTE
+        # Catégories principales (sans parent)
+        context['main_categories'] = Category.objects.filter(
+            parent__isnull=True,
+            is_active=True
+        ).order_by('display_order', 'name')
+
+        # ✅ TOUTES les catégories pour la sélection directe
+        context['all_categories'] = Category.objects.filter(
+            is_active=True
+        ).order_by('lft')  # Utilisez 'lft' pour l'ordre hiérarchique
+
         if self.request.POST:
             context['image_formset'] = AdImageFormSet(self.request.POST, self.request.FILES)
         else:
             context['image_formset'] = AdImageFormSet()
+
         return context
 
     def form_valid(self, form):
@@ -343,6 +359,52 @@ class AdDeleteView(LoginRequiredMixin, DeleteView):
     def delete(self, request, *args, **kwargs):
         messages.success(request, _("L'annonce a été supprimée avec succès."))
         return super().delete(request, *args, **kwargs)
+
+
+@require_GET
+def get_categories(request):
+    """API pour récupérer les catégories dynamiquement"""
+    parent_id = request.GET.get('parent_id')
+    level = request.GET.get('level', 'sub')  # main, sub
+
+    if level == 'main':
+        # Utiliser l'utilitaire pour les catégories principales
+        from .utils import get_main_categories
+        categories = get_main_categories()
+
+    elif level == 'sub' and parent_id:
+        # Sous-catégorie directes
+        categories = Category.objects.filter(
+            parent_id=parent_id,
+            is_active=True
+        ).order_by('display_order', 'name')
+
+        # Si aucune sous-catégorie directe, chercher les "petits-enfants"
+        if not categories.exists():
+            # Chercher les catégories dont le parent a comme parent parent_id
+            sub_categories = Category.objects.filter(
+                parent__isnull=False,
+                parent__parent_id=parent_id,
+                is_active=True
+            ).order_by('display_order', 'name')
+
+            categories = sub_categories
+
+    else:
+        categories = Category.objects.none()
+
+    # Formater la réponse
+    data = [{
+        'id': cat.id,
+        'name': cat.name,
+        'has_children': cat.children.filter(is_active=True).exists(),
+        'icon': cat.icon or '',
+        'description': cat.description or '',
+        'ad_count': cat.ad_count
+    } for cat in categories]
+
+    return JsonResponse({'categories': data})
+
 
 
 @login_required
@@ -472,6 +534,10 @@ def change_ad_status(request, slug, status):
         ad.published_at = timezone.now()
 
     ad.save()
+
+    # FORCER la mise à jour du compteur de la catégorie
+    if ad.category:
+        ad.category.update_ad_count()
 
     messages.success(
         request,

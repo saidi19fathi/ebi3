@@ -1,0 +1,41 @@
+{# ~/ebi3/users/templates/users/profile_update.html - Version corrigée #}
+{% extends 'core/base.html' %}
+{% load i18n crispy_forms_tags %}
+
+{% block title %}{% trans "Modifier le profil" %} - Ebi3{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">
+                        <i class="fas fa-user-edit"></i> {% trans "Modifier le profil" %}
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        <!-- Afficher tous les champs automatiquement -->
+                        {{ form|crispy }}
+
+                        <div class="mt-4 d-flex justify-content-between">
+                            <!-- Utiliser request.user au lieu de user_profile -->
+                            <a href="{% url 'users:profile' request.user.username %}"
+                               class="btn btn-outline-secondary">
+                                <i class="fas fa-times"></i> {% trans "Annuler" %}
+                            </a>
+
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> {% trans "Enregistrer les modifications" %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -15,3 +15,7 @@ copier les fichiers des dossiers
 
 
 find colis -type f \( -name "*.py" -o -name "*.html" \) -exec sh -c 'echo "=== Fichier: {} ===" >> ffff.txt && cat {} >> ffff.txt && echo -e "\n" >> ffff.txt' \;
+
+
+
+tree -I '__pycache__|*.pyc|venv|.venv|env|node_modules|*.svg|*.png|*.jpg|*.jpeg|*.gif|*.webp|000*.py|i18n' -o arbo.txt

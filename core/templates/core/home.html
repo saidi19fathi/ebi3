@@ -474,7 +474,7 @@
                                     <i class="fas fa-eye"></i>
                                 </a>
                                 {% if user.is_authenticated %}
-                                <a href="{% url 'messaging:new_conversation' carrier.user.username %}"
+                                <a href="{% url 'messaging:new_conversation_with_user' carrier.user.username %}"
                                    class="btn btn-sm btn-outline-success">
                                     <i class="fas fa-envelope"></i>
                                 </a>

@@ -13,6 +13,8 @@ from django.utils.decorators import method_decorator
 from .models import Page, FAQ, Country, ContactMessage, NewsletterSubscriber
 from .forms import ContactForm, NewsletterForm
 
+
+# ~/ebi3/core/views.py
 class HomeView(TemplateView):
     """Page d'accueil"""
     template_name = 'core/home.html'
@@ -24,39 +26,75 @@ class HomeView(TemplateView):
         from ads.models import Ad
         from carriers.models import Carrier
         from users.models import User
+        from colis.models import Package
+
+        # Debug: Vérifier toutes les annonces
+        all_ads = Ad.objects.all()
+        active_ads = Ad.objects.filter(status=Ad.Status.ACTIVE)
+
+        print(f"DEBUG - Toutes les annonces: {all_ads.count()}")
+        print(f"DEBUG - Annonces ACTIVES: {active_ads.count()}")
+
+        for ad in all_ads:
+            print(f"DEBUG - Annonce: {ad.title}, Statut: {ad.status}")
 
         # Statistiques pour la page d'accueil
         context.update({
-            'total_ads': Ad.objects.filter(status=Ad.Status.ACTIVE).count(),
-            'total_carriers': Carrier.objects.filter(status='APPROVED').count(),  # AJOUTÉ
+            'total_ads': active_ads.count(),
+            'total_carriers': Carrier.objects.filter(status='APPROVED').count(),
             'total_users': User.objects.filter(is_active=True).count(),
         })
 
-        # Annonces récentes (pour l'aperçu)
+        # Annonces récentes
         context['recent_ads'] = Ad.objects.filter(
-            status=Ad.Status.ACTIVE
-        ).select_related('seller', 'category').prefetch_related('images').order_by('-created_at')[:4]  # Changé de 8 à 4
+            status__in=[Ad.Status.ACTIVE, Ad.Status.RESERVED, Ad.Status.DRAFT, Ad.Status.PENDING]
+        ).select_related('seller', 'category').prefetch_related('images').order_by('-created_at')[:8]
 
-        # Transporteurs récents (POUR L'APERÇU - NOUVEAU)
+        # Colis récents - CORRECTION ICI: Utiliser le bon statut
+        try:
+            # Vérifier quels statuts existent
+            all_packages = Package.objects.all()
+            print(f"DEBUG - Tous les colis: {all_packages.count()}")
+
+            for package in all_packages:
+                print(f"DEBUG - Colis: {package.title}, Statut: {package.status}")
+
+            # Filtrer par statut disponible - CORRECTION
+            # Essayer plusieurs noms de statut possibles
+            from django.db.models import Q
+
+            # Essayer avec le statut disponible (probablement 'AVAILABLE' ou 'PUBLISHED')
+            available_packages = Package.objects.filter(
+                Q(status='AVAILABLE') | Q(status='PUBLISHED') | Q(status='ACTIVE')
+            ).select_related('sender').prefetch_related('images').order_by('-created_at')[:4]
+
+            print(f"DEBUG - Colis disponibles: {available_packages.count()}")
+
+            # Si aucun colis trouvé avec ces statuts, prendre tous les colis pour le test
+            if available_packages.count() == 0:
+                available_packages = Package.objects.all().select_related('sender').prefetch_related('images').order_by('-created_at')[:4]
+                print(f"DEBUG - Utilisation de tous les colis pour test: {available_packages.count()}")
+
+            context['recent_packages'] = available_packages
+
+        except Exception as e:
+            print(f"DEBUG - Erreur packages: {e}")
+            context['recent_packages'] = []
+
+        # Transporteurs récents
         context['recent_carriers'] = Carrier.objects.filter(
             status='APPROVED',
             is_available=True
-        ).select_related('user').order_by('-created_at')[:4]  # Premier transporteurs
+        ).select_related('user').order_by('-created_at')[:4]
 
-        # Annonces en vedette (optionnel - pour une section future si besoin)
+        # Annonces en vedette
         context['featured_ads'] = Ad.objects.filter(
             is_featured=True,
-            status=Ad.Status.ACTIVE
+            status__in=[Ad.Status.ACTIVE, Ad.Status.RESERVED]
         ).select_related('seller', 'category').prefetch_related('images')[:4]
 
-        # Transporteurs en vedette (optionnel - pour une section future si besoin)
-        context['featured_carriers'] = Carrier.objects.filter(
-            status='APPROVED',
-            is_available=True,
-            verification_level__gte=3  # Transporteurs bien vérifiés
-        ).select_related('user').order_by('?')[:4]  # Aléatoire pour variété
-
         return context
+
 class PageDetailView(DetailView):
     """Détail d'une page statique"""
     model = Page
@@ -205,3 +243,4 @@ def handler403(request, exception):
 def handler400(request, exception):
     """Handler 400 personnalisé"""
     return render(request, 'core/400.html', status=400)
+

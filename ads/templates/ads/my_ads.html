@@ -208,11 +208,20 @@
                                 <div class="position-relative">
                                     {% with ad.images.first as main_image %}
                                         {% if main_image %}
-                                            <img src="{{ main_image.thumbnail.url|default:main_image.image.url }}"
-                                                 class="card-img-top"
-                                                 style="height: 180px; object-fit: cover;"
-                                                 alt="{{ ad.title }}"
-                                                 loading="lazy">
+                                            {# CORRECTION ICI : Vérifier si le thumbnail existe avant de l'utiliser #}
+                                            {% if main_image.thumbnail and main_image.thumbnail.url %}
+                                                <img src="{{ main_image.thumbnail.url }}"
+                                                     class="card-img-top"
+                                                     style="height: 180px; object-fit: cover;"
+                                                     alt="{{ ad.title }}"
+                                                     loading="lazy">
+                                            {% else %}
+                                                <img src="{{ main_image.image.url }}"
+                                                     class="card-img-top"
+                                                     style="height: 180px; object-fit: cover;"
+                                                     alt="{{ ad.title }}"
+                                                     loading="lazy">
+                                            {% endif %}
                                         {% else %}
                                             <div class="bg-light d-flex align-items-center justify-content-center"
                                                  style="height: 180px;">

@@ -112,7 +112,7 @@
         <!-- Transporteurs -->
         {% if carriers %}
             <div class="row">
-                {% for carrier in carriers %}
+                {% for carrier in page_obj %}
                     <div class="col-md-6 col-lg-4 mb-4">
                         {% include 'carriers/partials/carrier_card.html' with carrier=carrier %}
                     </div>

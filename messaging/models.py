@@ -189,6 +189,23 @@ class Conversation(models.Model):
         return conversation
 
 
+    def get_other_participant(self, user):
+        """Obtenir l'autre participant (pour les conversations à 2)"""
+        try:
+            if self.participants.count() == 2:
+                return self.participants.exclude(id=user.id).first()
+        except Exception:
+            pass
+        return None
+
+    def get_participants_except(self, user):
+        """Obtenir tous les participants sauf l'utilisateur spécifié"""
+        try:
+            return self.participants.exclude(id=user.id)
+        except Exception:
+            return self.participants.none()
+
+
 class Message(models.Model):
     """Modèle pour un message dans une conversation"""
 

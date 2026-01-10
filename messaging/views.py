@@ -116,6 +116,7 @@ class InboxView(LoginRequiredMixin, ListView):
         return context
 
 
+# messaging/views.py
 class ConversationDetailView(LoginRequiredMixin, DetailView):
     """Vue de détail d'une conversation"""
     model = Conversation
@@ -153,30 +154,57 @@ class ConversationDetailView(LoginRequiredMixin, DetailView):
         page = self.request.GET.get('page')
         messages_page = paginator.get_page(page)
 
-        # Formulaire de réponse
-        context['message_form'] = MessageForm(
-            conversation=conversation,
-            sender=self.request.user,
-            recipient=conversation.get_other_participant(self.request.user)
-        )
+        # Obtenir l'autre participant
+        other_participant = conversation.get_other_participant(self.request.user)
+
+        # S'assurer que other_participant existe
+        if other_participant is None:
+            # Si la conversation a plus de 2 participants, obtenir le premier autre participant
+            other_participants = conversation.get_participants_except(self.request.user)
+            if other_participants.exists():
+                other_participant = other_participants.first()
+            else:
+                # Cas d'une conversation sans autre participant (ne devrait pas arriver)
+                other_participant = None
+
+        # Formulaire de réponse seulement si nous avons un autre participant
+        if other_participant:
+            context['message_form'] = MessageForm(
+                conversation=conversation,
+                sender=self.request.user,
+                recipient=other_participant
+            )
+        else:
+            context['message_form'] = None
 
         # Informations supplémentaires
         context['messages'] = messages_page
-        context['other_participant'] = conversation.get_other_participant(self.request.user)
-        context['is_blocked'] = BlockedUser.objects.filter(
-            blocker=self.request.user,
-            blocked=context['other_participant']
-        ).exists() if context['other_participant'] else False
+        context['other_participant'] = other_participant
+
+        # Vérifier si l'utilisateur est bloqué seulement si other_participant existe
+        if other_participant:
+            context['is_blocked'] = BlockedUser.objects.filter(
+                blocker=self.request.user,
+                blocked=other_participant
+            ).exists()
+        else:
+            context['is_blocked'] = False
 
         # Vérifier si l'utilisateur peut envoyer des messages
-        if context['other_participant']:
+        if other_participant:
             try:
-                recipient_settings = context['other_participant'].message_settings
+                recipient_settings = other_participant.message_settings
                 context['can_send_message'] = recipient_settings.allow_messages_from != 'NOBODY'
             except UserMessageSettings.DoesNotExist:
                 context['can_send_message'] = True
         else:
-            context['can_send_message'] = True
+            context['can_send_message'] = False
+
+        # Ajouter les conversations récentes pour la sidebar
+        context['recent_conversations'] = Conversation.objects.filter(
+            participants=self.request.user,
+            is_active=True
+        ).exclude(uuid=conversation.uuid).order_by('-last_message_at')[:10]
 
         return context
 

@@ -1,4 +1,4 @@
-{# ~/ebi3/colis/templates/colis/package_create.html #}
+{# ~/ebi3/colis/templates/colis/package/package_create.html #}
 {% extends 'colis/base_colis.html' %}
 {% load i18n crispy_forms_tags %}
 
@@ -86,6 +86,114 @@
         padding: 1rem;
         margin-top: 1rem;
     }
+
+    /* Styles pour la sélection hiérarchique des catégories */
+    .category-hierarchy-section {
+        background-color: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid #e9ecef;
+    }
+
+    .category-select-container {
+        position: relative;
+    }
+
+    .category-select-container .form-select {
+        padding-right: 2.5rem;
+        transition: all 0.3s ease;
+    }
+
+    .category-select-container .form-select:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25);
+    }
+
+    #sub-category-placeholder,
+    #final-category-placeholder {
+        background-color: #f8f9fa;
+        min-height: 58px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        border: 1px dashed #dee2e6;
+        border-radius: 0.375rem;
+    }
+
+    #sub-category-placeholder i,
+    #final-category-placeholder i {
+        color: #adb5bd;
+    }
+
+    #category-selection-info {
+        background-color: #d1e7dd;
+        border: 1px solid #badbcc;
+        border-left: 4px solid #198754;
+    }
+
+    #selected-category-path {
+        color: #0f5132;
+        background-color: #fff;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.95rem;
+    }
+
+    #change-category-btn:hover {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    .loading-spinner {
+        display: inline-block;
+        width: 1rem;
+        height: 1rem;
+        border: 2px solid #f3f3f3;
+        border-top: 2px solid #667eea;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-right: 0.5rem;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    /* Styles pour le formset d'images */
+    .image-form-item {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        background: #f8f9fa;
+    }
+
+    .image-form-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .image-preview-existing {
+        max-width: 150px;
+        max-height: 150px;
+        object-fit: cover;
+        border-radius: 8px;
+        border: 2px solid #dee2e6;
+        margin-top: 10px;
+    }
+
+    .form-error {
+        color: #dc3545;
+        font-size: 0.875em;
+        margin-top: 0.25rem;
+    }
 </style>
 {% endblock %}
 
@@ -100,11 +208,55 @@
                 <h5 class="alert-heading"><i class="fas fa-info-circle"></i> {% trans "Comment publier un colis ?" %}</h5>
                 <ul class="mb-0">
                     <li>{% trans "Remplissez tous les champs obligatoires (*)" %}</li>
+                    <li>{% trans "Sélectionnez votre catégorie en 3 étapes simples" %}</li>
                     <li>{% trans "Ajoutez des photos de qualité pour attirer plus de transporteurs" %}</li>
                     <li>{% trans "Soyez précis sur les dimensions et le poids" %}</li>
                     <li>{% trans "Fixez un prix réaliste pour augmenter vos chances" %}</li>
                 </ul>
             </div>
+
+            <!-- Afficher les messages d'erreur -->
+            {% if messages %}
+            <div class="mb-4">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Afficher les erreurs de formulaire -->
+            {% if form.errors or image_formset.errors %}
+            <div class="alert alert-danger mb-4">
+                <h5 class="alert-heading"><i class="fas fa-exclamation-triangle"></i> {% trans "Veuillez corriger les erreurs suivantes :" %}</h5>
+                <ul class="mb-0">
+                    {% for field in form %}
+                        {% for error in field.errors %}
+                        <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                        {% endfor %}
+                    {% endfor %}
+                    {% if form.non_field_errors %}
+                        {% for error in form.non_field_errors %}
+                        <li>{{ error }}</li>
+                        {% endfor %}
+                    {% endif %}
+                    {% if image_formset.non_form_errors %}
+                        {% for error in image_formset.non_form_errors %}
+                        <li>{{ error }}</li>
+                        {% endfor %}
+                    {% endif %}
+                    {% for form in image_formset %}
+                        {% for field in form %}
+                            {% for error in field.errors %}
+                            <li><strong>Image {{ forloop.parentloop.counter }} - {{ field.label }}:</strong> {{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
 
             <form method="post" enctype="multipart/form-data" id="package-form" novalidate>
                 {% csrf_token %}
@@ -123,8 +275,8 @@
                                 </label>
                                 {{ form.title }}
                                 {% if form.title.errors %}
-                                    <div class="invalid-feedback d-block">
-                                        {{ form.title.errors }}
+                                    <div class="invalid-feedback d-block form-error">
+                                        {{ form.title.errors|join:", " }}
                                     </div>
                                 {% endif %}
                                 <small class="text-muted">
@@ -132,16 +284,91 @@
                                 </small>
                             </div>
                         </div>
+                    </div>
 
-                        <div class="col-md-4">
+                    <!-- SECTION CATÉGORIE HIÉRARCHIQUE -->
+                    <div class="category-hierarchy-section mb-4">
+                        <h5 class="mb-3">{% trans "Sélection de la catégorie" %}</h5>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <div class="category-select-container">
+                                    {{ form.main_category|as_crispy_field }}
+                                    {% if form.main_category.help_text %}
+                                        <small class="form-text text-muted">{{ form.main_category.help_text }}</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="col-md-4 mb-3">
+                                <div id="sub-category-container" style="display: none;">
+                                    <div class="category-select-container">
+                                        {{ form.sub_category|as_crispy_field }}
+                                    </div>
+                                </div>
+                                <div id="sub-category-placeholder" class="text-muted text-center p-3">
+                                    <i class="fas fa-arrow-left fa-lg mb-2"></i><br>
+                                    <small>{% trans "Choisissez d'abord une catégorie principale" %}</small>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4 mb-3">
+                                <div id="final-category-container" style="display: none;">
+                                    <div class="category-select-container">
+                                        <label class="form-label required-field">
+                                            {% trans "Catégorie finale" %}<span class="asteriskField">*</span>
+                                        </label>
+                                        <select class="form-control" id="id_final_category_select" name="final_category" required>
+                                            <option value="">{% trans "Sélectionnez une catégorie" %}</option>
+                                        </select>
+                                        <div class="invalid-feedback">
+                                            {% trans "Veuillez sélectionner une catégorie finale." %}
+                                        </div>
+                                        <small class="form-text text-muted">{% trans "Catégorie spécifique pour votre colis" %}</small>
+                                    </div>
+                                </div>
+                                <div id="final-category-placeholder" class="text-muted text-center p-3">
+                                    <i class="fas fa-arrow-left fa-lg mb-2"></i><br>
+                                    <small>{% trans "Sélectionnez une sous-catégorie d'abord" %}</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Champ caché pour la catégorie finale -->
+                        {{ form.category }}
+
+                        <!-- Indicateur de catégorie sélectionnée -->
+                        <div id="category-selection-info" class="alert alert-success mt-3" style="display: none;">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong><i class="fas fa-check-circle"></i> {% trans "Catégorie sélectionnée :" %}</strong>
+                                    <span id="selected-category-path" class="ms-2 fw-bold"></span>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="change-category-btn">
+                                    <i class="fas fa-edit"></i> {% trans "Modifier" %}
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Aide pour la catégorie -->
+                        <div class="alert alert-info mt-2">
+                            <small>
+                                <i class="fas fa-info-circle"></i>
+                                {% trans "Sélectionnez votre catégorie en 3 étapes simples : catégorie principale → sous-catégorie → catégorie finale" %}
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="{{ form.category.id_for_label }}" class="form-label required-field">
-                                    {% trans "Catégorie" %}
+                                <label for="{{ form.package_type.id_for_label }}" class="form-label required-field">
+                                    {% trans "Type de colis" %}
                                 </label>
-                                {{ form.category }}
-                                {% if form.category.errors %}
-                                    <div class="invalid-feedback d-block">
-                                        {{ form.category.errors }}
+                                {{ form.package_type }}
+                                {% if form.package_type.errors %}
+                                    <div class="invalid-feedback d-block form-error">
+                                        {{ form.package_type.errors|join:", " }}
                                     </div>
                                 {% endif %}
                             </div>
@@ -154,29 +381,13 @@
                         </label>
                         {{ form.description }}
                         {% if form.description.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ form.description.errors }}
+                            <div class="invalid-feedback d-block form-error">
+                                {{ form.description.errors|join:", " }}
                             </div>
                         {% endif %}
                         <small class="text-muted">
                             {% trans "Décrivez précisément votre colis : contenu, état, instructions spéciales..." %}
                         </small>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="{{ form.package_type.id_for_label }}" class="form-label required-field">
-                                    {% trans "Type de colis" %}
-                                </label>
-                                {{ form.package_type }}
-                                {% if form.package_type.errors %}
-                                    <div class="invalid-feedback d-block">
-                                        {{ form.package_type.errors }}
-                                    </div>
-                                {% endif %}
-                            </div>
-                        </div>
                     </div>
                 </div>
 
@@ -202,8 +413,8 @@
                                     <span class="input-group-text">kg</span>
                                 </div>
                                 {% if form.weight.errors %}
-                                    <div class="invalid-feedback d-block">
-                                        {{ form.weight.errors }}
+                                    <div class="invalid-feedback d-block form-error">
+                                        {{ form.weight.errors|join:", " }}
                                     </div>
                                 {% endif %}
                             </div>
@@ -233,10 +444,10 @@
                                     </div>
                                 </div>
                                 {% if form.length.errors or form.width.errors or form.height.errors %}
-                                    <div class="invalid-feedback d-block">
-                                        {{ form.length.errors }}
-                                        {{ form.width.errors }}
-                                        {{ form.height.errors }}
+                                    <div class="invalid-feedback d-block form-error">
+                                        {{ form.length.errors|join:", " }}
+                                        {{ form.width.errors|join:", " }}
+                                        {{ form.height.errors|join:", " }}
                                     </div>
                                 {% endif %}
                             </div>
@@ -271,8 +482,8 @@
                                 </label>
                                 {{ form.pickup_country }}
                                 {% if form.pickup_country.errors %}
-                                    <div class="invalid-feedback d-block">
-                                        {{ form.pickup_country.errors }}
+                                    <div class="invalid-feedback d-block form-error">
+                                        {{ form.pickup_country.errors|join:", " }}
                                     </div>
                                 {% endif %}
                             </div>
@@ -285,8 +496,8 @@
                                 </label>
                                 {{ form.pickup_city }}
                                 {% if form.pickup_city.errors %}
-                                    <div class="invalid-feedback d-block">
-                                        {{ form.pickup_city.errors }}
+                                    <div class="invalid-feedback d-block form-error">
+                                        {{ form.pickup_city.errors|join:", " }}
                                     </div>
                                 {% endif %}
                             </div>
@@ -303,15 +514,6 @@
                         </div>
                     </div>
 
-                    <div class="mb-3">
-                        <div class="form-check">
-                            {{ form.use_current_location }}
-                            <label class="form-check-label" for="{{ form.use_current_location.id_for_label }}">
-                                {% trans "Utiliser ma position actuelle pour le départ" %}
-                            </label>
-                        </div>
-                    </div>
-
                     <hr>
 
                     <div class="row">
@@ -322,8 +524,8 @@
                                 </label>
                                 {{ form.delivery_country }}
                                 {% if form.delivery_country.errors %}
-                                    <div class="invalid-feedback d-block">
-                                        {{ form.delivery_country.errors }}
+                                    <div class="invalid-feedback d-block form-error">
+                                        {{ form.delivery_country.errors|join:", " }}
                                     </div>
                                 {% endif %}
                             </div>
@@ -336,8 +538,8 @@
                                 </label>
                                 {{ form.delivery_city }}
                                 {% if form.delivery_city.errors %}
-                                    <div class="invalid-feedback d-block">
-                                        {{ form.delivery_city.errors }}
+                                    <div class="invalid-feedback d-block form-error">
+                                        {{ form.delivery_city.errors|join:", " }}
                                     </div>
                                 {% endif %}
                             </div>
@@ -379,8 +581,8 @@
                                 </label>
                                 {{ form.pickup_date }}
                                 {% if form.pickup_date.errors %}
-                                    <div class="invalid-feedback d-block">
-                                        {{ form.pickup_date.errors }}
+                                    <div class="invalid-feedback d-block form-error">
+                                        {{ form.pickup_date.errors|join:", " }}
                                     </div>
                                 {% endif %}
                                 <small class="text-muted">
@@ -396,8 +598,8 @@
                                 </label>
                                 {{ form.delivery_date }}
                                 {% if form.delivery_date.errors %}
-                                    <div class="invalid-feedback d-block">
-                                        {{ form.delivery_date.errors }}
+                                    <div class="invalid-feedback d-block form-error">
+                                        {{ form.delivery_date.errors|join:", " }}
                                     </div>
                                 {% endif %}
                                 <small class="text-muted">
@@ -434,8 +636,8 @@
                                 </label>
                                 {{ form.price_type }}
                                 {% if form.price_type.errors %}
-                                    <div class="invalid-feedback d-block">
-                                        {{ form.price_type.errors }}
+                                    <div class="invalid-feedback d-block form-error">
+                                        {{ form.price_type.errors|join:", " }}
                                     </div>
                                 {% endif %}
                             </div>
@@ -451,8 +653,8 @@
                                     {{ form.currency }}
                                 </div>
                                 {% if form.asking_price.errors %}
-                                    <div class="invalid-feedback d-block">
-                                        {{ form.asking_price.errors }}
+                                    <div class="invalid-feedback d-block form-error">
+                                        {{ form.asking_price.errors|join:", " }}
                                     </div>
                                 {% endif %}
                             </div>
@@ -526,8 +728,8 @@
                                         <span class="input-group-text">€</span>
                                     </div>
                                     {% if form.insurance_value.errors %}
-                                        <div class="invalid-feedback d-block">
-                                            {{ form.insurance_value.errors }}
+                                        <div class="invalid-feedback d-block form-error">
+                                            {{ form.insurance_value.errors|join:", " }}
                                         </div>
                                     {% endif %}
                                 </div>
@@ -579,35 +781,110 @@
                         {% trans "Les colis avec photos reçoivent 5 fois plus d'offres !" %}
                     </div>
 
-                    <!-- Zone de dépôt -->
-                    <div class="image-upload-area" id="image-drop-zone">
-                        <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
-                        <h5>{% trans "Glissez-déposez vos photos ici" %}</h5>
-                        <p class="text-muted mb-3">{% trans "ou cliquez pour sélectionner" %}</p>
-                        <input type="file" name="images" id="image-upload" multiple
-                               accept="image/*" style="display: none;">
-                        <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('image-upload').click()">
-                            <i class="fas fa-folder-open"></i> {% trans "Parcourir" %}
-                        </button>
-                        <p class="small text-muted mt-3">
-                            <i class="fas fa-info-circle"></i>
-                            {% trans "Formats acceptés : JPG, PNG, GIF, WebP. Max 10MB par image." %}
-                        </p>
-                    </div>
+                    <!-- Gestion du formset d'images -->
+                    <div class="image-forms-container">
+                        {{ image_formset.management_form }}
 
-                    <!-- Prévisualisation -->
-                    <div class="image-preview-container" id="image-preview-container">
-                        <!-- Les images prévisualisées apparaîtront ici -->
+                        {% for form in image_formset %}
+                        <div class="image-form-item" id="image-form-{{ forloop.counter0 }}">
+                            <div class="image-form-header">
+                                <h6 class="mb-0">{% trans "Image" %} {{ forloop.counter }}</h6>
+                                {% if image_formset.can_delete %}
+                                <div class="form-check">
+                                    {{ form.DELETE }}
+                                    <label class="form-check-label text-danger" for="{{ form.DELETE.id_for_label }}">
+                                        <i class="fas fa-trash"></i> {% trans "Supprimer cette image" %}
+                                    </label>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Champs cachés pour l'ID -->
+                            {% for hidden in form.hidden_fields %}
+                                {{ hidden }}
+                            {% endfor %}
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">
+                                            {% trans "Fichier image" %}
+                                            {% if not form.instance.pk %}<span class="text-danger">*</span>{% endif %}
+                                        </label>
+                                        {{ form.image }}
+                                        {% if form.image.errors %}
+                                            <div class="form-error">{{ form.image.errors|join:", " }}</div>
+                                        {% endif %}
+                                        <small class="text-muted">
+                                            {% trans "Formats acceptés : JPG, PNG, GIF, WebP. Max 5MB par image." %}
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">{% trans "Légende (optionnel)" %}</label>
+                                        {{ form.caption }}
+                                        {% if form.caption.errors %}
+                                            <div class="form-error">{{ form.caption.errors|join:", " }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <div class="form-check">
+                                            {{ form.is_primary }}
+                                            <label class="form-check-label" for="{{ form.is_primary.id_for_label }}">
+                                                {% trans "Image principale" %}
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label class="form-label">{% trans "Ordre d'affichage" %}</label>
+                                        {{ form.display_order }}
+                                        {% if form.display_order.errors %}
+                                            <div class="form-error">{{ form.display_order.errors|join:", " }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Aperçu de l'image existante -->
+                            {% if form.instance.image %}
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Image actuelle :" %}</label>
+                                <div>
+                                    <img src="{{ form.instance.image.url }}" alt="{{ form.instance.caption|default:'Image du colis' }}"
+                                         class="image-preview-existing">
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            <!-- Aperçu de la nouvelle image -->
+                            <div class="new-image-preview mb-3" style="display: none;">
+                                <label class="form-label">{% trans "Nouvelle image :" %}</label>
+                                <div>
+                                    <img src="" alt="Aperçu" class="image-preview-existing" id="new-image-preview-{{ forloop.counter0 }}">
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
                     </div>
 
                     <!-- Informations sur le formset -->
                     <div class="mt-3">
                         <p class="mb-1">
                             <strong>{% trans "Photos gratuites incluses :" %}</strong>
-                            <span class="badge bg-success">{{ form.instance.free_images_allowed }}</span>
+                            <span class="badge bg-success">{{ form.instance.free_images_allowed|default:5 }}</span>
                         </p>
                         <p class="text-muted small">
-                            {% trans "Vous pouvez ajouter jusqu'à 5 photos gratuitement. Des photos supplémentaires peuvent être ajoutées après publication." %}
+                            {% trans "Vous pouvez ajouter jusqu'à 15 photos. Les 5 premières sont gratuites." %}
                         </p>
                     </div>
                 </div>
@@ -623,8 +900,8 @@
                             <a href="{% url 'colis:privacy' %}" target="_blank">{% trans "politique de confidentialité" %}</a>
                         </label>
                         {% if form.accept_terms.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ form.accept_terms.errors }}
+                            <div class="invalid-feedback d-block form-error">
+                                {{ form.accept_terms.errors|join:", " }}
                             </div>
                         {% endif %}
                     </div>
@@ -636,10 +913,10 @@
                         </a>
 
                         <div>
-                            <button type="submit" name="save_draft" value="true" class="btn btn-outline-primary me-2">
+                            <button type="submit" name="action" value="save_draft" class="btn btn-outline-primary me-2">
                                 <i class="fas fa-save"></i> {% trans "Enregistrer comme brouillon" %}
                             </button>
-                            <button type="submit" name="publish" value="true" class="btn btn-success">
+                            <button type="submit" name="action" value="publish" class="btn btn-success">
                                 <i class="fas fa-paper-plane"></i> {% trans "Publier le colis" %}
                             </button>
                         </div>
@@ -655,6 +932,289 @@
 {{ block.super }}
 <script>
 $(document).ready(function() {
+    // ============================================
+    // GESTION DE LA SÉLECTION HIÉRARCHIQUE DES CATÉGORIES
+    // ============================================
+    let selectedMainCategory = null;
+    let selectedSubCategory = null;
+    let selectedFinalCategory = null;
+
+    // Écouter le changement de catégorie principale
+    $('#id_main_category').change(function() {
+        const mainCategoryId = $(this).val();
+
+        if (mainCategoryId) {
+            selectedMainCategory = mainCategoryId;
+
+            // Cacher l'info de sélection
+            $('#category-selection-info').hide();
+
+            // Afficher le chargement
+            $('#sub-category-placeholder').html(
+                '<div class="loading-spinner"></div><small>{% trans "Chargement des sous-catégories..." %}</small>'
+            );
+            $('#sub-category-placeholder').show();
+            $('#sub-category-container').hide();
+
+            // Charger les sous-catégories
+            loadSubCategories(mainCategoryId);
+
+            // Réinitialiser les niveaux suivants
+            $('#id_sub_category').val('').prop('disabled', false);
+            $('#id_final_category_select').html('<option value="">{% trans "Sélectionnez une catégorie" %}</option>');
+            $('#final-category-container').hide();
+            $('#final-category-placeholder').show();
+
+        } else {
+            // Réinitialiser tout
+            resetCategorySelection();
+        }
+    });
+
+    // Écouter le changement de sous-catégorie
+    $('#id_sub_category').change(function() {
+        const subCategoryId = $(this).val();
+
+        if (subCategoryId) {
+            selectedSubCategory = subCategoryId;
+
+            // Afficher le chargement
+            $('#final-category-placeholder').html(
+                '<div class="loading-spinner"></div><small>{% trans "Chargement des catégories finales..." %}</small>'
+            );
+            $('#final-category-placeholder').show();
+            $('#final-category-container').hide();
+
+            // Charger les catégories finales
+            loadFinalCategories(subCategoryId);
+
+        } else {
+            // Cacher le conteneur des catégories finales
+            $('#final-category-container').hide();
+            $('#final-category-placeholder').show();
+            $('#id_final_category').val('');
+        }
+    });
+
+    // Écouter le changement de catégorie finale
+    $('#id_final_category_select').change(function() {
+        const finalCategoryId = $(this).val();
+
+        if (finalCategoryId) {
+            selectedFinalCategory = finalCategoryId;
+
+            // Mettre à jour le champ caché
+            $('#id_final_category').val(finalCategoryId);
+
+            // Afficher l'info de sélection
+            showCategorySelectionInfo();
+        } else {
+            $('#id_final_category').val('');
+            $('#category-selection-info').hide();
+        }
+    });
+
+    // Bouton pour modifier la catégorie
+    $('#change-category-btn').click(function() {
+        resetCategorySelection();
+        $('#category-selection-info').hide();
+    });
+
+    // ============================================
+    // FONCTIONS DE GESTION DES CATÉGORIES
+    // ============================================
+
+    // Fonction pour charger les sous-catégories
+    function loadSubCategories(parentId) {
+        $.ajax({
+            url: '{% url "colis:get_categories" %}',  // Assurez-vous que cette URL existe
+            type: 'GET',
+            data: {
+                'parent_id': parentId,
+                'level': 'sub'
+            },
+            success: function(response) {
+                const $subSelect = $('#id_sub_category');
+                $subSelect.html('<option value="">{% trans "Sélectionnez une sous-catégorie" %}</option>');
+
+                if (response.categories && response.categories.length > 0) {
+                    response.categories.forEach(function(category) {
+                        $subSelect.append(
+                            $('<option>', {
+                                value: category.id,
+                                text: category.name,
+                                'data-has-children': category.has_children
+                            })
+                        );
+                    });
+
+                    // Afficher le select
+                    $('#sub-category-container').show();
+                    $('#sub-category-placeholder').hide();
+                    $subSelect.prop('disabled', false);
+
+                } else {
+                    // Pas de sous-catégories, passer directement aux catégories finales
+                    $('#sub-category-placeholder').html(
+                        '<i class="fas fa-check-circle text-success fa-lg mb-2"></i><br>' +
+                        '<small>{% trans "Cette catégorie n\'a pas de sous-catégories" %}</small>'
+                    );
+
+                    // Charger directement les catégories finales
+                    loadFinalCategories(parentId);
+                    $('#final-category-container').show();
+                    $('#final-category-placeholder').hide();
+                }
+            },
+            error: function() {
+                showToast('{% trans "Erreur lors du chargement des sous-catégories" %}', 'error');
+                $('#sub-category-placeholder').html(
+                    '<i class="fas fa-exclamation-triangle text-danger fa-lg mb-2"></i><br>' +
+                    '<small>{% trans "Erreur de chargement" %}</small>'
+                );
+            }
+        });
+    }
+
+    // Fonction pour charger les catégories finales
+    function loadFinalCategories(parentId) {
+        $.ajax({
+            url: '{% url "colis:get_categories" %}',  // Assurez-vous que cette URL existe
+            type: 'GET',
+            data: {
+                'parent_id': parentId,
+                'level': 'final'
+            },
+            success: function(response) {
+                const $finalSelect = $('#id_final_category_select');
+                $finalSelect.html('<option value="">{% trans "Sélectionnez une catégorie" %}</option>');
+
+                if (response.categories && response.categories.length > 0) {
+                    response.categories.forEach(function(category) {
+                        $finalSelect.append(
+                            $('<option>', {
+                                value: category.id,
+                                text: category.name
+                            })
+                        );
+                    });
+
+                    // Afficher le select
+                    $('#final-category-container').show();
+                    $('#final-category-placeholder').hide();
+
+                } else {
+                    // Pas de catégories finales, utiliser la sous-catégorie comme finale
+                    $('#final-category-placeholder').html(
+                        '<i class="fas fa-info-circle text-info fa-lg mb-2"></i><br>' +
+                        '<small>{% trans "Cette sous-catégorie n\'a pas de catégories enfants" %}</small>'
+                    );
+
+                    // Sélectionner automatiquement la sous-catégorie comme finale
+                    $('#id_final_category').val(selectedSubCategory);
+                    showCategorySelectionInfo();
+                }
+            },
+            error: function() {
+                showToast('{% trans "Erreur lors du chargement des catégories finales" %}', 'error');
+                $('#final-category-placeholder').html(
+                    '<i class="fas fa-exclamation-triangle text-danger fa-lg mb-2"></i><br>' +
+                    '<small>{% trans "Erreur de chargement" %}</small>'
+                );
+            }
+        });
+    }
+
+    // Fonction pour réinitialiser la sélection
+    function resetCategorySelection() {
+        selectedMainCategory = null;
+        selectedSubCategory = null;
+        selectedFinalCategory = null;
+
+        $('#id_main_category').val('');
+        $('#id_sub_category').val('').html('<option value="">{% trans "Sélectionnez une sous-catégorie" %}</option>').prop('disabled', true);
+        $('#id_final_category_select').val('').html('<option value="">{% trans "Sélectionnez une catégorie" %}</option>');
+        $('#id_final_category').val('');
+
+        $('#sub-category-container').hide();
+        $('#sub-category-placeholder').show();
+        $('#sub-category-placeholder').html(
+            '<i class="fas fa-arrow-left fa-lg mb-2"></i><br>' +
+            '<small>{% trans "Choisissez d\'abord une catégorie principale" %}</small>'
+        );
+
+        $('#final-category-container').hide();
+        $('#final-category-placeholder').show();
+        $('#final-category-placeholder').html(
+            '<i class="fas fa-arrow-left fa-lg mb-2"></i><br>' +
+            '<small>{% trans "Sélectionnez une sous-catégorie d\'abord" %}</small>'
+        );
+    }
+
+    // Fonction pour afficher l'info de sélection
+    function showCategorySelectionInfo() {
+        const mainCategoryText = $('#id_main_category option:selected').text();
+        const subCategoryText = $('#id_sub_category option:selected').text();
+        const finalCategoryText = $('#id_final_category_select option:selected').text() || subCategoryText;
+
+        let path = finalCategoryText;
+        if (subCategoryText && subCategoryText !== finalCategoryText) {
+            path = `${subCategoryText} › ${path}`;
+        }
+        if (mainCategoryText) {
+            path = `${mainCategoryText} › ${path}`;
+        }
+
+        $('#selected-category-path').text(path);
+        $('#category-selection-info').show();
+
+        // Cacher les selects
+        $('#id_main_category').closest('.mb-3').hide();
+        $('#sub-category-container').hide();
+        $('#final-category-container').hide();
+        $('#sub-category-placeholder').hide();
+        $('#final-category-placeholder').hide();
+    }
+
+    // ============================================
+    // GESTION DES IMAGES (FORMSET)
+    // ============================================
+
+    // Prévisualisation des nouvelles images
+    $('input[type="file"][name*="image"]').change(function() {
+        const input = this;
+        const formIndex = $(this).attr('name').match(/images-(\d+)-image/)[1];
+        const previewContainer = $('#new-image-preview-' + formIndex);
+        const previewImage = previewContainer.find('img');
+
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                previewImage.attr('src', e.target.result);
+                previewContainer.show();
+            };
+
+            reader.readAsDataURL(input.files[0]);
+        }
+    });
+
+    // Lorsqu'une image est marquée pour suppression, cacher la prévisualisation
+    $('input[type="checkbox"][name*="DELETE"]').change(function() {
+        const formIndex = $(this).attr('name').match(/images-(\d+)-DELETE/)[1];
+        const imageForm = $('#image-form-' + formIndex);
+
+        if ($(this).is(':checked')) {
+            imageForm.addClass('bg-danger-light');
+        } else {
+            imageForm.removeClass('bg-danger-light');
+        }
+    });
+
+    // ============================================
+    // AUTRES FONCTIONNALITÉS EXISTANTES
+    // ============================================
+
     // Calcul automatique du volume
     function calculateVolume() {
         const length = parseFloat($('#{{ form.length.id_for_label }}').val()) || 0;
@@ -705,82 +1265,6 @@ $(document).ready(function() {
         $('#insurance-value-field').show();
     }
 
-    // Gestion du téléchargement d'images
-    const imageUpload = document.getElementById('image-upload');
-    const previewContainer = document.getElementById('image-preview-container');
-    const dropZone = document.getElementById('image-drop-zone');
-
-    imageUpload.addEventListener('change', function(e) {
-        handleFiles(e.target.files);
-    });
-
-    // Glisser-déposer
-    dropZone.addEventListener('dragover', function(e) {
-        e.preventDefault();
-        dropZone.style.borderColor = '#667eea';
-        dropZone.style.background = '#f0f7ff';
-    });
-
-    dropZone.addEventListener('dragleave', function(e) {
-        e.preventDefault();
-        dropZone.style.borderColor = '#dee2e6';
-        dropZone.style.background = '#f8f9fa';
-    });
-
-    dropZone.addEventListener('drop', function(e) {
-        e.preventDefault();
-        dropZone.style.borderColor = '#dee2e6';
-        dropZone.style.background = '#f8f9fa';
-
-        if (e.dataTransfer.files.length) {
-            handleFiles(e.dataTransfer.files);
-        }
-    });
-
-    function handleFiles(files) {
-        for (let i = 0; i < files.length; i++) {
-            const file = files[i];
-
-            // Vérifier le type de fichier
-            if (!file.type.startsWith('image/')) {
-                continue;
-            }
-
-            // Vérifier la taille (10MB)
-            if (file.size > 10 * 1024 * 1024) {
-                alert('Le fichier ' + file.name + ' est trop grand (max 10MB)');
-                continue;
-            }
-
-            const reader = new FileReader();
-
-            reader.onload = function(e) {
-                const img = document.createElement('img');
-                img.src = e.target.result;
-                img.className = 'image-preview';
-                img.title = file.name;
-
-                const container = document.createElement('div');
-                container.className = 'position-relative';
-                container.appendChild(img);
-
-                // Bouton supprimer
-                const removeBtn = document.createElement('button');
-                removeBtn.type = 'button';
-                removeBtn.className = 'btn btn-danger btn-sm position-absolute top-0 end-0';
-                removeBtn.innerHTML = '<i class="fas fa-times"></i>';
-                removeBtn.onclick = function() {
-                    container.remove();
-                };
-                container.appendChild(removeBtn);
-
-                previewContainer.appendChild(container);
-            };
-
-            reader.readAsDataURL(file);
-        }
-    }
-
     // Estimation de distance (simulée - à remplacer par API réelle)
     function estimateDistance() {
         const fromCity = $('#{{ form.pickup_city.id_for_label }}').val();
@@ -802,41 +1286,112 @@ $(document).ready(function() {
 
     $('#{{ form.pickup_city.id_for_label }}, #{{ form.delivery_city.id_for_label }}').on('input', estimateDistance);
 
-    // Utiliser la position actuelle
-    $('#{{ form.use_current_location.id_for_label }}').change(function() {
-        if ($(this).is(':checked') && navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(function(position) {
-                // Remplir automatiquement la ville basée sur la géolocalisation
-                // Note: Dans la réalité, utiliser une API de géocodage inversé
-                $('#{{ form.pickup_city.id_for_label }}').val('Position actuelle détectée');
-                alert('Position détectée ! Veuillez entrer manuellement votre ville.');
-            });
-        }
-    });
-
     // Validation du formulaire
     $('#package-form').submit(function(e) {
+        let isValid = true;
+        const errorMessages = [];
+
+        // Vérifier qu'une catégorie finale a été sélectionnée
+        const finalCategoryId = $('#id_final_category').val();
+        if (!finalCategoryId) {
+            errorMessages.push('{% trans "Veuillez sélectionner une catégorie pour votre colis." %}');
+            isValid = false;
+        }
+
         const priceType = $('#{{ form.price_type.id_for_label }}').val();
         const askingPrice = parseFloat($('#{{ form.asking_price.id_for_label }}').val()) || 0;
 
         if (priceType === 'FIXED' && askingPrice < 5) {
-            alert('Le prix fixe minimum est de 5€.');
-            e.preventDefault();
-            return false;
+            errorMessages.push('{% trans "Le prix fixe minimum est de 5€." %}');
+            isValid = false;
         }
 
         if (!document.getElementById('{{ form.accept_terms.id_for_label }}').checked) {
-            alert('Vous devez accepter les conditions générales.');
+            errorMessages.push('{% trans "Vous devez accepter les conditions générales." %}');
+            isValid = false;
+        }
+
+        // Vérifier les images (au moins une image pour publication)
+        const action = $('button[type="submit"][clicked=true]').val() || $('button[type="submit"]').first().val();
+        if (action === 'publish') {
+            let hasImage = false;
+            $('input[type="file"][name*="image"]').each(function() {
+                if ($(this).val()) {
+                    hasImage = true;
+                    return false; // Sortir de la boucle
+                }
+            });
+
+            // Vérifier aussi les images existantes
+            if (!hasImage) {
+                $('input[type="hidden"][name*="id"]').each(function() {
+                    if ($(this).val()) {
+                        const deleteCheckbox = $(this).closest('.image-form-item').find('input[type="checkbox"][name*="DELETE"]');
+                        if (!deleteCheckbox.is(':checked')) {
+                            hasImage = true;
+                            return false; // Sortir de la boucle
+                        }
+                    }
+                });
+            }
+
+            if (!hasImage) {
+                errorMessages.push('{% trans "Veuillez ajouter au moins une photo pour publier votre colis." %}');
+                isValid = false;
+            }
+        }
+
+        if (!isValid) {
             e.preventDefault();
+            // Afficher toutes les erreurs
+            alert(errorMessages.join('\n'));
             return false;
         }
 
         return true;
     });
 
+    // Gérer le bouton cliqué pour savoir quelle action est demandée
+    $('button[type="submit"]').click(function() {
+        $('button[type="submit"]').removeAttr('clicked');
+        $(this).attr('clicked', 'true');
+    });
+
+    // Fonction toast
+    function showToast(message, type) {
+        const toastHtml = `
+            <div class="toast align-items-center text-white bg-${type === 'success' ? 'success' : 'danger'} border-0" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        `;
+
+        if ($('#toast-container').length === 0) {
+            $('body').append('<div id="toast-container" class="toast-container position-fixed top-0 end-0 p-3"></div>');
+        }
+
+        $('#toast-container').append(toastHtml);
+        $('.toast').toast('show');
+
+        $('.toast').on('hidden.bs.toast', function() {
+            $(this).remove();
+        });
+    }
+
     // Initialiser les calculs
     calculateVolume();
     estimateDistance();
+
+    // Si on est en mode édition, vérifier la catégorie sélectionnée
+    {% if form.instance.pk and form.instance.category %}
+        // Pré-remplir la sélection de catégorie si on édite
+        const categoryId = '{{ form.instance.category.id }}';
+        // Vous devriez charger les catégories parentes via AJAX ici
+    {% endif %}
 });
 </script>
 {% endblock %}

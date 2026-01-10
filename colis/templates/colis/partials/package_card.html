@@ -1,5 +1,6 @@
 {# ~/ebi3/colis/templates/colis/partials/package_card.html #}
 {% load i18n %}
+{% load static %}
 <div class="card package-card h-100">
     <!-- Badge vedette -->
     {% if package.is_featured %}
@@ -13,14 +14,24 @@
     <!-- Image principale -->
     <div class="position-relative">
         {% with package.images.first as main_image %}
-            {% if main_image %}
-                <img src="{{ main_image.thumbnail.url|default:main_image.image.url }}"
-                     class="card-img-top package-image"
-                     alt="{{ package.title }}"
-                     loading="lazy">
+            {% if main_image and main_image.image %}
+                {# CORRECTION ICI : Vérifier manuellement le thumbnail #}
+                {% if main_image.thumbnail and main_image.thumbnail.name %}
+                    <img src="{{ main_image.thumbnail.url }}"
+                         class="card-img-top package-image"
+                         alt="{{ package.title }}"
+                         loading="lazy"
+                         onerror="this.onerror=null; this.src='{{ main_image.image.url }}';">
+                {% else %}
+                    <img src="{{ main_image.image.url }}"
+                         class="card-img-top package-image"
+                         alt="{{ package.title }}"
+                         loading="lazy">
+                {% endif %}
             {% else %}
                 <div class="card-img-top package-image bg-light d-flex align-items-center justify-content-center">
                     <i class="fas fa-box fa-3x text-muted"></i>
+                    <span class="small text-muted mt-2">{% trans "Pas d'image" %}</span>
                 </div>
             {% endif %}
         {% endwith %}

@@ -315,34 +315,31 @@ class Carrier(models.Model):
             return f"{self.company_name} ({self.user.username})"
         return f"{self.user.username} ({self.get_carrier_type_display()})"
 
+
     def save(self, *args, **kwargs):
-        # Mettre à jour la date d'approbation
         if self.status == self.Status.APPROVED and not self.approved_at:
             self.approved_at = timezone.now()
             self.verified_at = timezone.now()
-
-        # Mettre à jour le niveau de vérification
         if self.status == self.Status.APPROVED and self.verification_level < 3:
             self.verification_level = 3
 
         super().save(*args, **kwargs)
+        self._update_user_role()
 
-        # CORRECTION : Mettre à jour le rôle de l'utilisateur de manière sécurisée
+    def _update_user_role(self):
         try:
-            from django.db import transaction
-            with transaction.atomic():
-                user = User.objects.select_for_update().get(pk=self.user.pk)
-                if self.carrier_type == self.CarrierType.PROFESSIONAL and user.role != User.Role.CARRIER:
-                    user.role = User.Role.CARRIER
-                    user.save(update_fields=['role'])
-                elif self.carrier_type == self.CarrierType.PERSONAL and user.role != User.Role.CARRIER_PERSONAL:
-                    user.role = User.Role.CARRIER_PERSONAL
-                    user.save(update_fields=['role'])
+            user = self.user
+            if self.carrier_type == self.CarrierType.PROFESSIONAL and user.role != User.Role.CARRIER:
+                user.role = User.Role.CARRIER
+                user.save(update_fields=['role'])
+            elif self.carrier_type == self.CarrierType.PERSONAL and user.role != User.Role.CARRIER_PERSONAL:
+                user.role = User.Role.CARRIER_PERSONAL
+                user.save(update_fields=['role'])
         except Exception as e:
-            # Log l'erreur mais ne casse pas la sauvegarde
             import logging
             logger = logging.getLogger(__name__)
-            logger.warning(f"Erreur lors de la mise à jour du rôle utilisateur : {e}")
+            logger.error(f"Erreur lors de la mise à jour du rôle utilisateur pour {self.user.username}: {e}")
+
 
     def get_absolute_url(self):
         # CORRECTION : Utilisation correcte de reverse avec kwargs
@@ -938,3 +935,71 @@ class CarrierNotification(models.Model):
         """Marque la notification comme lue"""
         self.is_read = True
         self.save(update_fields=['is_read'])
+
+# ~/ebi3/carriers/views.py
+
+def carrier_detail(request, username):
+    """
+    Vue pour afficher le détail d'un transporteur
+    """
+    from django.db.models import Count, Avg
+
+    carrier = get_object_or_404(
+        Carrier.objects.select_related('user'),
+        user__username=username,
+        status=Carrier.Status.APPROVED
+    )
+
+    # Routes actives
+    routes = carrier.carrier_routes.filter(is_active=True).order_by('departure_date')
+
+    # CORRECTION : Utiliser 'reviewer' au lieu de 'author'
+    reviews = carrier.reviews.filter(
+        is_approved=True,
+        is_visible=True
+    ).select_related('reviewer').order_by('-created_at')[:10]
+
+    # Calculer les statistiques d'avis
+    review_stats = carrier.reviews.filter(
+        is_approved=True,
+        is_visible=True
+    ).aggregate(
+        total=Count('id'),
+        avg_rating=Avg('rating'),
+        avg_communication=Avg('communication'),
+        avg_punctuality=Avg('punctuality'),
+        avg_handling=Avg('handling'),
+        avg_professionalism=Avg('professionalism')
+    )
+
+    # CORRECTION : Ajouter total_reviews au contexte
+    review_stats['total_reviews'] = carrier.total_reviews
+
+    # Récupérer les documents vérifiés
+    verified_documents = carrier.documents.filter(is_verified=True)
+
+    # Vérifier si l'utilisateur connecté peut laisser un avis
+    can_review = False
+    has_reviewed = False
+
+    if request.user.is_authenticated and request.user != carrier.user:
+        # Vérifier si l'utilisateur a déjà laissé un avis
+        has_reviewed = carrier.reviews.filter(reviewer=request.user).exists()
+
+        # Logique pour déterminer si l'utilisateur peut laisser un avis
+        # (par exemple, s'il a eu une mission complétée avec ce transporteur)
+        # Pour l'instant, on autorise tous les utilisateurs connectés qui n'ont pas encore laissé d'avis
+        can_review = not has_reviewed
+
+    context = {
+        'carrier': carrier,
+        'routes': routes,  # Note : dans le template vous utilisez 'active_routes', donc je vais changer
+        'active_routes': routes,  # Ajout pour correspondre au template
+        'reviews': reviews,
+        'review_stats': review_stats,
+        'verified_documents': verified_documents,
+        'can_review': can_review,
+        'has_reviewed': has_reviewed,
+    }
+
+    return render(request, 'carriers/carrier_detail.html', context)

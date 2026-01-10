@@ -1,4 +1,5 @@
-# ~/ebi3/ads/urls.py
+# ~/ebi3/ads/urls.py - MODIFIER
+
 from django.urls import path
 from . import views
 
@@ -10,6 +11,9 @@ urlpatterns = [
     path('create/', views.AdCreateView.as_view(), name='ad_create'),
     path('search/', views.search_ads, name='search'),
     path('my-ads/', views.MyAdsListView.as_view(), name='my_ads'),
+
+    # API pour les catégories
+    path('api/categories/', views.get_categories, name='get_categories'),
 
     # Annonce spécifique
     path('<slug:slug>/', views.AdDetailView.as_view(), name='ad_detail'),

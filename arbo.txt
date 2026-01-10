@@ -1,0 +1,452 @@
+.
+├── README.md
+├── ads
+│   ├── 5555.txt
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── apps.py
+│   ├── forms.py
+│   ├── management
+│   │   └── commands
+│   │       ├── generate_thumbnails.py
+│   │       └── update_ad_counts.py
+│   ├── migrations
+│   │   └── __init__.py
+│   ├── models.py
+│   ├── models.py.backup
+│   ├── signals.py
+│   ├── templates
+│   │   └── ads
+│   │       ├── ad_create.html
+│   │       ├── ad_delete.html
+│   │       ├── ad_detail.html
+│   │       ├── ad_list.html
+│   │       ├── ad_report.html
+│   │       ├── ad_update.html
+│   │       ├── base_ads.html
+│   │       ├── category_detail.html
+│   │       ├── category_list.html
+│   │       ├── favorite_list.html
+│   │       ├── my_ads.html
+│   │       └── partials
+│   │           └── ad_card.html
+│   ├── templatetags
+│   │   └── ads_filters.py
+│   ├── tests.py
+│   ├── urls.py
+│   ├── utils.py
+│   └── views.py
+├── arbo.txt
+├── audit
+│   ├── __init__.py
+│   ├── apps.py
+│   └── models.py
+├── carriers
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── apps.py
+│   ├── forms.py
+│   ├── migrations
+│   │   └── __init__.py
+│   ├── models.py
+│   ├── models.py.backup
+│   ├── signals.py
+│   ├── templates
+│   │   └── carriers
+│   │       ├── apply.html
+│   │       ├── apply_success.html
+│   │       ├── base_carriers.html
+│   │       ├── carrier_detail.html
+│   │       ├── carrier_list.html
+│   │       └── partials
+│   │           └── carrier_card.html
+│   ├── tests.py
+│   ├── urls.py
+│   └── views.py
+├── colis
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── apps.py
+│   ├── forms.py
+│   ├── management
+│   │   └── commands
+│   │       └── generate_sitemaps.py
+│   ├── migrations
+│   │   └── __init__.py
+│   ├── models.py
+│   ├── signals.py
+│   ├── sitemaps.py
+│   ├── tasks.py
+│   ├── templates
+│   │   └── colis
+│   │       ├── base_colis.html
+│   │       ├── css
+│   │       │   └── colis.css
+│   │       ├── includes
+│   │       │   └── help_widget.html
+│   │       ├── js
+│   │       │   └── colis.js
+│   │       ├── layout
+│   │       │   └── breadcrumb.html
+│   │       ├── my_packages.html
+│   │       ├── package
+│   │       │   ├── package_create.html
+│   │       │   ├── package_detail.html
+│   │       │   └── package_list.html
+│   │       ├── partials
+│   │       │   ├── image_gallery.html
+│   │       │   ├── package_card.html
+│   │       │   ├── search_filters.html
+│   │       │   └── status_badge.html
+│   │       └── sitemap_news.xml
+│   ├── templatetags
+│   │   ├── __init__.py
+│   │   └── colis_extras.py
+│   ├── tests.py
+│   ├── urls.py
+│   ├── utils
+│   │   └── signal_helpers.py
+│   └── views.py
+├── commandes et prompts pour le site.txt
+├── core
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── apps.py
+│   ├── context_processors.py
+│   ├── forms.py
+│   ├── migrations
+│   │   └── __init__.py
+│   ├── models.py
+│   ├── templates
+│   │   └── core
+│   │       ├── 500.html
+│   │       ├── base.html
+│   │       └── home.html
+│   ├── tests.py
+│   ├── urls.py
+│   └── views.py
+├── dashboard
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── apps.py
+│   ├── migrations
+│   │   └── __init__.py
+│   ├── models.py
+│   ├── templates
+│   │   └── dashboard
+│   ├── tests.py
+│   ├── urls.py
+│   └── views.py
+├── debug_error.py
+├── ebi3
+│   ├── __init__.py
+│   ├── asgi.py
+│   ├── celery.py
+│   ├── middlewares
+│   │   ├── audit.py
+│   │   ├── custom_security.py
+│   │   ├── fix_security.py
+│   │   ├── minimal.py
+│   │   ├── rate_limit.py
+│   │   ├── security.py
+│   │   └── two_factor.py
+│   ├── settings.py
+│   ├── settings_deepseek.py
+│   ├── settings_production.py
+│   ├── urls.py
+│   └── wsgi.py
+├── find_emergency_page.py
+├── logistics
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── admin.py.backup_20251228_130240
+│   ├── admin.py.bak
+│   ├── apps.py
+│   ├── forms.py
+│   ├── migrations
+│   │   └── __init__.py
+│   ├── models.py
+│   ├── models.py.backup
+│   ├── signals.py
+│   ├── tasks.py
+│   ├── templates
+│   │   └── logistics
+│   │       ├── base_logistics.html
+│   │       ├── dashboard.html
+│   │       ├── includes
+│   │       │   └── logistics_nav.html
+│   │       ├── missions
+│   │       │   └── mission_detail.html
+│   │       ├── partials
+│   │       │   ├── mission_card.html
+│   │       │   ├── reservation_card.html
+│   │       │   ├── route_card.html
+│   │       │   └── tracking_timeline.html
+│   │       ├── reservations
+│   │       │   ├── reservation_create.html
+│   │       │   ├── reservation_detail.html
+│   │       │   └── reservation_list.html
+│   │       └── routes
+│   │           └── route_list.html
+│   ├── tests.py
+│   ├── urls.py
+│   └── views.py
+├── logs
+│   ├── audit.log
+│   └── security.log
+├── manage.py
+├── media
+│   ├── ads
+│   │   ├── fathi
+│   │   │   ├── 2005-renault-kangoo
+│   │   │   │   └── images
+│   │   │   ├── p-s-2
+│   │   │   │   └── images
+│   │   │   └── velo-avec-panier
+│   │   │       └── images
+│   │   └── hamza
+│   │       ├── cafetiere-magefsa
+│   │       │   └── images
+│   │       └── velo
+│   │           └── images
+│   └── colis
+│       └── fathi
+│           ├── buggy-enfant-50-cc-1
+│           │   └── images
+│           └── scooter-50-cc
+│               └── images
+├── messaging
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── apps.py
+│   ├── forms.py
+│   ├── migrations
+│   │   └── __init__.py
+│   ├── models.py
+│   ├── models.py.backup
+│   ├── signals.py
+│   ├── templates
+│   │   ├── messaging
+│   │   │   ├── base_messaging.html
+│   │   │   ├── blocked_users.html
+│   │   │   ├── conversation_detail.html
+│   │   │   ├── generic_list.html
+│   │   │   ├── guide.html
+│   │   │   ├── inbox.html
+│   │   │   ├── new_conversation.html
+│   │   │   ├── notifications.html
+│   │   │   ├── report_message.html
+│   │   │   └── settings.html
+│   │   └── partials
+│   │       ├── attachment_preview.html
+│   │       ├── conversation_list_item.html
+│   │       └── notification_item.html
+│   ├── tests.py
+│   ├── urls.py
+│   └── views.py
+├── payments
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── apps.py
+│   ├── backends.py
+│   ├── constants.py
+│   ├── exceptions.py
+│   ├── forms.py
+│   ├── middleware.py
+│   ├── migrations
+│   │   └── __init__.py
+│   ├── models.py
+│   ├── tasks.py
+│   ├── templates
+│   │   └── payments
+│   │       ├── base_payments.html
+│   │       ├── checkout
+│   │       │   ├── checkout.html
+│   │       │   └── checkout_success.html
+│   │       ├── css
+│   │       │   └── payments.css
+│   │       ├── img
+│   │       │   └── README.md
+│   │       └── js
+│   │           └── payments.js
+│   ├── tests.py
+│   ├── urls.py
+│   ├── utils.py
+│   ├── validators.py
+│   ├── views.py
+│   └── webhooks.py
+├── populate_categories.py
+├── requirements.txt
+├── restore_backups.py
+├── reviews
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── apps.py
+│   ├── migrations
+│   │   └── __init__.py
+│   ├── models.py
+│   ├── templates
+│   │   └── reviews
+│   ├── tests.py
+│   ├── urls.py
+│   └── views.py
+├── saidi19$ebi3db
+├── static
+│   ├── colis
+│   │   ├── css
+│   │   │   └── colis.css
+│   │   └── js
+│   │       └── colis.js
+│   ├── css
+│   │   ├── admin-logistics.css
+│   │   ├── rtl.css
+│   │   └── style.css
+│   ├── img
+│   └── js
+│       └── main.js
+├── staticfiles
+│   ├── admin
+│   │   ├── css
+│   │   │   ├── autocomplete.css
+│   │   │   ├── base.css
+│   │   │   ├── changelists.css
+│   │   │   ├── dark_mode.css
+│   │   │   ├── dashboard.css
+│   │   │   ├── forms.css
+│   │   │   ├── login.css
+│   │   │   ├── nav_sidebar.css
+│   │   │   ├── responsive.css
+│   │   │   ├── responsive_rtl.css
+│   │   │   ├── rtl.css
+│   │   │   ├── unusable_password_field.css
+│   │   │   ├── vendor
+│   │   │   │   └── select2
+│   │   │   │       ├── LICENSE-SELECT2.md
+│   │   │   │       ├── select2.css
+│   │   │   │       └── select2.min.css
+│   │   │   └── widgets.css
+│   │   ├── img
+│   │   │   ├── README.md
+│   │   │   └── gis
+│   │   ├── js
+│   │   │   ├── SelectBox.js
+│   │   │   ├── SelectFilter2.js
+│   │   │   ├── actions.js
+│   │   │   ├── admin
+│   │   │   │   ├── DateTimeShortcuts.js
+│   │   │   │   └── RelatedObjectLookups.js
+│   │   │   ├── autocomplete.js
+│   │   │   ├── calendar.js
+│   │   │   ├── cancel.js
+│   │   │   ├── change_form.js
+│   │   │   ├── core.js
+│   │   │   ├── filters.js
+│   │   │   ├── inlines.js
+│   │   │   ├── jquery.init.js
+│   │   │   ├── nav_sidebar.js
+│   │   │   ├── popup_response.js
+│   │   │   ├── prepopulate.js
+│   │   │   ├── prepopulate_init.js
+│   │   │   ├── theme.js
+│   │   │   ├── urlify.js
+│   │   │   └── vendor
+│   │   │       ├── jquery
+│   │   │       │   ├── LICENSE.txt
+│   │   │       │   ├── jquery.js
+│   │   │       │   └── jquery.min.js
+│   │   │       ├── select2
+│   │   │       │   ├── LICENSE.md
+│   │   │       │   ├── select2.full.js
+│   │   │       │   └── select2.full.min.js
+│   │   │       └── xregexp
+│   │   │           ├── LICENSE.txt
+│   │   │           ├── xregexp.js
+│   │   │           └── xregexp.min.js
+│   │   └── rosetta
+│   │       ├── css
+│   │       │   └── rosetta.css
+│   │       └── js
+│   │           └── rosetta.js
+│   ├── colis
+│   │   ├── css
+│   │   │   └── colis.css
+│   │   └── js
+│   │       └── colis.js
+│   ├── css
+│   │   ├── admin-logistics.css
+│   │   ├── rtl.css
+│   │   └── style.css
+│   ├── flags
+│   │   ├── sprite-hq.css
+│   │   └── sprite.css
+│   ├── gis
+│   │   ├── css
+│   │   │   └── ol3.css
+│   │   ├── img
+│   │   └── js
+│   │       └── OLMapWidget.js
+│   ├── js
+│   │   └── main.js
+│   └── mptt
+│       ├── draggable-admin.css
+│       └── draggable-admin.js
+├── tracking
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── apps.py
+│   ├── migrations
+│   │   └── __init__.py
+│   ├── models.py
+│   ├── templates
+│   │   └── tracking
+│   ├── tests.py
+│   ├── urls.py
+│   └── views.py
+├── translations
+│   ├── README.md
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── api.py
+│   ├── apps.py
+│   ├── forms.py
+│   ├── middleware.py
+│   ├── migrations
+│   │   └── __init__.py
+│   ├── models.py
+│   ├── signals.py
+│   ├── tasks.py
+│   ├── templates
+│   │   └── translations
+│   │       ├── admin
+│   │       │   └── dashboard.html
+│   │       ├── translation_badge.html
+│   │       └── user
+│   │           └── preferences.html
+│   ├── templatetags
+│   │   ├── __init__.py
+│   │   └── translation_tags.py
+│   ├── urls.py
+│   ├── utils.py
+│   └── views.py
+├── users
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── apps.py
+│   ├── forms.py
+│   ├── migrations
+│   │   └── __init__.py
+│   ├── models.py
+│   ├── signals.py
+│   ├── templates
+│   │   └── users
+│   │       ├── base_auth.html
+│   │       ├── login.html
+│   │       ├── profile.html
+│   │       ├── profile_update.html
+│   │       └── register.html
+│   ├── tests.py
+│   ├── urls.py
+│   └── views.py
+└── uuuu.txt
+
+134 directories, 315 files

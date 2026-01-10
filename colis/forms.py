@@ -15,6 +15,36 @@ from carriers.models import Carrier
 class PackageBaseForm(forms.ModelForm):
     """Formulaire de base pour les colis"""
 
+    # AJOUT: Champs pour la sélection hiérarchique des catégories
+    main_category = forms.ModelChoiceField(
+        queryset=PackageCategory.objects.filter(parent__isnull=True, is_active=True),
+        required=False,
+        label=_("Catégorie principale"),
+        widget=forms.Select(attrs={
+            'class': 'form-control',
+            'id': 'id_main_category'
+        })
+    )
+
+    sub_category = forms.ModelChoiceField(
+        queryset=PackageCategory.objects.none(),  # Vide initialement
+        required=False,
+        label=_("Sous-catégorie"),
+        widget=forms.Select(attrs={
+            'class': 'form-control',
+            'id': 'id_sub_category',
+            'disabled': 'disabled'
+        })
+    )
+
+    # MODIFICATION: Champ category rendu caché
+    category = forms.ModelChoiceField(
+        queryset=PackageCategory.objects.filter(is_active=True),
+        required=True,
+        label=_("Catégorie finale"),
+        widget=forms.HiddenInput(attrs={'id': 'id_final_category'})
+    )
+
     # Champs supplémentaires pour l'UI
     use_current_location = forms.BooleanField(
         required=False,
@@ -34,6 +64,8 @@ class PackageBaseForm(forms.ModelForm):
             'price_type', 'asking_price', 'currency',
             'is_fragile', 'requires_insurance', 'insurance_value',
             'requires_packaging', 'requires_loading_help', 'requires_unloading_help',
+            # AJOUT: Champs pour la hiérarchie des catégories
+            'main_category', 'sub_category'
         ]
 
         widgets = {
@@ -46,7 +78,7 @@ class PackageBaseForm(forms.ModelForm):
                 'rows': 6,
                 'placeholder': _("Décrivez votre colis en détail...\n• Contenu\n• État\n• Instructions spéciales")
             }),
-            'category': forms.Select(attrs={'class': 'form-control'}),
+            'category': forms.HiddenInput(attrs={'id': 'id_final_category'}),  # Changé en HiddenInput
             'package_type': forms.Select(attrs={'class': 'form-control'}),
             'weight': forms.NumberInput(attrs={
                 'class': 'form-control',
@@ -137,8 +169,27 @@ class PackageBaseForm(forms.ModelForm):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
 
-        # Filtrer les catégories actives
-        self.fields['category'].queryset = PackageCategory.objects.filter(is_active=True)
+        # Initialiser la hiérarchie des catégories si le colis existe déjà
+        if self.instance and self.instance.pk and self.instance.category:
+            category = self.instance.category
+            # Trouver la catégorie racine
+            ancestors = category.get_ancestors(include_self=True)
+            if ancestors.exists():
+                main_cat = ancestors.first()
+                self.fields['main_category'].initial = main_cat.id
+
+                # Configurer les sous-catégories
+                if ancestors.count() > 1:
+                    sub_cat = ancestors[1] if len(ancestors) > 1 else None
+                    self.fields['sub_category'].queryset = PackageCategory.objects.filter(
+                        parent=main_cat, is_active=True
+                    )
+                    if sub_cat:
+                        self.fields['sub_category'].initial = sub_cat.id
+                        # Configurer la catégorie finale
+                        self.fields['category'].queryset = PackageCategory.objects.filter(
+                            parent=sub_cat, is_active=True
+                        )
 
         # Définir les dates par défaut
         if not self.instance.pk:
@@ -164,6 +215,54 @@ class PackageBaseForm(forms.ModelForm):
         elif package_type == Package.PackageType.FURNITURE:
             self.fields['requires_loading_help'].initial = True
             self.fields['requires_unloading_help'].initial = True
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        # Validation de la catégorie hiérarchique
+        main_category = cleaned_data.get('main_category')
+        sub_category = cleaned_data.get('sub_category')
+        final_category = cleaned_data.get('category')
+
+        # Si une catégorie finale est sélectionnée, vérifier la hiérarchie
+        if final_category:
+            try:
+                final_cat = PackageCategory.objects.get(id=final_category)
+                ancestors = final_cat.get_ancestors(include_self=True)
+
+                # Valider que main_category correspond au bon ancêtre
+                if main_category and ancestors.exists():
+                    expected_main = ancestors.first()
+                    if main_category != expected_main:
+                        raise ValidationError({
+                            'main_category': _("La catégorie principale ne correspond pas à la hiérarchie sélectionnée.")
+                        })
+
+                # Valider que sub_category correspond si spécifié
+                if sub_category and ancestors.count() > 1:
+                    expected_sub = ancestors[1] if len(ancestors) > 1 else None
+                    if sub_category != expected_sub:
+                        raise ValidationError({
+                            'sub_category': _("La sous-catégorie ne correspond pas à la hiérarchie sélectionnée.")
+                        })
+            except PackageCategory.DoesNotExist:
+                raise ValidationError({
+                    'category': _("La catégorie sélectionnée n'existe pas.")
+                })
+
+        # Calcul automatique du type de colis basé sur le poids
+        weight = cleaned_data.get('weight')
+        if weight and not cleaned_data.get('package_type'):
+            if weight <= 30:
+                cleaned_data['package_type'] = Package.PackageType.SMALL_PACKAGE
+            elif weight <= 100:
+                cleaned_data['package_type'] = Package.PackageType.MEDIUM_PACKAGE
+            elif weight <= 500:
+                cleaned_data['package_type'] = Package.PackageType.LARGE_PACKAGE
+            else:
+                cleaned_data['package_type'] = Package.PackageType.PALLET
+
+        return cleaned_data
 
     def clean_delivery_date(self):
         pickup_date = self.cleaned_data.get('pickup_date')
@@ -235,23 +334,6 @@ class PackageBaseForm(forms.ModelForm):
             raise ValidationError(_("La valeur assurée doit être positive."))
 
         return insurance_value
-
-    def clean(self):
-        cleaned_data = super().clean()
-
-        # Calcul automatique du type de colis basé sur le poids
-        weight = cleaned_data.get('weight')
-        if weight and not cleaned_data.get('package_type'):
-            if weight <= 30:
-                cleaned_data['package_type'] = Package.PackageType.SMALL_PACKAGE
-            elif weight <= 100:
-                cleaned_data['package_type'] = Package.PackageType.MEDIUM_PACKAGE
-            elif weight <= 500:
-                cleaned_data['package_type'] = Package.PackageType.LARGE_PACKAGE
-            else:
-                cleaned_data['package_type'] = Package.PackageType.PALLET
-
-        return cleaned_data
 
 
 class PackageCreateForm(PackageBaseForm):

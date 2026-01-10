@@ -17,31 +17,6 @@
                 <form method="post" enctype="multipart/form-data" id="ad-create-form" novalidate>
                     {% csrf_token %}
 
-                    <!-- Indicateur de progression -->
-                    <div class="stepper mb-5">
-                        <div class="stepper-progress">
-                            <div class="stepper-progress-bar" id="stepper-progress"></div>
-                        </div>
-                        <div class="stepper-header">
-                            <div class="step active" data-step="1">
-                                <div class="step-circle">1</div>
-                                <div class="step-label">{% trans "Informations de base" %}</div>
-                            </div>
-                            <div class="step" data-step="2">
-                                <div class="step-circle">2</div>
-                                <div class="step-label">{% trans "Description et prix" %}</div>
-                            </div>
-                            <div class="step" data-step="3">
-                                <div class="step-circle">3</div>
-                                <div class="step-label">{% trans "Logistique" %}</div>
-                            </div>
-                            <div class="step" data-step="4">
-                                <div class="step-circle">4</div>
-                                <div class="step-label">{% trans "Images" %}</div>
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- Messages d'erreur Django -->
                     {% if form.errors %}
                         <div class="alert alert-danger">
@@ -49,16 +24,31 @@
                             <ul class="mb-0">
                                 {% for field, errors in form.errors.items %}
                                     {% for error in errors %}
-                                        <li>{{ field }}: {{ error }}</li>
+                                        <li>
+                                            <strong>
+                                                {% if field == 'main_category' %}
+                                                    {% trans "Catégorie principale" %}
+                                                {% elif field == 'sub_category' %}
+                                                    {% trans "Sous-catégorie" %}
+                                                {% elif field == 'category' %}
+                                                    {% trans "Catégorie" %}
+                                                {% else %}
+                                                    {{ field }}
+                                                {% endif %}:
+                                            </strong> {{ error }}
+                                        </li>
                                     {% endfor %}
+                                {% endfor %}
+                                {% for error in form.non_field_errors %}
+                                    <li>{{ error }}</li>
                                 {% endfor %}
                             </ul>
                         </div>
                     {% endif %}
 
-                    <!-- Étape 1: Informations de base -->
-                    <div class="step-content active" id="step-1">
-                        <h4 class="mb-4">
+                    <!-- SECTION 1: Informations de base -->
+                    <div class="section mb-5">
+                        <h4 class="mb-4 border-bottom pb-2">
                             <span class="badge bg-primary me-2">1</span>
                             {% trans "Informations de base" %}
                         </h4>
@@ -72,10 +62,74 @@
                             </div>
                         </div>
 
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                {{ form.category|as_crispy_field }}
+                        <!-- SECTION CATÉGORIE HIÉRARCHIQUE -->
+                        <div class="category-hierarchy-section mb-4">
+                            <h5 class="mb-3">{% trans "Catégorie de l'annonce" %}</h5>
+
+                            <!-- Catégorie principale (obligatoire) -->
+                            <div class="row mb-4">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label for="id_main_category" class="form-label">
+                                            {% trans "Catégorie principale *" %}
+                                            {% if form.main_category.errors %}
+                                                <span class="text-danger">*</span>
+                                            {% endif %}
+                                        </label>
+                                        <select class="form-control {% if form.main_category.errors %}is-invalid{% endif %}"
+                                                id="id_main_category" name="main_category" required>
+                                            <option value="">{% trans "Sélectionnez une catégorie principale" %}</option>
+                                            {% for category in form.main_category.field.queryset %}
+                                                <option value="{{ category.id }}"
+                                                    {% if form.main_category.value|stringformat:"s" == category.id|stringformat:"s" %}selected{% endif %}>
+                                                    {{ category.name }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                        {% if form.main_category.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.main_category.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                        <small class="form-text text-muted">
+                                            {% trans "Sélectionnez la catégorie principale de votre annonce" %}
+                                        </small>
+                                    </div>
+                                </div>
                             </div>
+
+                            <!-- Sous-catégorie (optionnelle) -->
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label for="id_sub_category" class="form-label">
+                                            {% trans "Sous-catégorie" %}
+                                        </label>
+                                        <select class="form-control" id="id_sub_category" name="sub_category" disabled>
+                                            <option value="">{% trans "Sélectionnez une sous-catégorie (optionnel)" %}</option>
+                                        </select>
+                                        <small class="form-text text-muted">
+                                            {% trans "Optionnel : Sélectionnez une sous-catégorie plus spécifique" %}
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Champ caché pour la catégorie finale -->
+                            <input type="hidden" id="id_category" name="category" value="{{ form.category.value|default:'' }}">
+
+                            <!-- Information -->
+                            <div class="alert alert-info mt-2">
+                                <small>
+                                    <i class="fas fa-info-circle"></i>
+                                    {% trans "La catégorie principale est obligatoire pour faciliter la recherche de votre annonce." %}
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="row">
                             <div class="col-md-6 mb-3">
                                 {{ form.condition|as_crispy_field }}
                             </div>
@@ -95,17 +149,11 @@
                                 {{ form.height|as_crispy_field }}
                             </div>
                         </div>
-
-                        <div class="text-end">
-                            <button type="button" class="btn btn-primary next-step-btn" data-next="2">
-                                {% trans "Suivant" %} <i class="fas fa-arrow-right ms-1"></i>
-                            </button>
-                        </div>
                     </div>
 
-                    <!-- Étape 2: Description et prix -->
-                    <div class="step-content" id="step-2">
-                        <h4 class="mb-4">
+                    <!-- SECTION 2: Description et prix -->
+                    <div class="section mb-5">
+                        <h4 class="mb-4 border-bottom pb-2">
                             <span class="badge bg-primary me-2">2</span>
                             {% trans "Description et prix" %}
                         </h4>
@@ -144,20 +192,11 @@
                                 {{ form.available_until|as_crispy_field }}
                             </div>
                         </div>
-
-                        <div class="d-flex justify-content-between">
-                            <button type="button" class="btn btn-outline-secondary prev-step-btn" data-prev="1">
-                                <i class="fas fa-arrow-left me-1"></i> {% trans "Précédent" %}
-                            </button>
-                            <button type="button" class="btn btn-primary next-step-btn" data-next="3">
-                                {% trans "Suivant" %} <i class="fas fa-arrow-right ms-1"></i>
-                            </button>
-                        </div>
                     </div>
 
-                    <!-- Étape 3: Logistique -->
-                    <div class="step-content" id="step-3">
-                        <h4 class="mb-4">
+                    <!-- SECTION 3: Logistique -->
+                    <div class="section mb-5">
+                        <h4 class="mb-4 border-bottom pb-2">
                             <span class="badge bg-primary me-2">3</span>
                             {% trans "Informations logistiques" %}
                         </h4>
@@ -242,20 +281,11 @@
                                 </div>
                             </div>
                         </div>
-
-                        <div class="d-flex justify-content-between">
-                            <button type="button" class="btn btn-outline-secondary prev-step-btn" data-prev="2">
-                                <i class="fas fa-arrow-left me-1"></i> {% trans "Précédent" %}
-                            </button>
-                            <button type="button" class="btn btn-primary next-step-btn" data-next="4">
-                                {% trans "Suivant" %} <i class="fas fa-arrow-right ms-1"></i>
-                            </button>
-                        </div>
                     </div>
 
-                    <!-- Étape 4: Images -->
-                    <div class="step-content" id="step-4">
-                        <h4 class="mb-4">
+                    <!-- SECTION 4: Images -->
+                    <div class="section mb-5">
+                        <h4 class="mb-4 border-bottom pb-2">
                             <span class="badge bg-primary me-2">4</span>
                             {% trans "Images" %}
                         </h4>
@@ -356,15 +386,16 @@
                                 {% trans "Formats acceptés: JPG, PNG, WebP. Taille max: 10MB par image." %}
                             </small>
                         </div>
+                    </div>
 
-                        <div class="d-flex justify-content-between">
-                            <button type="button" class="btn btn-outline-secondary prev-step-btn" data-prev="3">
-                                <i class="fas fa-arrow-left me-1"></i> {% trans "Précédent" %}
-                            </button>
-                            <button type="submit" class="btn btn-success btn-lg">
-                                <i class="fas fa-check"></i> {% trans "Publier l'annonce" %}
-                            </button>
-                        </div>
+                    <!-- Bouton de soumission -->
+                    <div class="text-center mt-4">
+                        <button type="submit" class="btn btn-success btn-lg px-5">
+                            <i class="fas fa-check"></i> {% trans "Publier l'annonce" %}
+                        </button>
+                        <a href="{% url 'ads:ad_list' %}" class="btn btn-outline-secondary btn-lg ms-3">
+                            <i class="fas fa-times"></i> {% trans "Annuler" %}
+                        </a>
                     </div>
                 </form>
             </div>
@@ -375,99 +406,19 @@
 
 {% block extra_css %}
 <style>
-    .stepper {
-        position: relative;
-        margin-bottom: 2.5rem;
-    }
-
-    .stepper-progress {
-        position: absolute;
-        top: 24px;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background-color: #e9ecef;
-        z-index: 1;
-        border-radius: 2px;
-    }
-
-    .stepper-progress-bar {
-        height: 100%;
-        background-color: #007bff;
-        width: 25%;
-        transition: width 0.3s ease;
-        border-radius: 2px;
-    }
-
-    .stepper-header {
-        display: flex;
-        justify-content: space-between;
-        position: relative;
-        z-index: 2;
-    }
-
-    .step {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        flex: 1;
-        position: relative;
-    }
-
-    .step-circle {
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
+    .section {
         background-color: #fff;
-        border: 3px solid #e9ecef;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: bold;
-        font-size: 1.1rem;
-        color: #6c757d;
-        margin-bottom: 8px;
-        transition: all 0.3s ease;
+        border-radius: 0.5rem;
+        padding: 2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        border: 1px solid #e9ecef;
     }
 
-    .step.active .step-circle {
-        background-color: #007bff;
-        border-color: #007bff;
-        color: #fff;
-        transform: scale(1.1);
-    }
-
-    .step.completed .step-circle {
-        background-color: #28a745;
-        border-color: #28a745;
-        color: #fff;
-    }
-
-    .step-label {
-        font-size: 0.85rem;
-        text-align: center;
-        color: #6c757d;
-        font-weight: 500;
-        max-width: 100px;
-    }
-
-    .step.active .step-label {
-        color: #007bff;
-        font-weight: 600;
-    }
-
-    .step-content {
-        display: none;
-        animation: fadeIn 0.5s ease;
-    }
-
-    .step-content.active {
-        display: block;
-    }
-
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
+    .category-hierarchy-section {
+        background-color: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
     }
 
     .image-form {
@@ -504,23 +455,16 @@
         background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
     }
 
-    .form-control.is-valid {
-        border-color: #28a745;
-        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%2328a745' d='M2.3 6.73L.6 4.53c-.4-1.04.46-1.4 1.1-.8l1.1 1.4 3.4-3.8c.6-.63 1.6-.27 1.2.7l-4 4.6c-.43.5-.8.4-1.1.1z'/%3e%3c/svg%3e");
-        background-repeat: no-repeat;
-        background-position: right calc(0.375em + 0.1875rem) center;
-        background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
-    }
-
     .required label:after {
         content: " *";
         color: #dc3545;
     }
 
-    .next-step-btn:disabled,
-    .prev-step-btn:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
+    .category-loading {
+        display: none;
+        color: #6c757d;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
     }
 </style>
 {% endblock %}
@@ -528,42 +472,140 @@
 {% block extra_js %}
 <script>
 $(document).ready(function() {
-    console.log('Stepper jQuery initialized');
+    console.log('Ad Create Form initialized - Catégorie hiérarchique');
 
-    let currentStep = 1;
-    const totalSteps = 4;
+    // URL pour récupérer les sous-catégories
+    const SUBCATEGORIES_URL = "{% url 'ads:get_categories' %}";
 
-    // Afficher la première étape
-    showStep(currentStep);
+    // CSRF token pour les requêtes AJAX
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-    // Gestion des boutons Suivant
-    $(document).on('click', '.next-step-btn', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
+    // ============================================
+    // GESTION DE LA CATÉGORIE HIÉRARCHIQUE
+    // ============================================
 
-        console.log('Next button clicked');
-        const nextStep = parseInt($(this).data('next'));
-        console.log('Next step:', nextStep);
-
-        if (validateStep(currentStep)) {
-            console.log('Validation passed, showing step', nextStep);
-            showStep(nextStep);
-        } else {
-            console.log('Validation failed for step', currentStep);
+    // Charger les sous-catégories pour la catégorie principale sélectionnée
+    function loadSubCategories(mainCategoryId) {
+        if (!mainCategoryId) {
+            $('#id_sub_category').prop('disabled', true).empty();
+            $('#id_sub_category').append($('<option>', {
+                value: '',
+                text: '{% trans "Sélectionnez d\'abord une catégorie principale" %}'
+            }));
+            updateCategoryField();
+            return;
         }
+
+        // Activer et réinitialiser le champ sous-catégorie
+        const $subCategorySelect = $('#id_sub_category');
+        $subCategorySelect.prop('disabled', true).empty();
+
+        // Ajouter une option par défaut
+        $subCategorySelect.append($('<option>', {
+            value: '',
+            text: '{% trans "Chargement des sous-catégories..." %}'
+        }));
+
+        // Récupérer les sous-catégories via AJAX
+        $.ajax({
+            url: SUBCATEGORIES_URL,
+            type: 'GET',
+            data: {
+                'parent_id': mainCategoryId,
+                'level': 'sub'
+            },
+            headers: {
+                'X-CSRFToken': csrftoken
+            },
+            success: function(data) {
+                console.log('Sous-catégories reçues:', data);
+
+                $subCategorySelect.empty();
+
+                // Ajouter une option par défaut
+                $subCategorySelect.append($('<option>', {
+                    value: '',
+                    text: '{% trans "Sélectionnez une sous-catégorie (optionnel)" %}'
+                }));
+
+                // Ajouter chaque sous-catégorie au select
+                if (data.categories && data.categories.length > 0) {
+                    $.each(data.categories, function(index, category) {
+                        $subCategorySelect.append($('<option>', {
+                            value: category.id,
+                            text: category.name
+                        }));
+                    });
+
+                    // Activer le champ
+                    $subCategorySelect.prop('disabled', false);
+                } else {
+                    $subCategorySelect.append($('<option>', {
+                        value: '',
+                        text: '{% trans "Aucune sous-catégorie disponible" %}'
+                    }));
+                    $subCategorySelect.prop('disabled', true);
+                }
+
+                // Mettre à jour le champ caché de catégorie
+                updateCategoryField();
+            },
+            error: function(xhr, status, error) {
+                console.error('Erreur lors du chargement des sous-catégories:', error);
+                $subCategorySelect.empty();
+                $subCategorySelect.append($('<option>', {
+                    value: '',
+                    text: '{% trans "Erreur de chargement" %}'
+                }));
+            }
+        });
+    }
+
+    // Quand la catégorie principale change
+    $('#id_main_category').change(function() {
+        const mainCategoryId = $(this).val();
+        console.log('Catégorie principale sélectionnée:', mainCategoryId);
+
+        loadSubCategories(mainCategoryId);
     });
 
-    // Gestion des boutons Précédent
-    $(document).on('click', '.prev-step-btn', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-
-        console.log('Previous button clicked');
-        const prevStep = parseInt($(this).data('prev'));
-        console.log('Previous step:', prevStep);
-
-        showStep(prevStep);
+    // Quand la sous-catégorie change
+    $('#id_sub_category').change(function() {
+        console.log('Sous-catégorie sélectionnée:', $(this).val());
+        updateCategoryField();
     });
+
+    // Fonction pour mettre à jour le champ caché de catégorie
+    function updateCategoryField() {
+        const mainCategoryId = $('#id_main_category').val();
+        const subCategoryId = $('#id_sub_category').val();
+        const $categoryHidden = $('#id_category');
+
+        // Utiliser la sous-catégorie si sélectionnée, sinon la catégorie principale
+        if (subCategoryId && subCategoryId !== '') {
+            $categoryHidden.val(subCategoryId);
+            console.log('Catégorie finale (sous-catégorie):', subCategoryId);
+        } else if (mainCategoryId && mainCategoryId !== '') {
+            $categoryHidden.val(mainCategoryId);
+            console.log('Catégorie finale (principale):', mainCategoryId);
+        } else {
+            $categoryHidden.val('');
+            console.log('Aucune catégorie sélectionnée');
+        }
+    }
+
+    // Initialiser le champ caché
+    updateCategoryField();
+
+    // Si une catégorie principale est déjà sélectionnée (en cas d'erreur de validation)
+    const initialMainCategory = $('#id_main_category').val();
+    if (initialMainCategory) {
+        loadSubCategories(initialMainCategory);
+    }
+
+    // ============================================
+    // AUTRES FONCTIONNALITÉS
+    // ============================================
 
     // Gestion de l'assurance
     $('#{{ form.requires_insurance.id_for_label }}').change(function() {
@@ -584,94 +626,81 @@ $(document).ready(function() {
         previewImage(this);
     });
 
-    // Validation du formulaire final
-    $('#ad-create-form').submit(function(e) {
-        console.log('Form submit attempted');
+    // ============================================
+    // VALIDATION DU FORMULAIRE
+    // ============================================
 
-        if (!validateAllSteps()) {
+    // Validation du formulaire
+    $('#ad-create-form').submit(function(e) {
+        console.log('Tentative de soumission du formulaire');
+
+        // Valider les champs requis
+        if (!validateForm()) {
             e.preventDefault();
-            alert('{% trans "Veuillez corriger les erreurs dans le formulaire avant de soumettre." %}');
+            showToast('{% trans "Veuillez corriger les erreurs dans le formulaire avant de soumettre." %}', 'error');
             return false;
         }
 
-        // Vérifier qu'au moins une image est primaire
+        // Vérifier qu'au moins une image est primaire (si des images sont uploadées)
         const hasPrimary = $('[id$="-is_primary"]:checked').length > 0;
         const hasImages = $('input[type="file"]').length > 0;
 
         if (hasImages && !hasPrimary) {
             e.preventDefault();
-            alert('{% trans "Veuillez sélectionner au moins une image comme image principale." %}');
+            showToast('{% trans "Veuillez sélectionner au moins une image comme image principale." %}', 'error');
             return false;
         }
 
-        console.log('Form validation passed, submitting...');
+        console.log('Validation du formulaire réussie, soumission...');
         return true;
     });
 
-    // Fonctions principales
-    function showStep(step) {
-        console.log('Showing step:', step);
-
-        // Masquer toutes les étapes
-        $('.step-content').removeClass('active');
-
-        // Afficher l'étape demandée
-        $('#step-' + step).addClass('active');
-
-        // Mettre à jour les indicateurs visuels
-        $('.step').removeClass('active completed');
-
-        $('.step').each(function() {
-            const stepNumber = parseInt($(this).data('step'));
-
-            if (stepNumber < step) {
-                $(this).addClass('completed');
-            } else if (stepNumber === step) {
-                $(this).addClass('active');
-            }
-        });
-
-        currentStep = step;
-        updateProgressBar();
-
-        // Scroll vers le haut
-        $('html, body').animate({ scrollTop: 0 }, 300);
-    }
-
-    function updateProgressBar() {
-        const progress = ((currentStep - 1) / (totalSteps - 1)) * 100;
-        $('#stepper-progress').css('width', progress + '%');
-    }
-
-    function validateStep(step) {
-        console.log('Validating step:', step);
+    function validateForm() {
+        console.log('Validation du formulaire en cours...');
         let isValid = true;
-        const stepElement = $('#step-' + step);
 
-        if (stepElement.length === 0) {
-            console.error('Step element not found for validation:', step);
-            return false;
+        // Valider la catégorie principale
+        const mainCategoryField = $('#id_main_category');
+        if (!mainCategoryField.val()) {
+            markFieldInvalid(mainCategoryField, '{% trans "La catégorie principale est requise" %}');
+            isValid = false;
+        } else {
+            markFieldValid(mainCategoryField);
         }
 
-        // Valider les champs requis dans cette étape
-        const requiredFields = stepElement.find('[required]');
-        console.log('Required fields found:', requiredFields.length);
-
-        requiredFields.each(function() {
+        // Valider les autres champs requis
+        $('[required]').each(function() {
             const $field = $(this);
+
+            // Ne pas valider à nouveau la catégorie principale
+            if ($field.attr('id') === 'id_main_category') {
+                return true;
+            }
+
+            // Ignorer les champs de formulaire d'image cachés
+            if ($field.closest('.image-form').length && !$field.closest('.image-form').is(':visible')) {
+                return true;
+            }
+
             const fieldValue = $field.val() ? $field.val().trim() : '';
             const isSelect = $field.is('select');
             const isCheckbox = $field.is(':checkbox');
+            const isRadio = $field.is(':radio');
+            const isFile = $field.is('input[type="file"]');
 
-            console.log('Validating field:', $field.attr('name'), 'value:', fieldValue);
+            let fieldValid = true;
 
             if (isSelect && !fieldValue) {
-                markFieldInvalid($field, '{% trans "Ce champ est requis" %}');
-                isValid = false;
+                fieldValid = false;
             } else if (isCheckbox && !$field.is(':checked')) {
-                markFieldInvalid($field, '{% trans "Ce champ est requis" %}');
-                isValid = false;
-            } else if (!isCheckbox && !fieldValue) {
+                fieldValid = false;
+            } else if (isRadio && !$field.closest('fieldset').find('input[type="radio"]:checked').length) {
+                fieldValid = false;
+            } else if (!isCheckbox && !isRadio && !isFile && !fieldValue) {
+                fieldValid = false;
+            }
+
+            if (!fieldValid) {
                 markFieldInvalid($field, '{% trans "Ce champ est requis" %}');
                 isValid = false;
             } else {
@@ -679,54 +708,23 @@ $(document).ready(function() {
             }
         });
 
-        // Validation spécifique pour le prix
-        if (step === 2) {
-            const priceField = $('#{{ form.price.id_for_label }}');
-            if (priceField.length && priceField.val()) {
-                const price = parseFloat(priceField.val());
-                if (isNaN(price) || price <= 0) {
-                    markFieldInvalid(priceField, '{% trans "Le prix doit être supérieur à 0" %}');
-                    isValid = false;
-                }
+        // Validation spécifique pour le prix (si renseigné)
+        const priceField = $('#{{ form.price.id_for_label }}');
+        if (priceField.length && priceField.val()) {
+            const price = parseFloat(priceField.val());
+            if (isNaN(price) || price <= 0) {
+                markFieldInvalid(priceField, '{% trans "Le prix doit être supérieur à 0" %}');
+                isValid = false;
             }
         }
 
         if (!isValid) {
-            console.log('Step validation failed');
-            showStepError(step);
+            console.log('Validation du formulaire échouée');
         } else {
-            console.log('Step validation passed');
+            console.log('Validation du formulaire réussie');
         }
 
         return isValid;
-    }
-
-    function validateAllSteps() {
-        console.log('Validating all steps');
-        for (let i = 1; i <= totalSteps; i++) {
-            if (!validateStep(i)) {
-                showStep(i);
-                return false;
-            }
-        }
-        return true;
-    }
-
-    function showStepError(step) {
-        const stepElement = $('#step-' + step);
-        if (stepElement.length === 0) return;
-
-        // Supprimer les alertes existantes
-        stepElement.find('.step-error-alert').remove();
-
-        // Créer une nouvelle alerte
-        const errorAlert = $('<div class="alert alert-danger alert-dismissible fade show step-error-alert mb-3">\
-            <i class="fas fa-exclamation-triangle"></i>\
-            <strong>{% trans "Veuillez corriger les erreurs ci-dessous" %}</strong>\
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>\
-        </div>');
-
-        stepElement.prepend(errorAlert);
     }
 
     function markFieldInvalid($field, message) {
@@ -746,6 +744,91 @@ $(document).ready(function() {
 
         // Masquer le message d'erreur
         $field.parent().find('.invalid-feedback').hide();
+    }
+
+    // Fonction pour ajouter un formulaire d'image
+    let imageFormIndex = {{ image_formset.total_form_count|default:5 }};
+    function addImageForm() {
+        const totalForms = $('#id_images-TOTAL_FORMS');
+        const currentIndex = parseInt(totalForms.val());
+        const maxForms = parseInt(totalForms.attr('data-max'));
+
+        if (currentIndex >= maxForms) {
+            showToast('{% trans "Vous avez atteint le nombre maximum d\'images autorisées." %}', 'error');
+            return;
+        }
+
+        console.log('Ajout d\'un formulaire d\'image, index:', currentIndex);
+
+        // Clone du premier formulaire d'image (sans les données)
+        const $firstForm = $('.image-form').first().clone();
+        const newIndex = imageFormIndex;
+
+        // Mettre à jour les attributs name et id
+        $firstForm.find('[name]').each(function() {
+            const name = $(this).attr('name').replace(/-0-/g, `-${newIndex}-`);
+            $(this).attr('name', name);
+        });
+
+        $firstForm.find('[id]').each(function() {
+            const id = $(this).attr('id').replace(/-0-/g, `-${newIndex}-`);
+            $(this).attr('id', id);
+        });
+
+        // Réinitialiser les valeurs
+        $firstForm.find('input[type="text"], input[type="number"], textarea').val('');
+        $firstForm.find('input[type="file"]').val('');
+        $firstForm.find('input[type="checkbox"]').prop('checked', false);
+        $firstForm.find('.image-preview-container').empty();
+
+        // Ajouter au DOM
+        $('#image-forms .row').append($firstForm);
+
+        // Mettre à jour le compteur
+        totalForms.val(currentIndex + 1);
+        imageFormIndex++;
+
+        console.log('Formulaire d\'image ajouté avec succès');
+    }
+
+    // Fonction pour prévisualiser une image
+    function previewImage(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            const container = $(input).closest('.image-form').find('.image-preview-container');
+
+            reader.onload = function(e) {
+                container.html(`<img src="${e.target.result}" class="image-preview">`);
+            };
+
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    // Fonction toast
+    function showToast(message, type) {
+        const toastHtml = `
+            <div class="toast align-items-center text-white bg-${type === 'success' ? 'success' : 'danger'} border-0" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        `;
+
+        if ($('#toast-container').length === 0) {
+            $('body').append('<div id="toast-container" class="toast-container position-fixed top-0 end-0 p-3"></div>');
+        }
+
+        $('#toast-container').append(toastHtml);
+        $('.toast').toast('show');
+
+        // Remove toast after hiding
+        $('.toast').on('hidden.bs.toast', function() {
+            $(this).remove();
+        });
     }
 });
 </script>

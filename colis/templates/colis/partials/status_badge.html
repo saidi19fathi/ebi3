@@ -1,0 +1,36 @@
+{# ~/ebi3/colis/templates/colis/partials/status_badge.html #}
+{% load i18n %}
+
+{% if status == 'DRAFT' %}
+    <span class="badge bg-secondary">
+        <i class="fas fa-edit"></i> {% trans "Brouillon" %}
+    </span>
+{% elif status == 'AVAILABLE' %}
+    <span class="badge bg-success">
+        <i class="fas fa-check-circle"></i> {% trans "Disponible" %}
+    </span>
+{% elif status == 'RESERVED' %}
+    <span class="badge bg-info">
+        <i class="fas fa-handshake"></i> {% trans "Réservé" %}
+    </span>
+{% elif status == 'IN_TRANSIT' %}
+    <span class="badge bg-warning">
+        <i class="fas fa-truck-moving"></i> {% trans "En transit" %}
+    </span>
+{% elif status == 'DELIVERED' %}
+    <span class="badge bg-primary">
+        <i class="fas fa-box-check"></i> {% trans "Livré" %}
+    </span>
+{% elif status == 'CANCELLED' %}
+    <span class="badge bg-danger">
+        <i class="fas fa-times-circle"></i> {% trans "Annulé" %}
+    </span>
+{% elif status == 'EXPIRED' %}
+    <span class="badge bg-dark">
+        <i class="fas fa-clock"></i> {% trans "Expiré" %}
+    </span>
+{% else %}
+    <span class="badge bg-secondary">
+        <i class="fas fa-question-circle"></i> {{ status }}
+    </span>
+{% endif %}

@@ -16,6 +16,7 @@ urlpatterns = [
 
     # Recherche avancée
     path('search/', views.CarrierSearchView.as_view(), name='search'),
+    path('', views.carrier_list, name='carrier_list'),
 
     # ============================================================================
     # INSCRIPTION ET PROFIL TRANSPORTEUR (PLACÉS AVANT LES URLS GÉNÉRIQUES)

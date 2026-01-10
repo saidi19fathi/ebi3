@@ -124,6 +124,348 @@ class CarrierListView(ListView):
         return context
 
 
+def carrier_list(request):
+    """
+    Vue pour afficher la liste des transporteurs
+    """
+    # Récupérer tous les transporteurs APPROUVÉS et ACTIFS
+    carriers = Carrier.objects.filter(
+        status=Carrier.Status.APPROVED,
+        is_available=True
+    ).select_related('user')
+
+    # Initialiser le formulaire de recherche
+    search_form = CarrierSearchForm(request.GET or None)
+
+    # Appliquer les filtres si le formulaire est valide
+    if search_form.is_valid():
+        carrier_type = search_form.cleaned_data.get('carrier_type')
+        vehicle_type = search_form.cleaned_data.get('vehicle_type')
+        min_rating = search_form.cleaned_data.get('min_rating')
+        provides_insurance = search_form.cleaned_data.get('provides_insurance')
+        provides_packaging = search_form.cleaned_data.get('provides_packaging')
+        sort_by = search_form.cleaned_data.get('sort_by', 'rating')
+
+        # Filtres
+        if carrier_type:
+            carriers = carriers.filter(carrier_type=carrier_type)
+
+        if vehicle_type:
+            carriers = carriers.filter(vehicle_type=vehicle_type)
+
+        if min_rating:
+            carriers = carriers.filter(average_rating__gte=min_rating)
+
+        if provides_insurance:
+            carriers = carriers.filter(provides_insurance=True)
+
+        if provides_packaging:
+            carriers = carriers.filter(provides_packaging=True)
+
+        # Tri
+        if sort_by == 'rating':
+            carriers = carriers.order_by('-average_rating')
+        elif sort_by == 'price':
+            carriers = carriers.order_by('base_price_per_km')
+        elif sort_by == 'experience':
+            carriers = carriers.order_by('-total_missions')
+        elif sort_by == 'newest':
+            carriers = carriers.order_by('-created_at')
+
+    # Compter les types de transporteurs
+    professional_count = carriers.filter(carrier_type=Carrier.CarrierType.PROFESSIONAL).count()
+    personal_count = carriers.filter(carrier_type=Carrier.CarrierType.PERSONAL).count()
+
+    # Pagination
+    paginator = Paginator(carriers, 12)  # 12 transporteurs par page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'carriers': page_obj,  # Pour compatibilité avec le template existant
+        'page_obj': page_obj,
+        'search_form': search_form,
+        'total_carriers': carriers.count(),
+        'professional_count': professional_count,
+        'personal_count': personal_count,
+    }
+
+    return render(request, 'carriers/carrier_list.html', context)
+
+
+def carrier_search(request):
+    """
+    Vue de recherche avancée des transporteurs
+    """
+    carriers = Carrier.objects.filter(
+        status=Carrier.Status.APPROVED,
+        is_available=True
+    ).select_related('user')
+
+    search_form = CarrierSearchForm(request.GET or None)
+
+    if search_form.is_valid():
+        # Récupérer tous les paramètres
+        carrier_type = search_form.cleaned_data.get('carrier_type')
+        vehicle_type = search_form.cleaned_data.get('vehicle_type')
+        start_country = search_form.cleaned_data.get('start_country')
+        end_country = search_form.cleaned_data.get('end_country')
+        start_city = search_form.cleaned_data.get('start_city')
+        end_city = search_form.cleaned_data.get('end_city')
+        departure_date = search_form.cleaned_data.get('departure_date')
+        max_weight = search_form.cleaned_data.get('max_weight')
+        min_rating = search_form.cleaned_data.get('min_rating')
+        provides_insurance = search_form.cleaned_data.get('provides_insurance')
+        provides_packaging = search_form.cleaned_data.get('provides_packaging')
+        sort_by = search_form.cleaned_data.get('sort_by', 'rating')
+
+        # Filtres de base
+        if carrier_type:
+            carriers = carriers.filter(carrier_type=carrier_type)
+
+        if vehicle_type:
+            carriers = carriers.filter(vehicle_type=vehicle_type)
+
+        if min_rating:
+            carriers = carriers.filter(average_rating__gte=min_rating)
+
+        if provides_insurance:
+            carriers = carriers.filter(provides_insurance=True)
+
+        if provides_packaging:
+            carriers = carriers.filter(provides_packaging=True)
+
+        # Filtre par poids
+        if max_weight:
+            carriers = carriers.filter(max_weight__gte=max_weight)
+
+        # Filtre par routes
+        if start_country or end_country or start_city or end_city:
+            routes_filter = Q()
+
+            if start_country:
+                routes_filter &= Q(routes__start_country=start_country)
+            if end_country:
+                routes_filter &= Q(routes__end_country=end_country)
+            if start_city:
+                routes_filter &= Q(routes__start_city__icontains=start_city)
+            if end_city:
+                routes_filter &= Q(routes__end_city__icontains=end_city)
+            if departure_date:
+                routes_filter &= Q(
+                    routes__departure_date__lte=departure_date,
+                    routes__arrival_date__gte=departure_date
+                )
+
+            carriers = carriers.filter(routes_filter).distinct()
+
+        # Tri
+        if sort_by == 'rating':
+            carriers = carriers.order_by('-average_rating')
+        elif sort_by == 'price':
+            carriers = carriers.order_by('base_price_per_km')
+        elif sort_by == 'experience':
+            carriers = carriers.order_by('-total_missions')
+        elif sort_by == 'newest':
+            carriers = carriers.order_by('-created_at')
+
+    # Pagination
+    paginator = Paginator(carriers, 12)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'carriers': page_obj,
+        'page_obj': page_obj,
+        'search_form': search_form,
+        'total_carriers': carriers.count(),
+    }
+
+    return render(request, 'carriers/carrier_search.html', context)
+
+
+
+def carrier_detail(request, username):
+    """
+    Vue pour afficher le détail d'un transporteur
+    """
+    carrier = get_object_or_404(
+        Carrier.objects.select_related('user'),
+        user__username=username,
+        status=Carrier.Status.APPROVED
+    )
+
+    # CORRECTION ICI : Utiliser 'is_active' au lieu de 'status'
+    routes = carrier.carrier_routes.filter(is_active=True).order_by('departure_date')
+
+    # Récupérer les avis approuvés
+    reviews = carrier.reviews.filter(
+        is_approved=True,
+        is_visible=True
+    ).select_related('reviewer').order_by('-created_at')[:10]
+
+    # Calculer les statistiques d'avis
+    review_stats = carrier.reviews.filter(
+        is_approved=True,
+        is_visible=True
+    ).aggregate(
+        total=Count('id'),
+        avg_rating=Avg('rating'),
+        avg_communication=Avg('communication'),
+        avg_punctuality=Avg('punctuality'),
+        avg_handling=Avg('handling'),
+        avg_professionalism=Avg('professionalism')
+    )
+
+    context = {
+        'carrier': carrier,
+        'routes': routes,
+        'reviews': reviews,
+        'review_stats': review_stats,
+    }
+
+    return render(request, 'carriers/carrier_detail.html', context)
+
+
+@login_required
+def carrier_apply(request):
+    """
+    Vue pour postuler comme transporteur
+    """
+    # Vérifier si l'utilisateur a déjà un profil transporteur
+    if hasattr(request.user, 'carrier_profile'):
+        messages.warning(request, _("Vous avez déjà un profil transporteur."))
+        return redirect('carriers:carrier_dashboard')
+
+    if request.method == 'POST':
+        form = CarrierApplicationForm(request.POST, user=request.user)
+        if form.is_valid():
+            carrier = form.save(commit=False)
+            carrier.user = request.user
+            carrier.status = Carrier.Status.PENDING
+            carrier.save()
+
+            messages.success(request, _(
+                "Votre candidature a été soumise avec succès. "
+                "Elle sera examinée par notre équipe dans les plus brefs délais."
+            ))
+            return redirect('carriers:apply_success')
+    else:
+        form = CarrierApplicationForm(user=request.user)
+
+    context = {
+        'form': form,
+    }
+
+    return render(request, 'carriers/apply.html', context)
+
+
+def apply_success(request):
+    """
+    Vue de succès après candidature
+    """
+    return render(request, 'carriers/apply_success.html')
+
+
+@login_required
+def carrier_dashboard(request):
+    """
+    Tableau de bord du transporteur
+    """
+    try:
+        carrier = request.user.carrier_profile
+    except Carrier.DoesNotExist:
+        messages.warning(request, _("Vous n'avez pas de profil transporteur."))
+        return redirect('carriers:apply')
+
+    # Récupérer les statistiques
+    routes = carrier.routes.filter(is_active=True).order_by('-departure_date')[:5]
+    recent_reviews = carrier.reviews.filter(
+        is_approved=True,
+        is_visible=True
+    ).order_by('-created_at')[:5]
+
+    # Récupérer les missions en cours (selon votre modèle de missions)
+    # active_missions = carrier.missions.filter(status__in=['PENDING', 'ACCEPTED', 'IN_PROGRESS'])
+    # completed_missions = carrier.missions.filter(status='COMPLETED')
+
+    context = {
+        'carrier': carrier,
+        'routes': routes,
+        'reviews': recent_reviews,
+        # 'active_missions': active_missions,
+        # 'completed_missions': completed_missions,
+    }
+
+    return render(request, 'carriers/carrier_dashboard.html', context)
+
+
+@login_required
+def carrier_update(request):
+    """
+    Mise à jour du profil transporteur
+    """
+    try:
+        carrier = request.user.carrier_profile
+    except Carrier.DoesNotExist:
+        messages.warning(request, _("Vous n'avez pas de profil transporteur."))
+        return redirect('carriers:apply')
+
+    if request.method == 'POST':
+        form = CarrierUpdateForm(request.POST, instance=carrier)
+        if form.is_valid():
+            form.save()
+            messages.success(request, _("Votre profil a été mis à jour avec succès."))
+            return redirect('carriers:carrier_dashboard')
+    else:
+        form = CarrierUpdateForm(instance=carrier)
+
+    context = {
+        'form': form,
+        'carrier': carrier,
+    }
+
+    return render(request, 'carriers/carrier_update.html', context)
+
+
+@login_required
+def carrier_review_create(request, username):
+    """
+    Créer un avis sur un transporteur
+    """
+    carrier = get_object_or_404(Carrier, user__username=username)
+
+    # Vérifier si l'utilisateur peut laisser un avis
+    # (doit avoir eu une mission avec ce transporteur)
+    # Pour l'instant, on autorise tous les utilisateurs connectés
+
+    if request.method == 'POST':
+        form = CarrierReviewForm(request.POST)
+        if form.is_valid():
+            review = form.save(commit=False)
+            review.carrier = carrier
+            review.reviewer = request.user
+            review.is_approved = False  # Nécessite modération
+            review.save()
+
+            # Mettre à jour la note moyenne du transporteur
+            carrier.update_average_rating()
+
+            messages.success(request, _(
+                "Votre avis a été soumis. "
+                "Il sera publié après modération par notre équipe."
+            ))
+            return redirect('carriers:carrier_detail', username=username)
+    else:
+        form = CarrierReviewForm()
+
+    context = {
+        'form': form,
+        'carrier': carrier,
+    }
+
+    return render(request, 'carriers/carrier_review_create.html', context)
+
 class CarrierSearchView(FormView):
     """Vue de recherche avancée des transporteurs"""
     template_name = 'carriers/search_results.html'
@@ -170,57 +512,57 @@ class CarrierSearchView(FormView):
         return render(request, self.template_name, context)
 
 
+# Si vous utilisez une vue basée sur une classe
+from django.views.generic import DetailView
+
 class CarrierDetailView(DetailView):
-    """Détail d'un transporteur"""
     model = Carrier
     template_name = 'carriers/carrier_detail.html'
     context_object_name = 'carrier'
     slug_field = 'user__username'
     slug_url_kwarg = 'username'
 
-    def get_object(self):
-        return get_object_or_404(
-            Carrier.objects.select_related('user').prefetch_related('routes', 'reviews'),
-            user__username=self.kwargs['username']
-        )
+    def get_queryset(self):
+        return Carrier.objects.filter(
+            status=Carrier.Status.APPROVED
+        ).select_related('user')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+
+        # CORRECTION ICI : Utiliser le bon nom de relation
         carrier = self.object
 
         # Routes actives
-        context['active_routes'] = carrier.routes.filter(
-            is_active=True,
-            departure_date__gte=timezone.now().date()
-        ).order_by('departure_date')
+        routes = carrier.carrier_routes.filter(is_active=True).order_by('departure_date')
 
         # Avis approuvés
-        context['reviews'] = carrier.reviews.filter(
+        reviews = carrier.reviews.filter(
             is_approved=True,
             is_visible=True
-        ).select_related('reviewer').order_by('-created_at')[:5]
+        ).select_related('reviewer').order_by('-created_at')[:10]
 
-        # Statistiques des avis
-        if context['reviews']:
-            review_stats = carrier.reviews.filter(is_approved=True, is_visible=True).aggregate(
-                total_reviews=Count('id'),
-                avg_communication=Avg('communication'),
-                avg_punctuality=Avg('punctuality'),
-                avg_handling=Avg('handling'),
-                avg_professionalism=Avg('professionalism')
-            )
-            context['review_stats'] = review_stats
+        # Statistiques d'avis
+        from django.db.models import Count, Avg
+        review_stats = carrier.reviews.filter(
+            is_approved=True,
+            is_visible=True
+        ).aggregate(
+            total=Count('id'),
+            avg_rating=Avg('rating'),
+            avg_communication=Avg('communication'),
+            avg_punctuality=Avg('punctuality'),
+            avg_handling=Avg('handling'),
+            avg_professionalism=Avg('professionalism')
+        )
 
-        # Documents vérifiés
-        context['verified_documents'] = carrier.documents.filter(is_verified=True)
-
-        # Vérifier si l'utilisateur peut laisser un avis
-        if self.request.user.is_authenticated:
-            context['can_review'] = self.request.user != carrier.user
-            context['has_reviewed'] = carrier.reviews.filter(reviewer=self.request.user).exists()
+        context.update({
+            'routes': routes,
+            'reviews': reviews,
+            'review_stats': review_stats,
+        })
 
         return context
-
 
 class CarrierApplyView(LoginRequiredMixin, CreateView):
     """Devenir transporteur"""
