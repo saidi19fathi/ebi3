@@ -1,0 +1,39 @@
+{% load i18n %}
+
+{% comment %}
+Usage : {% include "carriers/partials/mission_status_badge.html" with status=mission.status %}
+{% endcomment %}
+
+{% if status == 'PENDING' %}
+    <span class="badge bg-warning">
+        <i class="fas fa-clock"></i> {% trans "En attente" %}
+    </span>
+{% elif status == 'ACCEPTED' %}
+    <span class="badge bg-info">
+        <i class="fas fa-check-circle"></i> {% trans "Acceptée" %}
+    </span>
+{% elif status == 'COLLECTING' %}
+    <span class="badge bg-primary">
+        <i class="fas fa-boxes"></i> {% trans "En collecte" %}
+    </span>
+{% elif status == 'IN_TRANSIT' %}
+    <span class="badge bg-primary">
+        <i class="fas fa-truck-moving"></i> {% trans "En transit" %}
+    </span>
+{% elif status == 'DELIVERING' %}
+    <span class="badge bg-info">
+        <i class="fas fa-truck-loading"></i> {% trans "En livraison" %}
+    </span>
+{% elif status == 'DELIVERED' %}
+    <span class="badge bg-success">
+        <i class="fas fa-check"></i> {% trans "Livrée" %}
+    </span>
+{% elif status == 'CANCELLED' %}
+    <span class="badge bg-secondary">
+        <i class="fas fa-times"></i> {% trans "Annulée" %}
+    </span>
+{% elif status == 'PROBLEM' %}
+    <span class="badge bg-danger">
+        <i class="fas fa-exclamation-triangle"></i> {% trans "Problème" %}
+    </span>
+{% endif %}

@@ -1,0 +1,855 @@
+{% extends "carriers/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Formulaire douanier" %} - {{ document.customs_type }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+        .print-only {
+            display: block !important;
+        }
+        body {
+            font-size: 12pt;
+            line-height: 1.5;
+        }
+        .form-section {
+            page-break-inside: avoid;
+        }
+        .header {
+            position: fixed;
+            top: 0;
+            width: 100%;
+        }
+        .footer {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+        }
+    }
+
+    .print-only {
+        display: none;
+    }
+
+    .customs-form {
+        background-color: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 2rem;
+        max-width: 210mm;
+        margin: 0 auto;
+    }
+
+    .form-header {
+        border-bottom: 2px solid #000;
+        padding-bottom: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .form-title {
+        text-transform: uppercase;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+
+    .form-section {
+        margin-bottom: 2rem;
+        padding: 1rem;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        background-color: #f8f9fa;
+    }
+
+    .form-row {
+        display: flex;
+        margin-bottom: 0.5rem;
+        page-break-inside: avoid;
+    }
+
+    .form-label {
+        flex: 0 0 40%;
+        font-weight: bold;
+        padding-right: 1rem;
+    }
+
+    .form-value {
+        flex: 1;
+        border-bottom: 1px solid #dee2e6;
+        min-height: 1.5em;
+    }
+
+    .signature-box {
+        height: 100px;
+        border: 1px solid #000;
+        margin-top: 2rem;
+    }
+
+    .stamp-area {
+        height: 80px;
+        border: 1px dashed #ccc;
+        margin-top: 1rem;
+        text-align: center;
+        line-height: 80px;
+        color: #666;
+    }
+
+    .watermark {
+        position: absolute;
+        opacity: 0.1;
+        font-size: 120px;
+        transform: rotate(-45deg);
+        pointer-events: none;
+        z-index: -1;
+    }
+
+    .official-seal {
+        border: 2px solid red;
+        border-radius: 50%;
+        width: 100px;
+        height: 100px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+        font-weight: bold;
+        color: red;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <!-- En-tête d'impression -->
+            <div class="print-only text-center mb-4">
+                <div class="official-seal mb-2">
+                    {% trans "OFFICIEL" %}
+                </div>
+                <h1>{% trans "FORMULAIRE DOUANIER" %}</h1>
+                <p class="text-muted">{% trans "Document généré le" %} {{ generated_date|date:"d/m/Y H:i" }}</p>
+                <hr>
+            </div>
+
+            <!-- Barre d'outils -->
+            <div class="card mb-4 no-print">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <nav aria-label="breadcrumb">
+                            <ol class="breadcrumb mb-0">
+                                <li class="breadcrumb-item">
+                                    <a href="{% url 'carriers:dashboard' %}">{% trans "Tableau de bord" %}</a>
+                                </li>
+                                <li class="breadcrumb-item">
+                                    <a href="{% url 'carriers:documents' %}">{% trans "Documents" %}</a>
+                                </li>
+                                <li class="breadcrumb-item active">{% trans "Formulaire douanier" %}</li>
+                            </ol>
+                        </nav>
+
+                        <div class="btn-group">
+                            <button class="btn btn-primary" onclick="window.print()">
+                                <i class="fas fa-print"></i> {% trans "Imprimer" %}
+                            </button>
+                            <button class="btn btn-success" onclick="downloadPDF()">
+                                <i class="fas fa-download"></i> {% trans "PDF" %}
+                            </button>
+                            <button class="btn btn-info" onclick="saveTemplate()">
+                                <i class="fas fa-save"></i> {% trans "Sauvegarder" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Aperçu du formulaire -->
+            <div class="card no-print">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-file-contract"></i> {% trans "Aperçu du formulaire douanier" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <div class="d-flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-info-circle fa-2x"></i>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h5 class="alert-heading">{% trans "Instructions" %}</h5>
+                                <ul class="mb-0">
+                                    <li>{% trans "Ce formulaire a été généré à partir de vos informations." %}</li>
+                                    <li>{% trans "Vérifiez toutes les informations avant impression." %}</li>
+                                    <li>{% trans "Les champs en rouge sont obligatoires à remplir à la main." %}</li>
+                                    <li>{% trans "Signez et datez le formulaire avant soumission." %}</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Watermark -->
+            <div class="watermark print-only" style="top: 30%; left: 10%;">
+                {% trans "COPIE" %}
+            </div>
+            <div class="watermark print-only" style="top: 60%; left: 60%;">
+                {% trans "DOUANE" %}
+            </div>
+
+            <!-- Formulaire douanier -->
+            <div class="customs-form">
+                <!-- En-tête du formulaire -->
+                <div class="form-header">
+                    <div class="text-center mb-3">
+                        <h1 class="form-title">{% trans "DÉCLARATION DOUANIÈRE" %}</h1>
+                        <p class="mb-0">
+                            <strong>{% trans "Type" %}:</strong> {{ customs_form.type }}<br>
+                            <strong>{% trans "Pays" %}:</strong> {{ customs_form.country.name }}<br>
+                            <strong>{% trans "Référence" %}:</strong> FORM-{{ document.pk|stringformat:"06d" }}-{{ generated_date|date:"Ymd" }}
+                        </p>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-row">
+                                <div class="form-label">{% trans "Date de génération" %}:</div>
+                                <div class="form-value">{{ generated_date|date:"d/m/Y" }}</div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-label">{% trans "Numéro de formulaire" %}:</div>
+                                <div class="form-value">{{ document.pk|stringformat:"06d" }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-row">
+                                <div class="form-label">{% trans "Code douanier" %}:</div>
+                                <div class="form-value" style="color: red;">{% trans "À compléter" %}</div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-label">{% trans "Bureau de douane" %}:</div>
+                                <div class="form-value" style="color: red;">{% trans "À compléter" %}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 1 : Informations du transporteur -->
+                <div class="form-section">
+                    <h3 class="border-bottom pb-2 mb-3">1. {% trans "INFORMATIONS DU TRANSPORTEUR" %}</h3>
+
+                    <div class="form-row">
+                        <div class="form-label">{% trans "Nom / Raison sociale" %}:</div>
+                        <div class="form-value">
+                            {% if carrier.company_name %}
+                                {{ carrier.company_name }}
+                            {% else %}
+                                {{ carrier.user.get_full_name }}
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-label">{% trans "Adresse" %}:</div>
+                        <div class="form-value">
+                            {% if carrier.company_address %}
+                                {{ carrier.company_address }}
+                            {% else %}
+                                {{ carrier.user.address|default:"-" }}
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-row">
+                                <div class="form-label">{% trans "Téléphone" %}:</div>
+                                <div class="form-value">{{ carrier.user.phone|default:"-" }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-row">
+                                <div class="form-label">{% trans "Email" %}:</div>
+                                <div class="form-value">{{ carrier.user.email }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-row">
+                                <div class="form-label">{% trans "Numéro fiscal/TVA" %}:</div>
+                                <div class="form-value">{{ carrier.tax_id|default:"-" }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-row">
+                                <div class="form-label">{% trans "N° d'immatriculation" %}:</div>
+                                <div class="form-value">{{ carrier.company_registration|default:carrier.vehicle_registration|default:"-" }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-label">{% trans "Type de transporteur" %}:</div>
+                        <div class="form-value">{{ carrier.get_carrier_type_display }}</div>
+                    </div>
+                </div>
+
+                <!-- Section 2 : Informations du véhicule -->
+                <div class="form-section">
+                    <h3 class="border-bottom pb-2 mb-3">2. {% trans "INFORMATIONS DU VÉHICULE" %}</h3>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-row">
+                                <div class="form-label">{% trans "Type de véhicule" %}:</div>
+                                <div class="form-value">{{ carrier.get_vehicle_type_display }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-row">
+                                <div class="form-label">{% trans "Plaque d'immatriculation" %}:</div>
+                                <div class="form-value">{{ carrier.vehicle_registration|default:"-" }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-row">
+                                <div class="form-label">{% trans "Marque" %}:</div>
+                                <div class="form-value">{{ carrier.vehicle_make|default:"-" }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-row">
+                                <div class="form-label">{% trans "Modèle" %}:</div>
+                                <div class="form-value">{{ carrier.vehicle_model|default:"-" }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-row">
+                                <div class="form-label">{% trans "Année" %}:</div>
+                                <div class="form-value">{{ carrier.vehicle_year|default:"-" }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="form-row">
+                                <div class="form-label">{% trans "Poids max" %}:</div>
+                                <div class="form-value">{{ carrier.max_weight }} kg</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-row">
+                                <div class="form-label">{% trans "Volume max" %}:</div>
+                                <div class="form-value">{{ carrier.max_volume }} m³</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-row">
+                                <div class="form-label">{% trans "N° d'assurance" %}:</div>
+                                <div class="form-value" style="color: red;">{% trans "À compléter" %}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 3 : Informations de la marchandise -->
+                <div class="form-section">
+                    <h3 class="border-bottom pb-2 mb-3">3. {% trans "INFORMATIONS DE LA MARCHANDISE" %}</h3>
+
+                    <!-- Données de déclaration personnalisées -->
+                    {% if customs_form.data %}
+                        {% for key, value in customs_form.data.items %}
+                            <div class="form-row">
+                                <div class="form-label">{{ key|title }}:</div>
+                                <div class="form-value">{{ value|default:"-" }}</div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            {% trans "Aucune donnée de déclaration spécifiée." %}
+                        </div>
+                    {% endif %}
+
+                    <!-- Champs standards -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-row">
+                                <div class="form-label">{% trans "Nature de la marchandise" %}:</div>
+                                <div class="form-value" style="color: red;">{% trans "À compléter" %}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-row">
+                                <div class="form-label">{% trans "Quantité" %}:</div>
+                                <div class="form-value" style="color: red;">{% trans "À compléter" %}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-row">
+                                <div class="form-label">{% trans "Poids brut" %}:</div>
+                                <div class="form-value" style="color: red;">{% trans "À compléter" %} kg</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-row">
+                                <div class="form-label">{% trans "Valeur" %}:</div>
+                                <div class="form-value" style="color: red;">{% trans "À compléter" %} €</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-label">{% trans "Description détaillée" %}:</div>
+                        <div class="form-value" style="min-height: 60px; color: red;">
+                            {% trans "À compléter - Décrire précisément la marchandise" %}
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-label">{% trans "Code SH" %}:</div>
+                        <div class="form-value" style="color: red;">{% trans "À compléter" %}</div>
+                    </div>
+                </div>
+
+                <!-- Section 4 : Itinéraire et dates -->
+                <div class="form-section">
+                    <h3 class="border-bottom pb-2 mb-3">4. {% trans "ITINÉRAIRE ET DATES" %}</h3>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-row">
+                                <div class="form-label">{% trans "Point de départ" %}:</div>
+                                <div class="form-value" style="color: red;">{% trans "À compléter" %}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-row">
+                                <div class="form-label">{% trans "Point d'arrivée" %}:</div>
+                                <div class="form-value" style="color: red;">{% trans "À compléter" %}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-row">
+                                <div class="form-label">{% trans "Date de départ" %}:</div>
+                                <div class="form-value" style="color: red;">{% trans "À compléter" %}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-row">
+                                <div class="form-label">{% trans "Date d'arrivée estimée" %}:</div>
+                                <div class="form-value" style="color: red;">{% trans "À compléter" %}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-label">{% trans "Itinéraire prévu" %}:</div>
+                        <div class="form-value" style="min-height: 40px; color: red;">
+                            {% trans "À compléter - Indiquer les villes et pays traversés" %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 5 : Documents joints -->
+                <div class="form-section">
+                    <h3 class="border-bottom pb-2 mb-3">5. {% trans "DOCUMENTS JOINTS" %}</h3>
+
+                    <div class="form-row">
+                        <div class="form-label">{% trans "Facture commerciale" %}:</div>
+                        <div class="form-value">{% trans "Oui" %} / {% trans "Non" %} <span style="color: red;">{% trans "(Cocher)" %}</span></div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-label">{% trans "Liste de colisage" %}:</div>
+                        <div class="form-value">{% trans "Oui" %} / {% trans "Non" %} <span style="color: red;">{% trans "(Cocher)" %}</span></div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-label">{% trans "Certificat d'origine" %}:</div>
+                        <div class="form-value">{% trans "Oui" %} / {% trans "Non" %} <span style="color: red;">{% trans "(Cocher)" %}</span></div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-label">{% trans "Certificat sanitaire" %}:</div>
+                        <div class="form-value">{% trans "Oui" %} / {% trans "Non" %} <span style="color: red;">{% trans "(Cocher)" %}</span></div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-label">{% trans "Autres documents" %}:</div>
+                        <div class="form-value" style="min-height: 40px; color: red;">
+                            {% trans "À compléter - Précisez les documents joints" %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 6 : Déclarations et signatures -->
+                <div class="form-section">
+                    <h3 class="border-bottom pb-2 mb-3">6. {% trans "DÉCLARATIONS ET SIGNATURES" %}</h3>
+
+                    <div class="alert alert-light border mb-3">
+                        <p class="mb-2">
+                            <strong>{% trans "DÉCLARATION DU TRANSPORTEUR" %}</strong>
+                        </p>
+                        <p class="mb-0">
+                            {% trans "Je soussigné, déclare que les informations fournies dans ce formulaire sont exactes et complètes." %}
+                            {% trans "Je m'engage à respecter les réglementations douanières en vigueur." %}
+                            {% trans "J'accepte les vérifications douanières nécessaires." %}
+                        </p>
+                    </div>
+
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <div class="signature-box">
+                                <div class="text-center" style="margin-top: 70px;">
+                                    <small>{% trans "Signature et cachet du transporteur" %}</small>
+                                </div>
+                            </div>
+                            <div class="form-row mt-2">
+                                <div class="form-label">{% trans "Date" %}:</div>
+                                <div class="form-value" style="color: red;">{% trans "À compléter" %}</div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="stamp-area">
+                                {% trans "EMPLACEMENT DU TIMBRE DOUANIER" %}
+                            </div>
+                            <div class="form-row mt-2">
+                                <div class="form-label">{% trans "Référence douane" %}:</div>
+                                <div class="form-value" style="color: red;">{% trans "À compléter par la douane" %}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mt-4">
+                        <div class="col-md-12">
+                            <div class="stamp-area" style="height: 120px;">
+                                {% trans "EMPLACEMENT POUR LES OBSERVATIONS DOUANIÈRES" %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pied de page -->
+                <div class="mt-4 pt-3 border-top">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <small class="text-muted">
+                                <strong>{% trans "Formulaire généré par" %}:</strong> Ebi3 Transporteurs<br>
+                                <strong>{% trans "ID Document" %}:</strong> {{ document.pk }}<br>
+                                <strong>{% trans "Version" %}:</strong> 1.0
+                            </small>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <small class="text-muted">
+                                {% trans "Conserver ce document pendant 5 ans" %}<br>
+                                {% trans "Ne pas plier, écrire ou tamponner sur les zones de lecture automatique" %}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Outils d'édition -->
+            <div class="card mt-4 no-print">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-edit"></i> {% trans "Éditer les données du formulaire" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="customsDataForm">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="customsType" class="form-label">{% trans "Type de formulaire" %}</label>
+                                    <input type="text" class="form-control" id="customsType"
+                                           name="customs_type" value="{{ document.customs_type|default:'' }}" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="customsCountry" class="form-label">{% trans "Pays concerné" %}</label>
+                                    <select class="form-control" id="customsCountry" name="customs_country">
+                                        {% for country in countries %}
+                                            <option value="{{ country.code }}"
+                                                    {% if country.code == document.customs_country %}selected{% endif %}>
+                                                {{ country.name }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label class="form-label">{% trans "Données de déclaration" %}</label>
+                            <div id="declarationFields">
+                                {% if document.declaration_data %}
+                                    {% for key, value in document.declaration_data.items %}
+                                        <div class="row mb-2">
+                                            <div class="col-md-5">
+                                                <input type="text" class="form-control"
+                                                       name="declaration_keys[]"
+                                                       value="{{ key }}"
+                                                       placeholder="{% trans 'Nom du champ' %}">
+                                            </div>
+                                            <div class="col-md-5">
+                                                <input type="text" class="form-control"
+                                                       name="declaration_values[]"
+                                                       value="{{ value }}"
+                                                       placeholder="{% trans 'Valeur' %}">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <button type="button" class="btn btn-danger btn-sm w-100"
+                                                        onclick="removeField(this)">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="row mb-2">
+                                        <div class="col-md-5">
+                                            <input type="text" class="form-control"
+                                                   name="declaration_keys[]"
+                                                   placeholder="{% trans 'Nom du champ' %}">
+                                        </div>
+                                        <div class="col-md-5">
+                                            <input type="text" class="form-control"
+                                                   name="declaration_values[]"
+                                                   placeholder="{% trans 'Valeur' %}">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <button type="button" class="btn btn-danger btn-sm w-100"
+                                                    onclick="removeField(this)" disabled>
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <button type="button" class="btn btn-sm btn-outline-primary mt-2"
+                                    onclick="addDeclarationField()">
+                                <i class="fas fa-plus"></i> {% trans "Ajouter un champ" %}
+                            </button>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label for="customsNotes" class="form-label">{% trans "Notes" %}</label>
+                            <textarea class="form-control" id="customsNotes" name="notes" rows="3">{{ document.verification_notes|default:'' }}</textarea>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'carriers:documents' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> {% trans "Retour aux documents" %}
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> {% trans "Enregistrer les modifications" %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Télécharger en PDF
+function downloadPDF() {
+    // Simuler la génération de PDF
+    alert('{% trans "Génération du PDF en cours..." %}');
+
+    // Dans une implémentation réelle, vous appelleriez une API pour générer le PDF
+    // window.location.href = `/documents/${ {{ document.pk }} }/generate-pdf/`;
+
+    // Pour le moment, on simule avec un timeout
+    setTimeout(() => {
+        alert('{% trans "PDF généré avec succès !" %}');
+    }, 1000);
+}
+
+// Sauvegarder comme template
+function saveTemplate() {
+    const templateName = prompt('{% trans "Nom du template" %}:', '{{ document.customs_type|default:"Mon template" }}');
+
+    if (templateName) {
+        fetch('/api/save-customs-template/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                document_id: {{ document.pk }},
+                name: templateName,
+                data: {{ document.declaration_data|safe|default:"{}" }}
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('{% trans "Template sauvegardé avec succès !" %}');
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        });
+    }
+}
+
+// Ajouter un champ de déclaration
+function addDeclarationField() {
+    const fieldsContainer = $('#declarationFields');
+    const newField = `
+        <div class="row mb-2">
+            <div class="col-md-5">
+                <input type="text" class="form-control"
+                       name="declaration_keys[]"
+                       placeholder="{% trans 'Nom du champ' %}">
+            </div>
+            <div class="col-md-5">
+                <input type="text" class="form-control"
+                       name="declaration_values[]"
+                       placeholder="{% trans 'Valeur' %}">
+            </div>
+            <div class="col-md-2">
+                <button type="button" class="btn btn-danger btn-sm w-100"
+                        onclick="removeField(this)">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    fieldsContainer.append(newField);
+}
+
+// Supprimer un champ de déclaration
+function removeField(button) {
+    $(button).closest('.row').remove();
+}
+
+// Sauvegarder les données modifiées
+$('#customsDataForm').submit(function(e) {
+    e.preventDefault();
+
+    const formData = new FormData(this);
+
+    fetch(`/documents/{{ document.pk }}/update-customs-data/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('{% trans "Données mises à jour avec succès !" %}');
+            location.reload();
+        } else {
+            alert('Erreur: ' + data.error);
+        }
+    });
+});
+
+// Configurer l'impression
+$(document).ready(function() {
+    // Ajouter un événement avant impression
+    window.addEventListener('beforeprint', function() {
+        // Vous pouvez ajouter des modifications avant impression ici
+        console.log('Avant impression...');
+    });
+
+    window.addEventListener('afterprint', function() {
+        console.log('Après impression...');
+    });
+
+    // Initialiser les pays si nécessaire
+    if ($('#customsCountry option').length === 0) {
+        // Charger la liste des pays
+        const countries = [
+            {code: 'FR', name: 'France'},
+            {code: 'DE', name: 'Allemagne'},
+            {code: 'ES', name: 'Espagne'},
+            {code: 'IT', name: 'Italie'},
+            {code: 'BE', name: 'Belgique'},
+            {code: 'NL', name: 'Pays-Bas'},
+            {code: 'UK', name: 'Royaume-Uni'},
+            {code: 'CH', name: 'Suisse'},
+            {code: 'US', name: 'États-Unis'},
+            {code: 'CA', name: 'Canada'},
+            {code: 'MA', name: 'Maroc'},
+            {code: 'TN', name: 'Tunisie'},
+            {code: 'DZ', name: 'Algérie'},
+            {code: 'SN', name: 'Sénégal'},
+            {code: 'CI', name: 'Côte d\'Ivoire'},
+        ];
+
+        countries.forEach(country => {
+            $('#customsCountry').append(
+                `<option value="${country.code}">${country.name}</option>`
+            );
+        });
+
+        // Sélectionner le pays du document si disponible
+        {% if document.customs_country %}
+            $('#customsCountry').val('{{ document.customs_country }}');
+        {% endif %}
+    }
+});
+
+// Fonction pour remplir automatiquement certains champs
+function autoFillFields() {
+    // Remplir la date du jour
+    const today = new Date().toISOString().split('T')[0];
+    $('.form-value[style*="color: red"]').each(function() {
+        const label = $(this).prev('.form-label').text().toLowerCase();
+
+        if (label.includes('date') && !label.includes('arrivée')) {
+            $(this).text(today.split('-').reverse().join('/'));
+            $(this).css('color', 'black');
+        }
+
+        // Autres remplissages automatiques possibles
+        if (label.includes('poids')) {
+            $(this).text('{% trans "À estimer" %}');
+            $(this).css('color', 'black');
+        }
+    });
+}
+
+// Optionnel : ajouter un bouton pour remplir automatiquement
+if ($('.no-print').length > 0) {
+    $('.no-print').first().append(`
+        <div class="mt-3">
+            <button class="btn btn-outline-warning" onclick="autoFillFields()">
+                <i class="fas fa-magic"></i> {% trans "Remplir automatiquement" %}
+            </button>
+        </div>
+    `);
+}
+</script>
+{% endblock %}

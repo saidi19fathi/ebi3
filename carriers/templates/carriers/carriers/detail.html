@@ -1,0 +1,553 @@
+{% extends "carriers/base.html" %}
+{% load i18n %}
+
+{% block title %}{{ mission.mission_number }} - {% trans "Détail de la mission" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'carriers:dashboard' %}">{% trans "Tableau de bord" %}</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'carriers:mission_list' %}">{% trans "Missions" %}</a></li>
+                    <li class="breadcrumb-item active">{{ mission.mission_number }}</li>
+                </ol>
+            </nav>
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>{% trans "Mission" %} {{ mission.mission_number }}</h1>
+                <div>
+                    <span class="badge bg-{{ mission.get_status_color }} fs-6">
+                        {{ mission.get_status_display }}
+                    </span>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Colonne de gauche -->
+                <div class="col-md-8">
+                    <!-- Informations générales -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-info-circle"></i> {% trans "Informations générales" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <table class="table table-sm">
+                                        <tbody>
+                                            <tr>
+                                                <th width="40%">{% trans "Numéro" %}</th>
+                                                <td>{{ mission.mission_number }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>{% trans "Priorité" %}</th>
+                                                <td>
+                                                    <span class="badge bg-{{ mission.get_priority_color }}">
+                                                        {{ mission.get_priority_display }}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th>{% trans "Date création" %}</th>
+                                                <td>{{ mission.created_at|date:"d/m/Y H:i" }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>{% trans "Date acceptation" %}</th>
+                                                <td>
+                                                    {% if mission.accepted_at %}
+                                                        {{ mission.accepted_at|date:"d/m/Y H:i" }}
+                                                    {% else %}
+                                                        <span class="text-muted">{% trans "En attente" %}</span>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="col-md-6">
+                                    <table class="table table-sm">
+                                        <tbody>
+                                            <tr>
+                                                <th width="40%">{% trans "Statut" %}</th>
+                                                <td>
+                                                    <form method="post" action="{% url 'carriers:update_mission_status' mission.pk %}"
+                                                          class="d-inline">
+                                                        {% csrf_token %}
+                                                        <div class="input-group input-group-sm">
+                                                            {{ status_form.status }}
+                                                            <button type="submit" class="btn btn-outline-primary">
+                                                                <i class="fas fa-sync-alt"></i>
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th>{% trans "Prix convenu" %}</th>
+                                                <td>{{ mission.agreed_price }} {{ mission.currency }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>{% trans "Date collecte prévue" %}</th>
+                                                <td>{{ mission.preferred_pickup_date|date:"d/m/Y" }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>{% trans "Date livraison prévue" %}</th>
+                                                <td>{{ mission.preferred_delivery_date|date:"d/m/Y" }}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Marchandise -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-box"></i> {% trans "Marchandise" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <table class="table table-sm">
+                                        <tbody>
+                                            <tr>
+                                                <th width="40%">{% trans "Type" %}</th>
+                                                <td>
+                                                    {% if mission.merchandise_type == 'CUSTOM' %}
+                                                        {{ mission.custom_merchandise_type }}
+                                                    {% else %}
+                                                        {{ mission.get_merchandise_type_display }}
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th>{% trans "Description" %}</th>
+                                                <td>{{ mission.description|default:"-"|linebreaks }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>{% trans "Caractéristiques" %}</th>
+                                                <td>
+                                                    {% if mission.is_fragile %}
+                                                        <span class="badge bg-warning me-1">{% trans "Fragile" %}</span>
+                                                    {% endif %}
+                                                    {% if mission.requires_special_handling %}
+                                                        <span class="badge bg-info">{% trans "Manipulation spéciale" %}</span>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="col-md-6">
+                                    <table class="table table-sm">
+                                        <tbody>
+                                            <tr>
+                                                <th width="40%">{% trans "Poids" %}</th>
+                                                <td>{{ mission.weight }} kg</td>
+                                            </tr>
+                                            <tr>
+                                                <th>{% trans "Dimensions" %}</th>
+                                                <td>{{ mission.length }} × {{ mission.width }} × {{ mission.height }} m</td>
+                                            </tr>
+                                            <tr>
+                                                <th>{% trans "Volume" %}</th>
+                                                <td>{{ mission.volume|floatformat:3 }} m³</td>
+                                            </tr>
+                                            <tr>
+                                                <th>{% trans "Organisation" %}</th>
+                                                <td>
+                                                    {% if mission.collection_order > 0 %}
+                                                        {% trans "Ordre" %}: {{ mission.collection_order }}<br>
+                                                        {% trans "Position" %}: {{ mission.position_in_vehicle|default:"-" }}
+                                                    {% else %}
+                                                        <span class="text-muted">{% trans "Non organisé" %}</span>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Adresses -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-user"></i> {% trans "Expéditeur" %}
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <h6>{{ mission.sender.get_full_name }}</h6>
+                                    <p class="mb-1">
+                                        <i class="fas fa-phone"></i> {{ mission.sender_phone }}
+                                    </p>
+                                    <p class="mb-0 text-muted small">
+                                        <i class="fas fa-map-marker-alt"></i>
+                                        {{ mission.sender_address|linebreaks }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-user-tag"></i> {% trans "Destinataire" %}
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <h6>{{ mission.recipient_name }}</h6>
+                                    <p class="mb-1">
+                                        <i class="fas fa-phone"></i> {{ mission.recipient_phone }}
+                                    </p>
+                                    <p class="mb-0 text-muted small">
+                                        <i class="fas fa-map-marker-alt"></i>
+                                        {{ mission.recipient_address|linebreaks }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Colonne de droite -->
+                <div class="col-md-4">
+                    <!-- Actions -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-cogs"></i> {% trans "Actions" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% if mission.status == 'PENDING' %}
+                                <div class="d-grid gap-2 mb-3">
+                                    <button type="button" class="btn btn-success"
+                                            data-bs-toggle="modal" data-bs-target="#acceptModal">
+                                        <i class="fas fa-check"></i> {% trans "Accepter la mission" %}
+                                    </button>
+                                    <button type="button" class="btn btn-danger"
+                                            data-bs-toggle="modal" data-bs-target="#rejectModal">
+                                        <i class="fas fa-times"></i> {% trans "Refuser la mission" %}
+                                    </button>
+                                </div>
+                            {% endif %}
+
+                            {% if mission.status == 'DELIVERING' %}
+                                <div class="d-grid gap-2 mb-3">
+                                    <button type="button" class="btn btn-success"
+                                            data-bs-toggle="modal" data-bs-target="#deliveryModal">
+                                        <i class="fas fa-box-open"></i> {% trans "Confirmer la livraison" %}
+                                    </button>
+                                </div>
+                            {% endif %}
+
+                            <div class="d-grid gap-2">
+                                <a href="#" class="btn btn-outline-primary">
+                                    <i class="fas fa-route"></i> {% trans "Itinéraire" %}
+                                </a>
+                                <a href="#" class="btn btn-outline-info"
+                                   onclick="updateLocation()">
+                                    <i class="fas fa-map-marker-alt"></i> {% trans "Mettre à jour position" %}
+                                </a>
+                                <a href="#" class="btn btn-outline-secondary">
+                                    <i class="fas fa-comment"></i> {% trans "Contacter" %}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Preuve de livraison -->
+                    {% if mission.delivery_proof_photo or mission.recipient_signature %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-check-circle"></i> {% trans "Preuve de livraison" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% if mission.delivery_proof_photo %}
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Photo" %}</label>
+                                    <img src="{{ mission.delivery_proof_photo.url }}"
+                                         alt="Preuve de livraison"
+                                         class="img-thumbnail w-100">
+                                </div>
+                            {% endif %}
+
+                            {% if mission.recipient_signature %}
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Signature" %}</label>
+                                    <img src="{{ mission.recipient_signature.url }}"
+                                         alt="Signature"
+                                         class="img-thumbnail w-100">
+                                </div>
+                            {% endif %}
+
+                            {% if mission.delivery_notes %}
+                                <div>
+                                    <label class="form-label">{% trans "Notes" %}</label>
+                                    <p class="mb-0">{{ mission.delivery_notes|linebreaks }}</p>
+                                </div>
+                            {% endif %}
+
+                            <p class="text-muted small mt-3 mb-0">
+                                <i class="fas fa-calendar"></i>
+                                {% trans "Livré le" %} {{ mission.actual_delivery_date|date:"d/m/Y H:i" }}
+                            </p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Suivi -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-map-marked-alt"></i> {% trans "Suivi" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% if mission.current_location %}
+                                <div id="map" class="map-container mb-3"></div>
+                                <p class="small text-muted mb-0">
+                                    <i class="fas fa-clock"></i>
+                                    {% trans "Dernière mise à jour" %}:
+                                    {{ mission.last_location_update|date:"H:i" }}
+                                </p>
+                            {% else %}
+                                <p class="text-muted">{% trans "Aucune position enregistrée" %}</p>
+                                <button class="btn btn-sm btn-outline-primary" onclick="updateLocation()">
+                                    <i class="fas fa-map-marker-alt"></i> {% trans "Mettre à jour" %}
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Transactions -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-euro-sign"></i> {% trans "Transactions" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% if transactions %}
+                                {% for transaction in transactions %}
+                                    <div class="border-bottom pb-2 mb-2">
+                                        <div class="d-flex justify-content-between">
+                                            <strong>{{ transaction.get_transaction_type_display }}</strong>
+                                            <span>{{ transaction.amount }} {{ transaction.currency }}</span>
+                                        </div>
+                                        <small class="text-muted">
+                                            {{ transaction.transaction_date|date:"d/m/Y H:i" }}
+                                        </small>
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-muted mb-0">{% trans "Aucune transaction" %}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals -->
+{% if mission.status == 'PENDING' %}
+<!-- Modal d'acceptation -->
+<div class="modal fade" id="acceptModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'carriers:mission_accept' mission.pk %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Accepter la mission" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>{% trans "Voulez-vous accepter la mission" %} <strong>{{ mission.mission_number }}</strong> ?</p>
+                    <input type="hidden" name="accept" value="true">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "Annuler" %}
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check"></i> {% trans "Accepter" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de refus -->
+<div class="modal fade" id="rejectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'carriers:mission_accept' mission.pk %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Refuser la mission" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>{% trans "Pourquoi refusez-vous la mission" %} <strong>{{ mission.mission_number }}</strong> ?</p>
+                    <input type="hidden" name="accept" value="false">
+                    <div class="form-group">
+                        <label for="rejection_reason" class="form-label">
+                            {% trans "Raison du refus (optionnel)" %}
+                        </label>
+                        <textarea name="rejection_reason" class="form-control" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "Annuler" %}
+                    </button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-times"></i> {% trans "Refuser" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if mission.status == 'DELIVERING' %}
+<!-- Modal de livraison -->
+<div class="modal fade" id="deliveryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'carriers:upload_delivery_proof' mission.pk %}"
+                  enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Confirmer la livraison" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>{% trans "Confirmez la livraison de la mission" %} <strong>{{ mission.mission_number }}</strong></p>
+
+                    <div class="mb-3">
+                        <label for="delivery_proof_photo" class="form-label">
+                            <i class="fas fa-camera"></i> {% trans "Photo preuve de livraison" %}
+                        </label>
+                        <input type="file" class="form-control"
+                               name="delivery_proof_photo"
+                               id="delivery_proof_photo"
+                               accept="image/*" capture="environment">
+                        <small class="text-muted">{% trans "Prenez une photo du colis livré" %}</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="recipient_signature" class="form-label">
+                            <i class="fas fa-signature"></i> {% trans "Signature du destinataire" %}
+                        </label>
+                        <input type="file" class="form-control"
+                               name="recipient_signature"
+                               id="recipient_signature"
+                               accept="image/*">
+                        <small class="text-muted">{% trans "Photo de la signature" %}</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="delivery_notes" class="form-label">
+                            <i class="fas fa-sticky-note"></i> {% trans "Notes de livraison" %}
+                        </label>
+                        <textarea name="delivery_notes" class="form-control"
+                                  id="delivery_notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "Annuler" %}
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check"></i> {% trans "Confirmer la livraison" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Mettre à jour la localisation
+function updateLocation() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+
+            // Envoyer la position au serveur
+            fetch("{% url 'carriers:api_mission_update_location' mission.pk %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({lat: lat, lng: lng})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Position mise à jour avec succès !');
+                    location.reload();
+                }
+            });
+        });
+    } else {
+        alert('La géolocalisation n\'est pas supportée par votre navigateur.');
+    }
+}
+
+// Initialiser la carte
+{% if mission.current_location %}
+function initMap() {
+    const coordinates = {{ mission.current_location.coords }};
+    const map = L.map('map').setView([coordinates[1], coordinates[0]], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    L.marker([coordinates[1], coordinates[0]]).addTo(map)
+        .bindPopup('{% trans "Dernière position enregistrée" %}')
+        .openPopup();
+}
+
+// Charger Leaflet JS et CSS
+if (!window.L) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://unpkg.com/leaflet@1.7.1/dist/leaflet.css';
+    document.head.appendChild(link);
+
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/leaflet@1.7.1/dist/leaflet.js';
+    script.onload = initMap;
+    document.head.appendChild(script);
+} else {
+    initMap();
+}
+{% endif %}
+</script>
+{% endblock %}

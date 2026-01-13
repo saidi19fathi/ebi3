@@ -11,7 +11,7 @@ def site_settings(request):
         'SITE_URL': SiteSetting.get_setting('site_url', 'https://ebi3.org'),
         'CONTACT_EMAIL': SiteSetting.get_setting('contact_email', 'contact@ebi3.org'),
         'SUPPORT_EMAIL': SiteSetting.get_setting('support_email', 'support@ebi3.org'),
-        'PHONE_NUMBER': SiteSetting.get_setting('phone_number', '+33 1 23 45 67 89'),
+        'PHONE_NUMBER': SiteSetting.get_setting('phone', '+33 1 23 45 67 89'),
         'ADDRESS': SiteSetting.get_setting('address', 'Mulhouse, France'),
         'FACEBOOK_URL': SiteSetting.get_setting('facebook_url', '#'),
         'TWITTER_URL': SiteSetting.get_setting('twitter_url', '#'),

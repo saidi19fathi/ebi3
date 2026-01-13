@@ -20,29 +20,15 @@ class TwoFactorAuthMiddleware:
         self.get_response = get_response
         self.config = getattr(settings, 'TWO_FACTOR_MIDDLEWARE_CONFIG', {})
 
-        # Routes exemptées de la 2FA
-        self.exempt_paths = [
-            reverse('users:login'),
-            reverse('users:logout'),
-            reverse('users:register'),
-            reverse('core:home'),
-            '/static/',
-            '/media/',
-            '/admin/login/',
-            '/admin/jsi18n/',
-            '/favicon.ico',
-            '/robots.txt',
-        ]
-
-        # Ajouter payment_webhook seulement si l'URL existe
-        try:
-            self.exempt_paths.append(reverse('payments:payment_webhook'))
-        except NoReverseMatch:
-            logger.warning("URL 'payments:payment_webhook' not found, skipping from 2FA exemptions")
-            pass
+        # Routes exemptées de la 2FA - initialiser comme liste vide
+        self.exempt_paths = []
 
     def __call__(self, request):
         """Méthode principale du middleware pour Django 6.0+"""
+        # Initialiser les paths exemptés si ce n'est pas encore fait
+        if not self.exempt_paths:
+            self._initialize_exempt_paths()
+
         # Appeler process_request pour la logique 2FA
         response = self.process_request(request)
 
@@ -53,6 +39,50 @@ class TwoFactorAuthMiddleware:
         # Sinon, continuer avec le middleware suivant
         response = self.get_response(request)
         return response
+
+    def _initialize_exempt_paths(self):
+        """Initialiser les chemins exemptés - appelé lors de la première requête"""
+        # Chemins fixes
+        self.exempt_paths = [
+            '/static/',
+            '/media/',
+            '/admin/login/',
+            '/admin/jsi18n/',
+            '/favicon.ico',
+            '/robots.txt',
+        ]
+
+        # Ajouter les URLs dynamiques
+        try:
+            self.exempt_paths.append(reverse('users:login'))
+        except NoReverseMatch:
+            logger.warning("URL 'users:login' not found, skipping from 2FA exemptions")
+            pass
+
+        try:
+            self.exempt_paths.append(reverse('users:logout'))
+        except NoReverseMatch:
+            logger.warning("URL 'users:logout' not found, skipping from 2FA exemptions")
+            pass
+
+        try:
+            self.exempt_paths.append(reverse('users:register'))
+        except NoReverseMatch:
+            logger.warning("URL 'users:register' not found, skipping from 2FA exemptions")
+            pass
+
+        try:
+            self.exempt_paths.append(reverse('core:home'))
+        except NoReverseMatch:
+            logger.warning("URL 'core:home' not found, skipping from 2FA exemptions")
+            pass
+
+        # Ajouter payment_webhook seulement si l'URL existe
+        try:
+            self.exempt_paths.append(reverse('payments:payment_webhook'))
+        except NoReverseMatch:
+            logger.warning("URL 'payments:payment_webhook' not found, skipping from 2FA exemptions")
+            pass
 
     def process_request(self, request):
         """Vérifier si la 2FA est requise"""
@@ -102,8 +132,11 @@ class TwoFactorAuthMiddleware:
 
         if is_staff_required or is_sensitive_action:
             # Rediriger vers la vérification 2FA
-            from django.urls import reverse
-            verify_url = reverse('users:verify_2fa')
+            try:
+                verify_url = reverse('users:verify_2fa')
+            except NoReverseMatch:
+                logger.error("URL 'users:verify_2fa' not found, cannot redirect to 2FA verification")
+                return None
 
             # Stocker la prochaine URL
             request.session['next_url'] = request.get_full_path()

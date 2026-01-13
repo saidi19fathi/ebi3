@@ -1,0 +1,607 @@
+{% extends "carriers/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Rechercher un transporteur" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'carriers:dashboard' %}">{% trans "Tableau de bord" %}</a></li>
+                    <li class="breadcrumb-item active">{% trans "Rechercher" %}</li>
+                </ol>
+            </nav>
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>
+                    <i class="fas fa-search"></i> {% trans "Rechercher un transporteur" %}
+                </h1>
+                <div>
+                    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#saveSearchModal">
+                        <i class="fas fa-save"></i> {% trans "Sauvegarder la recherche" %}
+                    </button>
+                </div>
+            </div>
+
+            <!-- Formulaire de recherche -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-filter"></i> {% trans "Critères de recherche" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="get" action="{% url 'carriers:marketplace_search' %}" id="searchForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="id_start_country" class="form-label">
+                                        {% trans "Pays de départ" %}
+                                    </label>
+                                    {{ form.start_country }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="id_start_city" class="form-label">
+                                        {% trans "Ville de départ" %}
+                                    </label>
+                                    {{ form.start_city }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="id_end_country" class="form-label">
+                                        {% trans "Pays d'arrivée" %}
+                                    </label>
+                                    {{ form.end_country }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="id_end_city" class="form-label">
+                                        {% trans "Ville d'arrivée" %}
+                                    </label>
+                                    {{ form.end_city }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group mb-3">
+                                    <label for="id_departure_date" class="form-label">
+                                        {% trans "Date de départ" %}
+                                    </label>
+                                    {{ form.departure_date }}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group mb-3">
+                                    <label for="id_max_weight" class="form-label">
+                                        {% trans "Poids maximum (kg)" %}
+                                    </label>
+                                    {{ form.max_weight }}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group mb-3">
+                                    <label for="id_max_volume" class="form-label">
+                                        {% trans "Volume maximum (m³)" %}
+                                    </label>
+                                    {{ form.max_volume }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label class="form-label">{% trans "Types de véhicule" %}</label>
+                                    <div class="row">
+                                        {% for value, label in form.vehicle_types.field.choices %}
+                                            <div class="col-md-4 mb-2">
+                                                <div class="form-check">
+                                                    <input type="checkbox"
+                                                           name="vehicle_types"
+                                                           value="{{ value }}"
+                                                           class="form-check-input"
+                                                           id="vehicle_{{ value }}"
+                                                           {% if value in form.vehicle_types.value %}checked{% endif %}>
+                                                    <label class="form-check-label" for="vehicle_{{ value }}">
+                                                        {{ label }}
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="id_min_rating" class="form-label">
+                                        {% trans "Note minimum" %}
+                                    </label>
+                                    {{ form.min_rating }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'carriers:marketplace_search' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times"></i> {% trans "Réinitialiser" %}
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search"></i> {% trans "Rechercher" %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Résultats -->
+            {% if results or request.GET %}
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list"></i>
+                        {% trans "Résultats" %}
+                        <span class="badge bg-primary">{{ results.count }}</span>
+                    </h5>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary" onclick="sortResults('rating')">
+                            <i class="fas fa-star"></i> {% trans "Par note" %}
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="sortResults('price')">
+                            <i class="fas fa-euro-sign"></i> {% trans "Par prix" %}
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if results %}
+                        <div class="row" id="resultsContainer">
+                            {% for carrier in results %}
+                                <div class="col-md-6 mb-4">
+                                    <div class="card h-100 carrier-card">
+                                        <div class="card-body">
+                                            <div class="d-flex align-items-start mb-3">
+                                                {% if carrier.profile_photo %}
+                                                    <img src="{{ carrier.profile_photo.url }}"
+                                                         alt="{{ carrier.user.get_full_name }}"
+                                                         class="rounded-circle me-3"
+                                                         style="width: 60px; height: 60px; object-fit: cover;">
+                                                {% else %}
+                                                    <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center me-3"
+                                                         style="width: 60px; height: 60px;">
+                                                        <i class="fas fa-user fa-2x text-white"></i>
+                                                    </div>
+                                                {% endif %}
+                                                <div>
+                                                    <h5 class="mb-1">
+                                                        {% if carrier.company_name %}
+                                                            {{ carrier.company_name }}
+                                                        {% else %}
+                                                            {{ carrier.user.get_full_name }}
+                                                        {% endif %}
+                                                    </h5>
+                                                    <div class="d-flex align-items-center mb-2">
+                                                        <div class="rating-display me-2">
+                                                            {% for i in "12345"|make_list %}
+                                                                {% if forloop.counter <= carrier.average_rating|floatformat:0 %}
+                                                                    <i class="fas fa-star text-warning"></i>
+                                                                {% else %}
+                                                                    <i class="far fa-star text-warning"></i>
+                                                                {% endif %}
+                                                            {% endfor %}
+                                                        </div>
+                                                        <span class="text-muted">
+                                                            {{ carrier.average_rating|floatformat:1 }}
+                                                            ({{ carrier.total_reviews }} avis)
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <span class="badge bg-secondary me-1">
+                                                            {{ carrier.get_vehicle_type_display }}
+                                                        </span>
+                                                        <span class="badge bg-info">
+                                                            {{ carrier.get_carrier_type_display }}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <p class="small text-muted mb-1">
+                                                    <i class="fas fa-map-marker-alt"></i>
+                                                    {% trans "Zones" %}:
+                                                    {{ carrier.coverage_cities|truncatechars:50|default:"Non spécifié" }}
+                                                </p>
+                                                <p class="small text-muted mb-1">
+                                                    <i class="fas fa-weight-hanging"></i>
+                                                    {% trans "Capacité" %}:
+                                                    {{ carrier.max_weight }} kg / {{ carrier.max_volume }} m³
+                                                </p>
+                                                <p class="small text-muted mb-0">
+                                                    <i class="fas fa-euro-sign"></i>
+                                                    {% trans "Prix" %}:
+                                                    {{ carrier.base_price_per_km }} €/km
+                                                    (min: {{ carrier.min_price }} €)
+                                                </p>
+                                            </div>
+
+                                            <!-- Offres disponibles -->
+                                            {% with offers=carrier.offers.filter.is_active.is_booked.available_until__gte=now|slice:":2" %}
+                                                {% if offers %}
+                                                    <div class="border-top pt-3 mt-3">
+                                                        <h6 class="small text-muted mb-2">{% trans "Offres disponibles" %}</h6>
+                                                        {% for offer in offers %}
+                                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                                <div>
+                                                                    <small class="d-block">
+                                                                        {{ offer.start_city }} → {{ offer.end_city }}
+                                                                    </small>
+                                                                    <small class="text-muted">
+                                                                        {{ offer.available_from|date:"d/m H:i" }}
+                                                                    </small>
+                                                                </div>
+                                                                <div class="text-end">
+                                                                    <strong class="d-block">{{ offer.price }} {{ offer.currency }}</strong>
+                                                                    <button class="btn btn-sm btn-outline-primary mt-1"
+                                                                            onclick="contactCarrier({{ carrier.pk }}, {{ offer.pk }})">
+                                                                        <i class="fas fa-envelope"></i>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        {% endfor %}
+                                                    </div>
+                                                {% endif %}
+                                            {% endwith %}
+                                        </div>
+                                        <div class="card-footer">
+                                            <div class="d-flex justify-content-between">
+                                                <a href="{% url 'carriers:public_profile' carrier.user.username %}"
+                                                   class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-user"></i> {% trans "Voir profil" %}
+                                                </a>
+                                                <button class="btn btn-sm btn-success"
+                                                        onclick="createMission({{ carrier.pk }})">
+                                                    <i class="fas fa-plus"></i> {% trans "Créer mission" %}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Pagination -->
+                        {% if results.has_other_pages %}
+                        <nav aria-label="Page navigation" class="mt-4">
+                            <ul class="pagination justify-content-center">
+                                {% if results.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link"
+                                           href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            {% trans "Première" %}
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link"
+                                           href="?page={{ results.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            {% trans "Précédent" %}
+                                        </a>
+                                    </li>
+                                {% endif %}
+
+                                <li class="page-item disabled">
+                                    <span class="page-link">
+                                        {% trans "Page" %} {{ results.number }} {% trans "sur" %} {{ results.paginator.num_pages }}
+                                    </span>
+                                </li>
+
+                                {% if results.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link"
+                                           href="?page={{ results.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            {% trans "Suivant" %}
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link"
+                                           href="?page={{ results.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            {% trans "Dernière" %}
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-search fa-4x text-muted mb-3"></i>
+                            <h4>{% trans "Aucun résultat" %}</h4>
+                            <p class="text-muted">{% trans "Aucun transporteur ne correspond à vos critères." %}</p>
+                            <button class="btn btn-outline-primary" onclick="broadcastRequest()">
+                                <i class="fas fa-bullhorn"></i> {% trans "Diffuser ma demande" %}
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <!-- Suggestions -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-lightbulb"></i> {% trans "Suggestions" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card bg-light h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-map-marked-alt fa-3x text-primary mb-3"></i>
+                                    <h5>{% trans "Transporteurs proches" %}</h5>
+                                    <p class="text-muted">{% trans "Trouvez des transporteurs dans votre région" %}</p>
+                                    <button class="btn btn-outline-primary" onclick="findNearbyCarriers()">
+                                        {% trans "Voir les transporteurs proches" %}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-star fa-3x text-warning mb-3"></i>
+                                    <h5>{% trans "Les mieux notés" %}</h5>
+                                    <p class="text-muted">{% trans "Découvrez nos transporteurs les mieux évalués" %}</p>
+                                    <button class="btn btn-outline-primary" onclick="findTopRated()">
+                                        {% trans "Voir les mieux notés" %}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-bolt fa-3x text-success mb-3"></i>
+                                    <h5>{% trans "Disponibles maintenant" %}</h5>
+                                    <p class="text-muted">{% trans "Transporteurs disponibles immédiatement" %}</p>
+                                    <button class="btn btn-outline-primary" onclick="findAvailableNow()">
+                                        {% trans "Voir les disponibles" %}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal sauvegarde recherche -->
+<div class="modal fade" id="saveSearchModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'carriers:save_search' %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Sauvegarder cette recherche" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="searchName" class="form-label">
+                            {% trans "Nom de la recherche" %} *
+                        </label>
+                        <input type="text"
+                               name="name"
+                               id="searchName"
+                               class="form-control"
+                               placeholder="Ex: Paris-Lyon régulier"
+                               required>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox"
+                                   name="alerts_enabled"
+                                   id="alertsEnabled"
+                                   class="form-check-input"
+                                   checked>
+                            <label class="form-check-label" for="alertsEnabled">
+                                {% trans "Activer les alertes" %}
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="alertFrequency" class="form-label">
+                            {% trans "Fréquence des alertes" %}
+                        </label>
+                        <select name="alert_frequency" id="alertFrequency" class="form-select">
+                            <option value="DAILY">{% trans "Quotidien" %}</option>
+                            <option value="WEEKLY">{% trans "Hebdomadaire" %}</option>
+                            <option value="IMMEDIATE">{% trans "Immédiat" %}</option>
+                        </select>
+                    </div>
+
+                    <input type="hidden" name="search_criteria" id="searchCriteria">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "Annuler" %}
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> {% trans "Sauvegarder" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Sauvegarder les critères de recherche
+function saveSearchCriteria() {
+    const formData = new FormData(document.getElementById('searchForm'));
+    const criteria = {};
+
+    for (let [key, value] of formData.entries()) {
+        if (value) {
+            if (criteria[key]) {
+                if (!Array.isArray(criteria[key])) {
+                    criteria[key] = [criteria[key]];
+                }
+                criteria[key].push(value);
+            } else {
+                criteria[key] = value;
+            }
+        }
+    }
+
+    $('#searchCriteria').val(JSON.stringify(criteria));
+}
+
+// Ouvrir le modal de sauvegarde
+$(document).ready(function() {
+    $('#saveSearchModal').on('show.bs.modal', function() {
+        saveSearchCriteria();
+    });
+});
+
+// Trier les résultats
+function sortResults(criteria) {
+    const currentUrl = new URL(window.location.href);
+    currentUrl.searchParams.set('sort', criteria);
+    window.location.href = currentUrl.toString();
+}
+
+// Contacter un transporteur
+function contactCarrier(carrierId, offerId = null) {
+    const message = prompt('Entrez votre message au transporteur :');
+    if (message) {
+        fetch('/carriers/api/contact/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                carrier_id: carrierId,
+                offer_id: offerId,
+                message: message
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Message envoyé avec succès !');
+            } else {
+                alert('Erreur lors de l\'envoi du message.');
+            }
+        });
+    }
+}
+
+// Créer une mission
+function createMission(carrierId) {
+    window.location.href = `/carriers/missions/create/?carrier=${carrierId}`;
+}
+
+// Diffuser une demande
+function broadcastRequest() {
+    if (confirm('Diffuser votre demande à tous les transporteurs correspondant à vos critères ?')) {
+        fetch('/carriers/api/broadcast/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                criteria: $('#searchCriteria').val() || '{}'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`Demande diffusée à ${data.recipients} transporteurs !`);
+            } else {
+                alert('Erreur lors de la diffusion.');
+            }
+        });
+    }
+}
+
+// Recherches rapides
+function findNearbyCarriers() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+            window.location.href = `/carriers/marketplace/search/?nearby=${position.coords.latitude},${position.coords.longitude}`;
+        });
+    } else {
+        alert('La géolocalisation n\'est pas supportée par votre navigateur.');
+    }
+}
+
+function findTopRated() {
+    window.location.href = '{% url "carriers:marketplace_search" %}?min_rating=4.5';
+}
+
+function findAvailableNow() {
+    const now = new Date().toISOString().slice(0, 16);
+    window.location.href = `{% url "carriers:marketplace_search" %}?available_now=${now}`;
+}
+
+// Auto-complétion des villes
+$(document).ready(function() {
+    // Initialiser l'auto-complétion pour les villes
+    $('#id_start_city, #id_end_city').each(function() {
+        $(this).autocomplete({
+            source: function(request, response) {
+                fetch(`/carriers/api/cities/?query=${request.term}`)
+                    .then(res => res.json())
+                    .then(data => response(data.cities));
+            },
+            minLength: 2
+        });
+    });
+
+    // Calculer la distance estimée
+    function calculateDistance() {
+        const startCity = $('#id_start_city').val();
+        const endCity = $('#id_end_city').val();
+
+        if (startCity && endCity && startCity !== endCity) {
+            fetch(`/carriers/api/distance/?start=${encodeURIComponent(startCity)}&end=${encodeURIComponent(endCity)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.distance) {
+                        $('#distanceEstimate').remove();
+                        $('#searchForm').append(`
+                            <div id="distanceEstimate" class="alert alert-info mt-3">
+                                <i class="fas fa-route"></i>
+                                Distance estimée : ${data.distance} km
+                                | Temps estimé : ${data.duration}
+                                | Coût estimé : ${data.cost} €
+                            </div>
+                        `);
+                    }
+                });
+        }
+    }
+
+    $('#id_start_city, #id_end_city').on('change', calculateDistance);
+});
+</script>
+{% endblock %}

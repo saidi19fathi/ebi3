@@ -4,43 +4,213 @@
 
 {% block title %}{% trans "Inscription - Ebi3" %}{% endblock %}
 
+{% block extra_css %}
+<style>
+    .account-type-selector {
+        margin-bottom: 30px;
+    }
+
+    .type-card {
+        border: 2px solid #dee2e6;
+        border-radius: 10px;
+        padding: 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .type-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+
+    .type-card.active {
+        border-color: #0d6efd;
+        background-color: rgba(13, 110, 253, 0.05);
+    }
+
+    .type-icon {
+        font-size: 3rem;
+        margin-bottom: 15px;
+        color: #6c757d;
+    }
+
+    .type-card.active .type-icon {
+        color: #0d6efd;
+    }
+
+    .type-title {
+        font-weight: bold;
+        margin-bottom: 10px;
+        color: #495057;
+    }
+
+    .type-card.active .type-title {
+        color: #0d6efd;
+    }
+
+    .type-description {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-bottom: 15px;
+    }
+
+    .type-features {
+        text-align: left;
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-bottom: 0;
+    }
+
+    .type-features li {
+        margin-bottom: 5px;
+    }
+
+    .carrier-highlight {
+        background: linear-gradient(45deg, #198754, #20c997);
+        color: white;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        margin-left: 10px;
+    }
+
+    .form-tabs {
+        display: none;
+    }
+
+    .form-tabs.active {
+        display: block;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <h2 class="text-center mb-4">{% trans "Créer un compte" %}</h2>
 
-<form method="post" novalidate>
-    {% csrf_token %}
+<!-- Sélecteur de type de compte -->
+<div class="account-type-selector">
+    <p class="text-center mb-4">{% trans "Choisissez votre type de compte" %}</p>
 
-    {{ form|crispy }}
+    <div class="row">
+        <!-- Compte utilisateur standard -->
+        <div class="col-md-6 mb-3">
+            <div class="type-card" data-type="user" id="userCard">
+                <div class="type-icon">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="type-title">
+                    {% trans "Utilisateur standard" %}
+                </div>
+                <div class="type-description">
+                    {% trans "Pour les particuliers et entreprises qui cherchent des transporteurs" %}
+                </div>
+                <ul class="type-features">
+                    <li><i class="fas fa-check text-success me-1"></i> {% trans "Rechercher des transporteurs" %}</li>
+                    <li><i class="fas fa-check text-success me-1"></i> {% trans "Créer des missions de livraison" %}</li>
+                    <li><i class="fas fa-check text-success me-1"></i> {% trans "Suivre vos livraisons" %}</li>
+                    <li><i class="fas fa-check text-success me-1"></i> {% trans "Gérer vos paiements" %}</li>
+                </ul>
+            </div>
+        </div>
 
-    <div class="form-check mb-3">
-        <input class="form-check-input" type="checkbox" id="terms" required>
-        <label class="form-check-label" for="terms">
-            {% trans "J'accepte les" %}
-            <a href="{% url 'core:terms' %}">{% trans "conditions d'utilisation" %}</a>
-            {% trans "et la" %}
-            <a href="{% url 'core:privacy' %}">{% trans "politique de confidentialité" %}</a>
-        </label>
+        <!-- Compte transporteur -->
+        <div class="col-md-6 mb-3">
+            <div class="type-card active" data-type="carrier" id="carrierCard">
+                <div class="type-icon">
+                    <i class="fas fa-truck"></i>
+                </div>
+                <div class="type-title">
+                    {% trans "Transporteur" %}
+                    <span class="carrier-highlight">{% trans "POPULAIRE" %}</span>
+                </div>
+                <div class="type-description">
+                    {% trans "Pour les particuliers et entreprises qui proposent des services de transport" %}
+                </div>
+                <ul class="type-features">
+                    <li><i class="fas fa-check text-success me-1"></i> {% trans "Trouver des missions" %}</li>
+                    <li><i class="fas fa-check text-success me-1"></i> {% trans "Gérer votre activité" %}</li>
+                    <li><i class="fas fa-check text-success me-1"></i> {% trans "Recevoir des paiements" %}</li>
+                    <li><i class="fas fa-check text-success me-1"></i> {% trans "Bénéficier de l'assurance" %}</li>
+                </ul>
+            </div>
+        </div>
     </div>
-
-    <div class="d-grid gap-2">
-        <button type="submit" class="btn btn-primary btn-lg">
-            {% trans "S'inscrire" %}
-        </button>
-    </div>
-</form>
-
-<hr class="my-4">
-
-<div class="text-center">
-    <p class="mb-0">
-        {% trans "Déjà un compte ?" %}
-        <a href="{% url 'users:login' %}" class="text-decoration-none">
-            {% trans "Connectez-vous" %}
-        </a>
-    </p>
 </div>
 
-<div class="row mt-4">
+<!-- Indicateur visuel -->
+<div class="alert alert-info mb-4">
+    <div class="d-flex align-items-center">
+        <i class="fas fa-info-circle fa-lg me-3"></i>
+        <div>
+            <strong id="currentSelectionText">{% trans "Vous créez un compte transporteur" %}</strong>
+            <p class="mb-0" id="currentDescriptionText">
+                {% trans "Vous pourrez accepter des missions de livraison et gagner de l'argent avec votre véhicule." %}
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Formulaire utilisateur standard (masqué par défaut) -->
+<div class="form-tabs" id="userForm">
+    <form method="post" action="{% url 'users:register' %}" novalidate id="standardRegisterForm">
+        {% csrf_token %}
+        <input type="hidden" name="account_type" value="user">
+
+        {{ form|crispy }}
+
+        <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="terms" required>
+            <label class="form-check-label" for="terms">
+                {% trans "J'accepte les" %}
+                <a href="{% url 'core:terms' %}">{% trans "conditions d'utilisation" %}</a>
+                {% trans "et la" %}
+                <a href="{% url 'core:privacy' %}">{% trans "politique de confidentialité" %}</a>
+            </label>
+        </div>
+
+        <div class="d-grid gap-2">
+            <button type="submit" class="btn btn-primary btn-lg">
+                {% trans "S'inscrire" %}
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Bouton pour transporteur (affiché par défaut) -->
+<div class="form-tabs active" id="carrierForm">
+    <div class="card">
+        <div class="card-body text-center">
+            <i class="fas fa-truck fa-4x text-primary mb-3"></i>
+            <h4>{% trans "Inscription transporteur" %}</h4>
+            <p class="text-muted mb-4">
+                {% trans "Pour devenir transporteur, nous avons besoin de plus d'informations sur vous et votre véhicule." %}
+            </p>
+
+            <div class="d-grid gap-2">
+                <a href="/users/register/carrier/" class="btn btn-success btn-lg">
+                    <i class="fas fa-arrow-right"></i> {% trans "Continuer vers l'inscription transporteur" %}
+                </a>
+                <button type="button" class="btn btn-outline-secondary" onclick="switchToUserAccount()">
+                    <i class="fas fa-arrow-left"></i> {% trans "Retourner à l'inscription standard" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Séparateur -->
+<div class="text-center my-4" id="divider" style="display: none;">
+    <span class="text-muted">{% trans "ou" %}</span>
+</div>
+
+<!-- Connexion sociale -->
+<div class="row mt-4" id="socialLogin">
     <div class="col-md-6">
         <div class="d-grid">
             <a href="#" class="btn btn-outline-dark">
@@ -56,4 +226,107 @@
         </div>
     </div>
 </div>
+
+<!-- Lien connexion -->
+<hr class="my-4">
+<div class="text-center">
+    <p class="mb-0">
+        {% trans "Déjà un compte ?" %}
+        <a href="{% url 'users:login' %}" class="text-decoration-none">
+            {% trans "Connectez-vous" %}
+        </a>
+    </p>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let selectedAccountType = 'carrier';
+
+// Fonction pour changer le type de compte
+function switchAccountType(type) {
+    selectedAccountType = type;
+
+    // Mettre à jour les cartes
+    $('.type-card').removeClass('active');
+    $(`#${type}Card`).addClass('active');
+
+    // Mettre à jour les formulaires
+    $('.form-tabs').removeClass('active');
+    $(`#${type}Form`).addClass('active');
+
+    // Mettre à jour le texte d'information
+    updateInfoText();
+
+    // Afficher/masquer le séparateur et la connexion sociale
+    if (type === 'user') {
+        $('#divider').show();
+        $('#socialLogin').show();
+    } else {
+        $('#divider').hide();
+        $('#socialLogin').hide();
+    }
+}
+
+// Fonction pour mettre à jour le texte d'information
+function updateInfoText() {
+    if (selectedAccountType === 'user') {
+        $('#currentSelectionText').text("{% trans 'Vous créez un compte utilisateur standard' %}");
+        $('#currentDescriptionText').text("{% trans 'Vous pourrez rechercher des transporteurs, créer des missions et suivre vos livraisons.' %}");
+    } else {
+        $('#currentSelectionText').text("{% trans 'Vous créez un compte transporteur' %}");
+        $('#currentDescriptionText').text("{% trans 'Vous pourrez accepter des missions de livraison et gagner de l\'argent avec votre véhicule.' %}");
+    }
+}
+
+// Fonction pour revenir au compte utilisateur standard
+function switchToUserAccount() {
+    switchAccountType('user');
+}
+
+// Initialisation
+$(document).ready(function() {
+    // Gérer le clic sur les cartes
+    $('.type-card').click(function() {
+        const type = $(this).data('type');
+        switchAccountType(type);
+    });
+
+    // Validation du formulaire standard
+    $('#standardRegisterForm').submit(function(e) {
+        if (!$('#terms').is(':checked')) {
+            e.preventDefault();
+            alert("{% trans 'Vous devez accepter les conditions d\'utilisation et la politique de confidentialité.' %}");
+            $('#terms').focus();
+        }
+    });
+
+    // Afficher les informations initiales
+    updateInfoText();
+
+    // Initialiser l'affichage
+    if (selectedAccountType === 'user') {
+        $('#divider').show();
+        $('#socialLogin').show();
+    } else {
+        $('#divider').hide();
+        $('#socialLogin').hide();
+    }
+
+    // Animation au survol
+    $('.type-card').hover(
+        function() {
+            if (!$(this).hasClass('active')) {
+                $(this).css('border-color', '#adb5bd');
+            }
+        },
+        function() {
+            if (!$(this).hasClass('active')) {
+                $(this).css('border-color', '#dee2e6');
+            }
+        }
+    );
+});
+</script>
 {% endblock %}

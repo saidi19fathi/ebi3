@@ -1,155 +1,231 @@
-{# ~/ebi3/carriers/templates/carriers/partials/carrier_card.html #}
 {% load i18n %}
+
+{% comment %}
+Usage : {% include "carriers/partials/carrier_card.html" with carrier=carrier %}
+Options supplémentaires :
+- show_details=true/false (default: false)
+- show_actions=true/false (default: true)
+- show_rating=true/false (default: true)
+- show_capacity=true/false (default: false)
+- show_price=true/false (default: false)
+- show_route_info=true/false (default: false)
+- route=route_object (si show_route_info=true)
+{% endcomment %}
+
 <div class="card carrier-card h-100">
     <div class="card-body">
-        <!-- En-tête avec avatar et informations -->
+        <!-- En-tête -->
         <div class="d-flex align-items-start mb-3">
-            <div class="flex-shrink-0">
-                <div class="carrier-avatar bg-primary text-white d-flex align-items-center justify-content-center">
-                    <span style="font-size: 1.5rem; font-weight: bold;">
-                        {{ carrier.user.username|first|upper }}
-                    </span>
-                </div>
+            <!-- Photo de profil -->
+            <div class="flex-shrink-0 me-3">
+                {% if carrier.profile_photo %}
+                    <img src="{{ carrier.profile_photo.url }}"
+                         alt="{{ carrier.user.get_full_name }}"
+                         class="rounded-circle"
+                         style="width: 60px; height: 60px; object-fit: cover;">
+                {% else %}
+                    <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center"
+                         style="width: 60px; height: 60px;">
+                        <i class="fas fa-user fa-2x text-white"></i>
+                    </div>
+                {% endif %}
             </div>
-            <div class="flex-grow-1 ms-3">
-                <h5 class="card-title mb-1">
-                    <a href="{% url 'carriers:carrier_detail' carrier.user.username %}"
-                       class="text-decoration-none text-dark">
-                        {% if carrier.carrier_type == 'PROFESSIONAL' and carrier.company_name %}
-                            {{ carrier.company_name }}
-                        {% else %}
-                            {{ carrier.user.username }}
-                        {% endif %}
-                    </a>
-                </h5>
 
-                <div class="d-flex flex-wrap gap-1 mb-2">
-                    <span class="carrier-type-badge badge
-                                {% if carrier.carrier_type == 'PROFESSIONAL' %}bg-primary
-                                {% else %}bg-info{% endif %}">
-                        {{ carrier.get_carrier_type_display }}
-                    </span>
+            <!-- Informations de base -->
+            <div class="flex-grow-1">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h5 class="card-title mb-1">{{ carrier.user.get_full_name }}</h5>
+                        <p class="card-text text-muted small mb-1">
+                            <i class="fas fa-truck"></i>
+                            {{ carrier.get_carrier_type_display }}
+                            {% if carrier.company_name %}
+                                • {{ carrier.company_name }}
+                            {% endif %}
+                        </p>
+                    </div>
 
-                    <span class="badge bg-secondary">
-                        <i class="fas fa-car"></i> {{ carrier.get_vehicle_type_display }}
-                    </span>
-
-                    {% if carrier.verification_level >= 3 %}
-                        <span class="badge bg-success">
-                            <i class="fas fa-check-circle"></i> {% trans "Vérifié" %}
+                    <!-- Statut de vérification -->
+                    <div class="text-end">
+                        <span class="badge bg-{% if carrier.is_available %}success{% else %}secondary{% endif %}">
+                            {% if carrier.is_available %}
+                                {% trans "Disponible" %}
+                            {% else %}
+                                {% trans "Indisponible" %}
+                            {% endif %}
                         </span>
-                    {% endif %}
+                    </div>
                 </div>
 
                 <!-- Note -->
-                <div class="rating-stars mb-2">
-                    {% for i in "12345" %}
-                        {% if forloop.counter <= carrier.average_rating %}
-                            <i class="fas fa-star"></i>
+                {% if show_rating %}
+                <div class="rating-display small mb-2">
+                    {% for i in "12345"|make_list %}
+                        {% if forloop.counter <= carrier.average_rating|floatformat:0 %}
+                            <i class="fas fa-star text-warning"></i>
                         {% else %}
-                            <i class="far fa-star"></i>
+                            <i class="far fa-star text-warning"></i>
                         {% endif %}
                     {% endfor %}
-                    <small class="text-muted ms-1">
-                        ({{ carrier.average_rating|floatformat:1 }})
+                    <span class="ms-1">{{ carrier.average_rating|floatformat:1 }}</span>
+                    <small class="text-muted">({{ carrier.total_reviews }})</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Informations sur la route (optionnel) -->
+        {% if show_route_info and route %}
+        <div class="border-top pt-3 mt-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <strong>{{ route.start_city }} → {{ route.end_city }}</strong>
+                {% if route.fixed_price %}
+                    <span class="badge bg-primary">{{ route.fixed_price }} {{ carrier.currency }}</span>
+                {% endif %}
+            </div>
+            <div class="row">
+                <div class="col-6">
+                    <small class="text-muted">
+                        <i class="far fa-calendar"></i>
+                        {{ route.departure_date|date:"d/m/Y" }}
                     </small>
                 </div>
+                <div class="col-6 text-end">
+                    {% if route.is_active and not route.is_full %}
+                        <span class="badge bg-success">{% trans "Disponible" %}</span>
+                    {% else %}
+                        <span class="badge bg-secondary">{% trans "Complet" %}</span>
+                    {% endif %}
+                </div>
             </div>
         </div>
+        {% endif %}
 
-        <!-- Capacités -->
-        <div class="mb-3">
-            <div class="row g-2">
+        <!-- Capacités (optionnel) -->
+        {% if show_capacity %}
+        <div class="border-top pt-3 mt-3">
+            <div class="row">
                 <div class="col-6">
-                    <div class="capacity-badge p-2 rounded text-center">
-                        <small class="d-block text-muted">{% trans "Poids max" %}</small>
-                        <strong>{{ carrier.max_weight }} kg</strong>
-                    </div>
+                    <small class="text-muted d-block">{% trans "Véhicule" %}</small>
+                    <small>{{ carrier.get_vehicle_type_display }}</small>
                 </div>
                 <div class="col-6">
-                    <div class="capacity-badge p-2 rounded text-center">
-                        <small class="d-block text-muted">{% trans "Volume max" %}</small>
-                        <strong>{{ carrier.max_volume }} m³</strong>
-                    </div>
+                    <small class="text-muted d-block">{% trans "Capacité max" %}</small>
+                    <small>{{ carrier.max_weight }} kg</small>
                 </div>
             </div>
         </div>
+        {% endif %}
 
-        <!-- Services -->
-        <div class="mb-3">
-            <small class="text-muted d-block mb-1">{% trans "Services inclus :" %}</small>
-            <div class="d-flex flex-wrap gap-1">
-                {% if carrier.provides_insurance %}
-                    <span class="badge bg-success">
-                        <i class="fas fa-shield-alt"></i> {% trans "Assurance" %}
-                    </span>
-                {% endif %}
-                {% if carrier.provides_packaging %}
-                    <span class="badge bg-info">
-                        <i class="fas fa-box"></i> {% trans "Emballage" %}
-                    </span>
-                {% endif %}
-                {% if carrier.provides_loading %}
-                    <span class="badge bg-warning">
-                        <i class="fas fa-arrow-up"></i> {% trans "Chargement" %}
-                    </span>
-                {% endif %}
-                {% if carrier.provides_unloading %}
-                    <span class="badge bg-warning">
-                        <i class="fas fa-arrow-down"></i> {% trans "Déchargement" %}
-                    </span>
-                {% endif %}
+        <!-- Tarification (optionnel) -->
+        {% if show_price %}
+        <div class="border-top pt-3 mt-3">
+            <div class="row">
+                <div class="col-6">
+                    <small class="text-muted d-block">{% trans "Prix/km" %}</small>
+                    <small>{{ carrier.base_price_per_km }} {{ carrier.currency }}</small>
+                </div>
+                <div class="col-6">
+                    <small class="text-muted d-block">{% trans "Prix min" %}</small>
+                    <small>{{ carrier.min_price }} {{ carrier.currency }}</small>
+                </div>
             </div>
         </div>
+        {% endif %}
 
-        <!-- Routes disponibles -->
-        {% with carrier.routes.all|slice:":2" as recent_routes %}
-            {% if recent_routes %}
-                <div class="mb-3">
-                    <small class="text-muted d-block mb-1">{% trans "Prochains départs :" %}</small>
-                    <div class="route-item">
-                        {% for route in recent_routes %}
-                            <div class="mb-1">
-                                <small>
-                                    <i class="fas fa-map-marker-alt text-danger"></i>
-                                    {{ route.start_city }} →
-                                    <i class="fas fa-map-marker-alt text-success"></i>
-                                    {{ route.end_city }}
-                                    <br>
-                                    <i class="fas fa-calendar text-primary"></i>
-                                    {{ route.departure_date|date:"d/m/Y" }}
-                                </small>
-                            </div>
-                        {% endfor %}
-                    </div>
-                </div>
+        <!-- Détails supplémentaires (optionnel) -->
+        {% if show_details %}
+        <div class="border-top pt-3 mt-3">
+            <!-- Zones de couverture -->
+            {% if carrier.coverage_cities %}
+            <div class="mb-2">
+                <small class="text-muted d-block">{% trans "Zones" %}</small>
+                <small>{{ carrier.coverage_cities|truncatechars:50 }}</small>
+            </div>
             {% endif %}
-        {% endwith %}
 
-        <!-- Pied de carte -->
-        <div class="mt-auto">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <small class="text-muted">
-                        <i class="fas fa-euro-sign"></i>
-                        {{ carrier.base_price_per_km }} {% trans "/km" %}
-                    </small>
-                </div>
-
-                <div>
-                    <small class="text-muted">
-                        <i class="fas fa-tasks"></i>
-                        {{ carrier.completed_missions }} {% trans "missions" %}
-                    </small>
+            <!-- Services proposés -->
+            <div>
+                <small class="text-muted d-block">{% trans "Services" %}</small>
+                <div class="d-flex flex-wrap gap-1">
+                    {% if carrier.provides_packaging %}
+                        <span class="badge bg-info badge-sm">
+                            <i class="fas fa-box"></i>
+                        </span>
+                    {% endif %}
+                    {% if carrier.provides_insurance %}
+                        <span class="badge bg-info badge-sm">
+                            <i class="fas fa-shield-alt"></i>
+                        </span>
+                    {% endif %}
+                    {% if carrier.provides_loading %}
+                        <span class="badge bg-info badge-sm">
+                            <i class="fas fa-dolly"></i>
+                        </span>
+                    {% endif %}
+                    {% if carrier.provides_unloading %}
+                        <span class="badge bg-info badge-sm">
+                            <i class="fas fa-dolly-flatbed"></i>
+                        </span>
+                    {% endif %}
                 </div>
             </div>
+        </div>
+        {% endif %}
+    </div>
 
-            <div class="d-grid mt-3">
-                <a href="{% url 'carriers:carrier_detail' carrier.user.username %}"
-                   class="btn btn-outline-primary btn-sm">
-                    <i class="fas fa-eye"></i> {% trans "Voir profil" %}
-                </a>
-            </div>
+    <!-- Actions (optionnel) -->
+    {% if show_actions %}
+    <div class="card-footer bg-transparent">
+        <div class="d-grid gap-2">
+            <a href="{% url 'carriers:public_profile' carrier.user.username %}"
+               class="btn btn-sm btn-outline-primary">
+                <i class="fas fa-eye"></i> {% trans "Voir profil" %}
+            </a>
+
+            {% if user.is_authenticated and user != carrier.user %}
+                <button class="btn btn-sm btn-outline-success"
+                        onclick="contactCarrier({{ carrier.id }})">
+                    <i class="fas fa-envelope"></i> {% trans "Contacter" %}
+                </button>
+            {% endif %}
+
+            {% if show_route_info and route and route.is_active and not route.is_full %}
+                <button class="btn btn-sm btn-primary"
+                        onclick="selectRoute({{ route.id }})">
+                    <i class="fas fa-check"></i> {% trans "Choisir" %}
+                </button>
+            {% endif %}
         </div>
     </div>
+    {% endif %}
 </div>
+
+<style>
+.carrier-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.carrier-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.badge-sm {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.4rem;
+}
+</style>
+
+<script>
+function contactCarrier(carrierId) {
+    // Ici, vous pouvez implémenter la logique pour contacter le transporteur
+    // Par exemple, ouvrir un modal de contact
+    console.log('Contacter le transporteur ID:', carrierId);
+}
+
+function selectRoute(routeId) {
+    // Ici, vous pouvez implémenter la logique pour sélectionner une route
+    console.log('Sélectionner la route ID:', routeId);
+}
+</script>

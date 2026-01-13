@@ -25,7 +25,7 @@ class User(AbstractUser):
         verbose_name=_("Rôle")
     )
 
-    phone_number = PhoneNumberField(
+    phone = PhoneNumberField(
         verbose_name=_("Numéro de téléphone"),
         null=True,
         blank=True

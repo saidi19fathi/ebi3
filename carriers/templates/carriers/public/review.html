@@ -1,0 +1,665 @@
+{% extends "carriers/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Laisser un avis sur" %} {{ carrier.user.get_full_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'carriers:carrier_list' %}">{% trans "Transporteurs" %}</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'carriers:public_profile' carrier.user.username %}">
+                            {{ carrier.user.get_full_name }}
+                        </a>
+                    </li>
+                    <li class="breadcrumb-item active">{% trans "Laisser un avis" %}</li>
+                </ol>
+            </nav>
+
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-star"></i>
+                        {% if existing_review %}
+                            {% trans "Modifier votre avis sur" %}
+                        {% else %}
+                            {% trans "Laisser un avis sur" %}
+                        {% endif %}
+                        {{ carrier.user.get_full_name }}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info mb-4">
+                        <div class="d-flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-info-circle fa-2x"></i>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h5 class="alert-heading">{% trans "Informations importantes" %}</h5>
+                                <ul class="mb-0">
+                                    <li>{% trans "Votre avis sera publié après validation par notre équipe." %}</li>
+                                    <li>{% trans "Les avis doivent être objectifs et respectueux." %}</li>
+                                    <li>{% trans "Vous ne pouvez modifier votre avis que dans les 7 jours suivant sa publication." %}</li>
+                                    {% if existing_review %}
+                                        <li>{% trans "Vous modifiez un avis existant. La date de publication sera mise à jour." %}</li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Missions avec ce transporteur -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-box"></i> {% trans "Vos missions avec ce transporteur" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% with missions=user.missions.filter.carrier.carrier %}
+                                {% if missions.exists %}
+                                    <p>{% trans "Vous avez effectué" %} {{ missions.count }} {% trans "mission(s) avec ce transporteur." %}</p>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th>{% trans "N° Mission" %}</th>
+                                                    <th>{% trans "Date" %}</th>
+                                                    <th>{% trans "Destinataire" %}</th>
+                                                    <th>{% trans "Statut" %}</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for mission in missions %}
+                                                    <tr>
+                                                        <td>{{ mission.mission_number }}</td>
+                                                        <td>{{ mission.actual_delivery_date|date:"d/m/Y"|default:mission.preferred_delivery_date|date:"d/m/Y" }}</td>
+                                                        <td>{{ mission.recipient_name }}</td>
+                                                        <td>
+                                                            <span class="badge bg-{{ mission.get_status_color }}">
+                                                                {{ mission.get_status_display }}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                {% else %}
+                                    <p class="text-muted">{% trans "Vous n'avez pas encore effectué de mission avec ce transporteur." %}</p>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+
+                    <!-- Formulaire d'avis -->
+                    <form method="post" id="reviewForm">
+                        {% csrf_token %}
+
+                        <!-- Note globale -->
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h5 class="card-title mb-3">{% trans "Note globale" %}</h5>
+                                <div class="text-center mb-3">
+                                    <div class="rating-input mb-2" id="globalRating">
+                                        {% for i in "12345"|make_list %}
+                                            <i class="fas fa-star fa-2x rating-star"
+                                               data-value="{{ forloop.counter }}"
+                                               style="cursor: pointer; color: #ddd; margin: 0 5px;"></i>
+                                        {% endfor %}
+                                    </div>
+                                    <div class="rating-text mb-3">
+                                        <span id="ratingText">{% trans "Sélectionnez une note" %}</span>
+                                    </div>
+                                    {{ form.rating.as_hidden }}
+
+                                    {% if form.rating.errors %}
+                                        <div class="text-danger">{{ form.rating.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Détails de l'avis -->
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h5 class="card-title mb-3">{% trans "Détails de votre avis" %}</h5>
+
+                                <div class="form-group mb-3">
+                                    <label for="id_title" class="form-label">
+                                        {% trans "Titre de votre avis" %} *
+                                    </label>
+                                    {{ form.title }}
+                                    {% if form.title.errors %}
+                                        <div class="text-danger">{{ form.title.errors }}</div>
+                                    {% endif %}
+                                    <small class="text-muted">{% trans "Donnez un titre clair à votre avis" %}</small>
+                                </div>
+
+                                <div class="form-group mb-4">
+                                    <label for="id_comment" class="form-label">
+                                        {% trans "Votre expérience" %} *
+                                    </label>
+                                    {{ form.comment }}
+                                    {% if form.comment.errors %}
+                                        <div class="text-danger">{{ form.comment.errors }}</div>
+                                    {% endif %}
+                                    <small class="text-muted">
+                                        {% trans "Décrivez en détail votre expérience avec ce transporteur" %}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Évaluation détaillée -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0">{% trans "Évaluation détaillée" %}</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted mb-4">
+                                    {% trans "Évaluez ce transporteur sur différents aspects" %}
+                                </p>
+
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group mb-4">
+                                            <label class="form-label d-block">
+                                                <i class="fas fa-comments text-primary"></i>
+                                                {% trans "Communication" %}
+                                            </label>
+                                            <div class="rating-input-sm mb-2" id="communicationRating">
+                                                {% for i in "12345"|make_list %}
+                                                    <i class="fas fa-star rating-star-sm"
+                                                       data-category="communication"
+                                                       data-value="{{ forloop.counter }}"
+                                                       style="cursor: pointer; color: #ddd; margin: 0 2px;"></i>
+                                                {% endfor %}
+                                            </div>
+                                            {{ form.communication.as_hidden }}
+                                            <small class="text-muted">
+                                                {% trans "Clarté et rapidité des échanges" %}
+                                            </small>
+                                        </div>
+
+                                        <div class="form-group mb-4">
+                                            <label class="form-label d-block">
+                                                <i class="fas fa-clock text-primary"></i>
+                                                {% trans "Ponctualité" %}
+                                            </label>
+                                            <div class="rating-input-sm mb-2" id="punctualityRating">
+                                                {% for i in "12345"|make_list %}
+                                                    <i class="fas fa-star rating-star-sm"
+                                                       data-category="punctuality"
+                                                       data-value="{{ forloop.counter }}"
+                                                       style="cursor: pointer; color: #ddd; margin: 0 2px;"></i>
+                                                {% endfor %}
+                                            </div>
+                                            {{ form.punctuality.as_hidden }}
+                                            <small class="text-muted">
+                                                {% trans "Respect des délais annoncés" %}
+                                            </small>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <div class="form-group mb-4">
+                                            <label class="form-label d-block">
+                                                <i class="fas fa-hands text-primary"></i>
+                                                {% trans "Manutention" %}
+                                            </label>
+                                            <div class="rating-input-sm mb-2" id="handlingRating">
+                                                {% for i in "12345"|make_list %}
+                                                    <i class="fas fa-star rating-star-sm"
+                                                       data-category="handling"
+                                                       data-value="{{ forloop.counter }}"
+                                                       style="cursor: pointer; color: #ddd; margin: 0 2px;"></i>
+                                                {% endfor %}
+                                            </div>
+                                            {{ form.handling.as_hidden }}
+                                            <small class="text-muted">
+                                                {% trans "Soin apporté à votre marchandise" %}
+                                            </small>
+                                        </div>
+
+                                        <div class="form-group mb-4">
+                                            <label class="form-label d-block">
+                                                <i class="fas fa-user-tie text-primary"></i>
+                                                {% trans "Professionalisme" %}
+                                            </label>
+                                            <div class="rating-input-sm mb-2" id="professionalismRating">
+                                                {% for i in "12345"|make_list %}
+                                                    <i class="fas fa-star rating-star-sm"
+                                                       data-category="professionalism"
+                                                       data-value="{{ forloop.counter }}"
+                                                       style="cursor: pointer; color: #ddd; margin: 0 2px;"></i>
+                                                {% endfor %}
+                                            </div>
+                                            {{ form.professionalism.as_hidden }}
+                                            <small class="text-muted">
+                                                {% trans "Attitude et comportement général" %}
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recommandation -->
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h5 class="card-title mb-3">{% trans "Recommandation" %}</h5>
+
+                                <div class="form-group mb-3">
+                                    <div class="form-check">
+                                        <input type="checkbox"
+                                               name="recommended"
+                                               class="form-check-input"
+                                               id="id_recommended"
+                                               {% if form.recommended.value %}checked{% endif %}>
+                                        <label class="form-check-label" for="id_recommended">
+                                            <strong>{% trans "Je recommande ce transporteur" %}</strong>
+                                        </label>
+                                    </div>
+                                    <small class="text-muted">
+                                        {% trans "Cochez cette case si vous recommanderiez ce transporteur à d'autres personnes" %}
+                                    </small>
+                                </div>
+
+                                <!-- Badges supplémentaires -->
+                                <div class="row mt-3">
+                                    <div class="col-md-6">
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox"
+                                                   name="on_time"
+                                                   class="form-check-input"
+                                                   id="id_on_time"
+                                                   {% if form.on_time.value %}checked{% endif %}>
+                                            <label class="form-check-label" for="id_on_time">
+                                                <i class="fas fa-clock text-success"></i>
+                                                {% trans "À l'heure" %}
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox"
+                                                   name="careful"
+                                                   class="form-check-input"
+                                                   id="id_careful"
+                                                   {% if form.careful.value %}checked{% endif %}>
+                                            <label class="form-check-label" for="id_careful">
+                                                <i class="fas fa-hands text-success"></i>
+                                                {% trans "Soigneux" %}
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox"
+                                                   name="good_communication"
+                                                   class="form-check-input"
+                                                   id="id_good_communication"
+                                                   {% if form.good_communication.value %}checked{% endif %}>
+                                            <label class="form-check-label" for="id_good_communication">
+                                                <i class="fas fa-comments text-success"></i>
+                                                {% trans "Bon communicateur" %}
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Prévisualisation -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0">{% trans "Prévisualisation de votre avis" %}</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="reviewPreview" class="review-preview">
+                                    <div class="d-flex justify-content-between align-items-start mb-3">
+                                        <div>
+                                            <h6 id="previewTitle" class="mb-1">
+                                                {% if form.title.value %}
+                                                    {{ form.title.value }}
+                                                {% else %}
+                                                    {% trans "Titre de votre avis" %}
+                                                {% endif %}
+                                            </h6>
+                                            <small class="text-muted">
+                                                {% trans "Par" %} {{ user.get_full_name|default:user.username }}
+                                            </small>
+                                        </div>
+                                        <div class="rating-display" id="previewRating">
+                                            {% with rating=form.rating.value|default:0 %}
+                                                {% for i in "12345"|make_list %}
+                                                    {% if forloop.counter <= rating|add:"0" %}
+                                                        <i class="fas fa-star text-warning"></i>
+                                                    {% else %}
+                                                        <i class="far fa-star text-warning"></i>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            {% endwith %}
+                                        </div>
+                                    </div>
+
+                                    <p id="previewComment" class="mb-3">
+                                        {% if form.comment.value %}
+                                            {{ form.comment.value|linebreaks }}
+                                        {% else %}
+                                            {% trans "Votre commentaire apparaîtra ici..." %}
+                                        {% endif %}
+                                    </p>
+
+                                    <!-- Badges prévisualisation -->
+                                    <div id="previewBadges" class="mb-3">
+                                        {% if form.recommended.value %}
+                                            <span class="badge bg-success me-1">
+                                                <i class="fas fa-thumbs-up"></i> {% trans "Recommandé" %}
+                                            </span>
+                                        {% endif %}
+                                        {% if form.on_time.value %}
+                                            <span class="badge bg-success me-1">
+                                                <i class="fas fa-clock"></i> {% trans "À l'heure" %}
+                                            </span>
+                                        {% endif %}
+                                        {% if form.careful.value %}
+                                            <span class="badge bg-success me-1">
+                                                <i class="fas fa-hands"></i> {% trans "Soigneux" %}
+                                            </span>
+                                        {% endif %}
+                                        {% if form.good_communication.value %}
+                                            <span class="badge bg-success me-1">
+                                                <i class="fas fa-comments"></i> {% trans "Bon communicateur" %}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Détails prévisualisation -->
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">{% trans "Communication" %}</small>
+                                            <div class="d-flex align-items-center" id="previewCommunication">
+                                                {% with rating=form.communication.value|default:5 %}
+                                                    {% for i in "12345"|make_list %}
+                                                        {% if forloop.counter <= rating|add:"0" %}
+                                                            <i class="fas fa-star text-info" style="font-size: 0.8rem;"></i>
+                                                        {% else %}
+                                                            <i class="far fa-star text-info" style="font-size: 0.8rem;"></i>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                {% endwith %}
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">{% trans "Ponctualité" %}</small>
+                                            <div class="d-flex align-items-center" id="previewPunctuality">
+                                                {% with rating=form.punctuality.value|default:5 %}
+                                                    {% for i in "12345"|make_list %}
+                                                        {% if forloop.counter <= rating|add:"0" %}
+                                                            <i class="fas fa-star text-info" style="font-size: 0.8rem;"></i>
+                                                        {% else %}
+                                                            <i class="far fa-star text-info" style="font-size: 0.8rem;"></i>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                {% endwith %}
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">{% trans "Manutention" %}</small>
+                                            <div class="d-flex align-items-center" id="previewHandling">
+                                                {% with rating=form.handling.value|default:5 %}
+                                                    {% for i in "12345"|make_list %}
+                                                        {% if forloop.counter <= rating|add:"0" %}
+                                                            <i class="fas fa-star text-info" style="font-size: 0.8rem;"></i>
+                                                        {% else %}
+                                                            <i class="far fa-star text-info" style="font-size: 0.8rem;"></i>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                {% endwith %}
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">{% trans "Professionalisme" %}</small>
+                                            <div class="d-flex align-items-center" id="previewProfessionalism">
+                                                {% with rating=form.professionalism.value|default:5 %}
+                                                    {% for i in "12345"|make_list %}
+                                                        {% if forloop.counter <= rating|add:"0" %}
+                                                            <i class="fas fa-star text-info" style="font-size: 0.8rem;"></i>
+                                                        {% else %}
+                                                            <i class="far fa-star text-info" style="font-size: 0.8rem;"></i>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                {% endwith %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'carriers:public_profile' carrier.user.username %}"
+                               class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> {% trans "Retour au profil" %}
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i>
+                                {% if existing_review %}
+                                    {% trans "Modifier l'avis" %}
+                                {% else %}
+                                    {% trans "Soumettre l'avis" %}
+                                {% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.rating-star:hover,
+.rating-star:hover ~ .rating-star {
+    color: #ffc107 !important;
+}
+
+.rating-star.active {
+    color: #ffc107 !important;
+}
+
+.rating-star-sm:hover,
+.rating-star-sm:hover ~ .rating-star-sm {
+    color: #0dcaf0 !important;
+}
+
+.rating-star-sm.active {
+    color: #0dcaf0 !important;
+}
+
+.review-preview {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 1rem;
+    background-color: #f8f9fa;
+}
+
+#reviewPreview .rating-display {
+    color: #ffc107;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Initialiser les valeurs des champs cachés
+    $('#id_rating').val({{ form.rating.value|default:0 }});
+    $('#id_communication').val({{ form.communication.value|default:5 }});
+    $('#id_punctuality').val({{ form.punctuality.value|default:5 }});
+    $('#id_handling').val({{ form.handling.value|default:5 }});
+    $('#id_professionalism').val({{ form.professionalism.value|default:5 }});
+
+    // Mettre à jour les étoiles initiales
+    updateStars('global', $('#id_rating').val());
+    updateStars('communication', $('#id_communication').val());
+    updateStars('punctuality', $('#id_punctuality').val());
+    updateStars('handling', $('#id_handling').val());
+    updateStars('professionalism', $('#id_professionalism').val());
+
+    // Gestion de la note globale
+    $('#globalRating .rating-star').click(function() {
+        const value = $(this).data('value');
+        $('#id_rating').val(value);
+        updateStars('global', value);
+        updatePreview();
+    });
+
+    // Gestion des notes détaillées
+    $('.rating-star-sm').click(function() {
+        const category = $(this).data('category');
+        const value = $(this).data('value');
+        $(`#id_${category}`).val(value);
+        updateStars(category, value);
+        updatePreview();
+    });
+
+    // Mettre à jour la prévisualisation en temps réel
+    $('#id_title').on('input', updatePreview);
+    $('#id_comment').on('input', updatePreview);
+    $('#id_recommended, #id_on_time, #id_careful, #id_good_communication').change(updatePreview);
+
+    // Fonction pour mettre à jour les étoiles
+    function updateStars(type, value) {
+        const stars = type === 'global'
+            ? $('#globalRating .rating-star')
+            : $(`#${type}Rating .rating-star-sm`);
+
+        stars.removeClass('active');
+        stars.each(function() {
+            if ($(this).data('value') <= value) {
+                $(this).addClass('active');
+            }
+        });
+
+        // Mettre à jour le texte de la note globale
+        if (type === 'global') {
+            const texts = [
+                "{% trans 'Sélectionnez une note' %}",
+                "{% trans 'Mauvais' %}",
+                "{% trans 'Moyen' %}",
+                "{% trans 'Bien' %}",
+                "{% trans 'Très bien' %}",
+                "{% trans 'Excellent' %}"
+            ];
+            $('#ratingText').text(texts[value] || texts[0]);
+        }
+    }
+
+    // Fonction pour mettre à jour la prévisualisation
+    function updatePreview() {
+        // Titre
+        $('#previewTitle').text($('#id_title').val() || "{% trans 'Titre de votre avis' %}");
+
+        // Commentaire
+        const comment = $('#id_comment').val() || "{% trans 'Votre commentaire apparaîtra ici...' %}";
+        $('#previewComment').html(comment.replace(/\n/g, '<br>'));
+
+        // Note globale
+        const rating = $('#id_rating').val();
+        $('#previewRating').html('');
+        for (let i = 1; i <= 5; i++) {
+            if (i <= rating) {
+                $('#previewRating').append('<i class="fas fa-star text-warning"></i>');
+            } else {
+                $('#previewRating').append('<i class="far fa-star text-warning"></i>');
+            }
+        }
+
+        // Notes détaillées
+        updatePreviewStars('communication', $('#id_communication').val());
+        updatePreviewStars('punctuality', $('#id_punctuality').val());
+        updatePreviewStars('handling', $('#id_handling').val());
+        updatePreviewStars('professionalism', $('#id_professionalism').val());
+
+        // Badges
+        $('#previewBadges').html('');
+        if ($('#id_recommended').is(':checked')) {
+            $('#previewBadges').append(
+                '<span class="badge bg-success me-1"><i class="fas fa-thumbs-up"></i> {% trans "Recommandé" %}</span>'
+            );
+        }
+        if ($('#id_on_time').is(':checked')) {
+            $('#previewBadges').append(
+                '<span class="badge bg-success me-1"><i class="fas fa-clock"></i> {% trans "À l\'heure" %}</span>'
+            );
+        }
+        if ($('#id_careful').is(':checked')) {
+            $('#previewBadges').append(
+                '<span class="badge bg-success me-1"><i class="fas fa-hands"></i> {% trans "Soigneux" %}</span>'
+            );
+        }
+        if ($('#id_good_communication').is(':checked')) {
+            $('#previewBadges').append(
+                '<span class="badge bg-success me-1"><i class="fas fa-comments"></i> {% trans "Bon communicateur" %}</span>'
+            );
+        }
+    }
+
+    // Fonction pour mettre à jour les étoiles de prévisualisation
+    function updatePreviewStars(category, value) {
+        $(`#preview${category.charAt(0).toUpperCase() + category.slice(1)}`).html('');
+        for (let i = 1; i <= 5; i++) {
+            if (i <= value) {
+                $(`#preview${category.charAt(0).toUpperCase() + category.slice(1)}`).append(
+                    '<i class="fas fa-star text-info" style="font-size: 0.8rem;"></i>'
+                );
+            } else {
+                $(`#preview${category.charAt(0).toUpperCase() + category.slice(1)}`).append(
+                    '<i class="far fa-star text-info" style="font-size: 0.8rem;"></i>'
+                );
+            }
+        }
+    }
+
+    // Validation du formulaire
+    $('#reviewForm').submit(function(e) {
+        const rating = $('#id_rating').val();
+        const title = $('#id_title').val().trim();
+        const comment = $('#id_comment').val().trim();
+
+        let errors = [];
+
+        if (rating < 1 || rating > 5) {
+            errors.push("{% trans 'Veuillez sélectionner une note globale.' %}");
+        }
+
+        if (!title) {
+            errors.push("{% trans 'Le titre est obligatoire.' %}");
+        }
+
+        if (!comment) {
+            errors.push("{% trans 'Le commentaire est obligatoire.' %}");
+        }
+
+        if (errors.length > 0) {
+            e.preventDefault();
+            alert(errors.join('\n'));
+        }
+    });
+
+    // Initialiser la prévisualisation
+    updatePreview();
+});
+</script>
+{% endblock %}

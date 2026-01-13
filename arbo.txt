@@ -45,6 +45,7 @@
 │   ├── __init__.py
 │   ├── admin.py
 │   ├── apps.py
+│   ├── arbo_carriers.txt
 │   ├── forms.py
 │   ├── migrations
 │   │   └── __init__.py
@@ -53,16 +54,53 @@
 │   ├── signals.py
 │   ├── templates
 │   │   └── carriers
-│   │       ├── apply.html
+│   │       ├── apply1.html
 │   │       ├── apply_success.html
+│   │       ├── base.html
 │   │       ├── base_carriers.html
 │   │       ├── carrier_detail.html
 │   │       ├── carrier_list.html
-│   │       └── partials
-│   │           └── carrier_card.html
+│   │       ├── carriers
+│   │       │   ├── detail.html
+│   │       │   └── list.html
+│   │       ├── collection
+│   │       │   ├── days.html
+│   │       │   └── detail.html
+│   │       ├── dashboard.html
+│   │       ├── documents
+│   │       │   ├── customs_form.html
+│   │       │   └── list.html
+│   │       ├── financial
+│   │       │   ├── dashboard.html
+│   │       │   ├── report_detail.html
+│   │       │   └── reports.html
+│   │       ├── list.html
+│   │       ├── marketplace
+│   │       │   ├── offers.html
+│   │       │   └── search.html
+│   │       ├── missions
+│   │       │   └── list.html
+│   │       ├── notifications
+│   │       │   └── list.html
+│   │       ├── partials
+│   │       │   ├── carrier_card.html
+│   │       │   ├── collection_item.html
+│   │       │   ├── financial_summary.html
+│   │       │   └── mission_status_badge.html
+│   │       ├── profile
+│   │       │   └── edit.html
+│   │       ├── public
+│   │       │   ├── profile.html
+│   │       │   └── review.html
+│   │       └── registration
+│   │           ├── login.html
+│   │           ├── register1.html
+│   │           └── success.html
 │   ├── tests.py
 │   ├── urls.py
-│   └── views.py
+│   ├── views.py
+│   └── views.py.bak
+├── check_urls.py
 ├── colis
 │   ├── __init__.py
 │   ├── admin.py
@@ -82,6 +120,7 @@
 │   │       ├── base_colis.html
 │   │       ├── css
 │   │       │   └── colis.css
+│   │       ├── favorite_list.html
 │   │       ├── includes
 │   │       │   └── help_widget.html
 │   │       ├── js
@@ -124,7 +163,8 @@
 │   │       └── home.html
 │   ├── tests.py
 │   ├── urls.py
-│   └── views.py
+│   ├── views.py
+│   └── views.py.bak
 ├── dashboard
 │   ├── __init__.py
 │   ├── admin.py
@@ -156,6 +196,7 @@
 │   ├── urls.py
 │   └── wsgi.py
 ├── find_emergency_page.py
+├── fix_carrier_fields.py
 ├── logistics
 │   ├── __init__.py
 │   ├── admin.py
@@ -204,14 +245,30 @@
 │   │   │   │   └── images
 │   │   │   └── velo-avec-panier
 │   │   │       └── images
-│   │   └── hamza
-│   │       ├── cafetiere-magefsa
-│   │       │   └── images
-│   │       └── velo
+│   │   ├── hamza
+│   │   │   ├── cafetiere-magefsa
+│   │   │   │   └── images
+│   │   │   └── velo
+│   │   │       └── images
+│   │   └── samir
+│   │       └── kawasaki
 │   │           └── images
+│   ├── carriers
+│   │   ├── ids
+│   │   │   └── 2026
+│   │   │       └── 01
+│   │   │           ├── 10
+│   │   │           └── 11
+│   │   └── profile_photos
+│   │       └── 2026
+│   │           └── 01
+│   │               ├── 10
+│   │               └── 11
 │   └── colis
 │       └── fathi
 │           ├── buggy-enfant-50-cc-1
+│           │   └── images
+│           ├── machine-a-cafe
 │           │   └── images
 │           └── scooter-50-cc
 │               └── images
@@ -432,6 +489,7 @@
 │   ├── __init__.py
 │   ├── admin.py
 │   ├── apps.py
+│   ├── arbo_users.txt
 │   ├── forms.py
 │   ├── migrations
 │   │   └── __init__.py
@@ -443,10 +501,11 @@
 │   │       ├── login.html
 │   │       ├── profile.html
 │   │       ├── profile_update.html
-│   │       └── register.html
+│   │       ├── register.html
+│   │       └── register_carrier.html
 │   ├── tests.py
 │   ├── urls.py
 │   └── views.py
 └── uuuu.txt
 
-134 directories, 315 files
+160 directories, 348 files

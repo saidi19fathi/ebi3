@@ -1228,7 +1228,7 @@ class PaymentGatewayManager:
     @staticmethod
     def process_mobile_money_payment(
         provider: str,
-        phone_number: str,
+        phone: str,
         amount: Decimal,
         currency: str,
         country: str
@@ -1264,7 +1264,7 @@ class PaymentGatewayManager:
             }
 
             payload = {
-                'phone_number': phone_number,
+                'phone': phone,
                 'amount': str(amount),
                 'currency': currency,
                 'country': country,

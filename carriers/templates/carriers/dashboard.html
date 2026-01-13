@@ -1,0 +1,225 @@
+{% extends "carriers/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Tableau de bord" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <h1 class="mb-4">{% trans "Tableau de bord" %}</h1>
+
+            <!-- Statistiques rapides -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">{% trans "Missions en attente" %}</h5>
+                            <h2 class="card-text">{{ pending_missions }}</h2>
+                            <a href="{% url 'carriers:mission_list' %}?status=PENDING" class="text-white">
+                                {% trans "Voir les missions" %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">{% trans "Missions en cours" %}</h5>
+                            <h2 class="card-text">{{ active_missions }}</h2>
+                            <a href="{% url 'carriers:mission_list' %}" class="text-white">
+                                {% trans "Gérer les missions" %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">{% trans "Revenus du mois" %}</h5>
+                            <h2 class="card-text">{{ monthly_income }} €</h2>
+                            <a href="{% url 'carriers:financial_dashboard' %}" class="text-white">
+                                {% trans "Voir les finances" %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">{% trans "Notifications" %}</h5>
+                            <h2 class="card-text">{{ unread_notifications }}</h2>
+                            <a href="{% url 'carriers:notifications' %}" class="text-white">
+                                {% trans "Voir les notifications" %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Missions du jour -->
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">{% trans "Missions du jour" %} ({{ today|date:"d/m/Y" }})</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if today_missions %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>{% trans "Numéro" %}</th>
+                                                <th>{% trans "Expéditeur" %}</th>
+                                                <th>{% trans "Destinataire" %}</th>
+                                                <th>{% trans "Statut" %}</th>
+                                                <th>{% trans "Actions" %}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for mission in today_missions %}
+                                                <tr>
+                                                    <td>{{ mission.mission_number }}</td>
+                                                    <td>{{ mission.sender.get_full_name }}</td>
+                                                    <td>{{ mission.recipient_name }}</td>
+                                                    <td>
+                                                        <span class="badge bg-{{ mission.status_color }}">
+                                                            {{ mission.get_status_display }}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <a href="{% url 'carriers:mission_detail' mission.pk %}"
+                                                           class="btn btn-sm btn-primary">
+                                                            {% trans "Détails" %}
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <p class="text-muted">{% trans "Aucune mission prévue pour aujourd'hui." %}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Prochaine collecte -->
+                    {% if next_collection_day %}
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">{% trans "Prochaine collecte" %}</h5>
+                        </div>
+                        <div class="card-body">
+                            <p>
+                                <strong>{% trans "Date" %}:</strong> {{ next_collection_day.date|date:"d/m/Y" }}<br>
+                                <strong>{% trans "Heure" %}:</strong> {{ next_collection_day.start_time|time:"H:i" }} - {{ next_collection_day.end_time|time:"H:i" }}<br>
+                                <strong>{% trans "Statut" %}:</strong>
+                                {% if next_collection_day.is_scheduled %}
+                                    <span class="badge bg-success">{% trans "Planifiée" %}</span>
+                                {% else %}
+                                    <span class="badge bg-warning">{% trans "À planifier" %}</span>
+                                {% endif %}
+                            </p>
+                            <a href="{% url 'carriers:collection_day_detail' next_collection_day.pk %}"
+                               class="btn btn-primary">
+                                {% trans "Organiser la collecte" %}
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Actions rapides -->
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">{% trans "Actions rapides" %}</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                <a href="{% url 'carriers:collection_days' %}" class="btn btn-outline-primary">
+                                    {% trans "Planifier une collecte" %}
+                                </a>
+                                <a href="{% url 'carriers:marketplace_offers' %}" class="btn btn-outline-success">
+                                    {% trans "Créer une offre" %}
+                                </a>
+                                <a href="{% url 'carriers:financial_dashboard' %}" class="btn btn-outline-info">
+                                    {% trans "Enregistrer une dépense" %}
+                                </a>
+                                <a href="{% url 'carriers:documents' %}" class="btn btn-outline-warning">
+                                    {% trans "Uploader un document" %}
+                                </a>
+                                <a href="{% url 'carriers:profile' %}" class="btn btn-outline-secondary">
+                                    {% trans "Modifier mon profil" %}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Statistiques de performance -->
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">{% trans "Mes performances" %}</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <strong>{% trans "Taux de réussite" %}:</strong>
+                                <div class="progress">
+                                    <div class="progress-bar bg-success"
+                                         role="progressbar"
+                                         style="width: {{ carrier.success_rate }}%">
+                                        {{ carrier.success_rate }}%
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <strong>{% trans "Note moyenne" %}:</strong>
+                                <div class="d-flex align-items-center">
+                                    <div class="rating-display">
+                                        {% for i in "12345"|make_list %}
+                                            {% if forloop.counter <= carrier.average_rating|floatformat:0 %}
+                                                <i class="fas fa-star text-warning"></i>
+                                            {% else %}
+                                                <i class="far fa-star text-warning"></i>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                    <span class="ms-2">{{ carrier.average_rating|floatformat:1 }}/5</span>
+                                </div>
+                            </div>
+                            <div>
+                                <strong>{% trans "Missions complétées" %}:</strong>
+                                <p class="mb-0">{{ carrier.completed_missions }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Mettre à jour les stats en temps réel
+function updateStats() {
+    fetch("{% url 'carriers:api_stats' %}")
+        .then(response => response.json())
+        .then(data => {
+            // Mettre à jour les compteurs
+            document.querySelectorAll('.card-text')[0].textContent = data.pending_missions;
+            document.querySelectorAll('.card-text')[1].textContent = data.active_missions;
+            document.querySelectorAll('.card-text')[3].textContent = data.unread_notifications;
+        });
+}
+
+// Mettre à jour toutes les 30 secondes
+setInterval(updateStats, 30000);
+</script>
+{% endblock %}

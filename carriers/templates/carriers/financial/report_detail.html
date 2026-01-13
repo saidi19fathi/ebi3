@@ -1,0 +1,534 @@
+{% extends "carriers/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Rapport" %} {{ report.period_start|date:"d/m/Y" }} - {{ report.period_end|date:"d/m/Y" }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'carriers:dashboard' %}">{% trans "Tableau de bord" %}</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'carriers:financial_dashboard' %}">{% trans "Finances" %}</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'carriers:expense_reports' %}">{% trans "Rapports" %}</a></li>
+                    <li class="breadcrumb-item active">{% trans "Détail" %}</li>
+                </ol>
+            </nav>
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>
+                    <i class="fas fa-file-alt"></i>
+                    {% trans "Rapport du" %} {{ report.period_start|date:"d/m/Y" }} {% trans "au" %} {{ report.period_end|date:"d/m/Y" }}
+                </h1>
+                <div>
+                    <button class="btn btn-primary" onclick="printReport()">
+                        <i class="fas fa-print"></i> {% trans "Imprimer" %}
+                    </button>
+                    {% if report.report_file %}
+                        <a href="{{ report.report_file.url }}" class="btn btn-success" target="_blank">
+                            <i class="fas fa-download"></i> {% trans "Télécharger PDF" %}
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- En-tête du rapport -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h6>{% trans "Période" %}</h6>
+                            <p class="mb-0">
+                                {{ report.period_start|date:"d/m/Y" }} - {{ report.period_end|date:"d/m/Y" }}
+                                <br>
+                                <small class="text-muted">({{ detailed_report.period.days }} jours)</small>
+                            </p>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>{% trans "Statut" %}</h6>
+                            <p class="mb-0">
+                                {% if report.is_approved %}
+                                    <span class="badge bg-success">{% trans "Approuvé" %}</span>
+                                    <br>
+                                    <small class="text-muted">
+                                        {% trans "Par" %} {{ report.approved_by.get_full_name|default:report.approved_by.username }}
+                                        <br>
+                                        {{ report.approved_at|date:"d/m/Y H:i" }}
+                                    </small>
+                                {% else %}
+                                    <span class="badge bg-warning">{% trans "En attente d'approbation" %}</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>{% trans "Transporteur" %}</h6>
+                            <p class="mb-0">
+                                {{ detailed_report.carrier.name }}
+                                {% if detailed_report.carrier.company %}
+                                    <br>
+                                    <small class="text-muted">{{ detailed_report.carrier.company }}</small>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Résumé financier -->
+                <div class="col-md-4">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-chart-pie"></i> {% trans "Résumé financier" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="text-center mb-4">
+                                <div class="display-4 mb-2">
+                                    {{ detailed_report.summary.net_profit|floatformat:2 }} €
+                                </div>
+                                <span class="badge bg-{% if detailed_report.summary.net_profit > 0 %}success{% else %}danger{% endif %}">
+                                    {% trans "Bénéfice net" %}
+                                </span>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-success">
+                                        <i class="fas fa-arrow-up"></i> {% trans "Revenus" %}
+                                    </span>
+                                    <strong>{{ detailed_report.summary.total_income|floatformat:2 }} €</strong>
+                                </div>
+                                <div class="progress" style="height: 10px;">
+                                    <div class="progress-bar bg-success"
+                                         role="progressbar"
+                                         style="width: 100%"></div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-danger">
+                                        <i class="fas fa-arrow-down"></i> {% trans "Dépenses" %}
+                                    </span>
+                                    <strong>{{ detailed_report.summary.total_expenses|floatformat:2 }} €</strong>
+                                </div>
+                                <div class="progress" style="height: 10px;">
+                                    <div class="progress-bar bg-danger"
+                                         role="progressbar"
+                                         style="width: {{ detailed_report.summary.expense_percentage|default:0 }}%"></div>
+                                </div>
+                            </div>
+
+                            <div class="mt-4">
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle"></i>
+                                    {% trans "Marge bénéficiaire" %}:
+                                    <strong>{{ detailed_report.summary.margin|floatformat:1 }}%</strong>
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dépenses par catégorie -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-tags"></i> {% trans "Dépenses par catégorie" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="categoryChart" height="200"></canvas>
+
+                            <div class="mt-3">
+                                {% for category, amount in detailed_report.expenses_by_category.items %}
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span>{{ category }}</span>
+                                        <span>{{ amount|floatformat:2 }} €</span>
+                                    </div>
+                                {% empty %}
+                                    <p class="text-muted text-center">{% trans "Aucune dépense" %}</p>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Détail des transactions -->
+                <div class="col-md-8">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-list"></i> {% trans "Détail des transactions" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <ul class="nav nav-tabs mb-3" id="transactionsTab" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="income-tab" data-bs-toggle="tab"
+                                            data-bs-target="#income" type="button">
+                                        {% trans "Revenus" %} ({{ detailed_report.detailed_income|length }})
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="expenses-tab" data-bs-toggle="tab"
+                                            data-bs-target="#expenses" type="button">
+                                        {% trans "Dépenses" %} ({{ detailed_report.detailed_expenses|length }})
+                                    </button>
+                                </li>
+                            </ul>
+
+                            <div class="tab-content" id="transactionsTabContent">
+                                <!-- Onglet Revenus -->
+                                <div class="tab-pane fade show active" id="income" role="tabpanel">
+                                    {% if detailed_report.detailed_income %}
+                                        <div class="table-responsive">
+                                            <table class="table table-sm">
+                                                <thead>
+                                                    <tr>
+                                                        <th>{% trans "Date" %}</th>
+                                                        <th>{% trans "Mission" %}</th>
+                                                        <th>{% trans "Méthode" %}</th>
+                                                        <th class="text-end">{% trans "Montant" %}</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for income in detailed_report.detailed_income %}
+                                                        <tr>
+                                                            <td>{{ income.date|date:"d/m/Y" }}</td>
+                                                            <td>
+                                                                {% if income.mission %}
+                                                                    <a href="{% url 'carriers:mission_detail' income.mission_id %}">
+                                                                        {{ income.mission }}
+                                                                    </a>
+                                                                {% else %}
+                                                                    <span class="text-muted">-</span>
+                                                                {% endif %}
+                                                            </td>
+                                                            <td>{{ income.payment_method }}</td>
+                                                            <td class="text-end text-success">
+                                                                <strong>+{{ income.amount|floatformat:2 }} €</strong>
+                                                            </td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                                <tfoot>
+                                                    <tr class="table-success">
+                                                        <td colspan="3" class="text-end">
+                                                            <strong>{% trans "Total revenus" %}</strong>
+                                                        </td>
+                                                        <td class="text-end">
+                                                            <strong>+{{ detailed_report.summary.total_income|floatformat:2 }} €</strong>
+                                                        </td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    {% else %}
+                                        <div class="text-center py-4">
+                                            <i class="fas fa-euro-sign fa-3x text-muted mb-3"></i>
+                                            <h5>{% trans "Aucun revenu" %}</h5>
+                                            <p class="text-muted">{% trans "Aucun revenu enregistré pour cette période." %}</p>
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Onglet Dépenses -->
+                                <div class="tab-pane fade" id="expenses" role="tabpanel">
+                                    {% if detailed_report.detailed_expenses %}
+                                        <div class="table-responsive">
+                                            <table class="table table-sm">
+                                                <thead>
+                                                    <tr>
+                                                        <th>{% trans "Date" %}</th>
+                                                        <th>{% trans "Catégorie" %}</th>
+                                                        <th>{% trans "Description" %}</th>
+                                                        <th>{% trans "Mission" %}</th>
+                                                        <th class="text-end">{% trans "Montant" %}</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for expense in detailed_report.detailed_expenses %}
+                                                        <tr>
+                                                            <td>{{ expense.date|date:"d/m/Y" }}</td>
+                                                            <td>
+                                                                <span class="badge bg-secondary">
+                                                                    {{ expense.category }}
+                                                                </span>
+                                                            </td>
+                                                            <td>{{ expense.description|truncatechars:30 }}</td>
+                                                            <td>
+                                                                {% if expense.mission %}
+                                                                    <a href="{% url 'carriers:mission_detail' expense.mission_id %}">
+                                                                        {{ expense.mission }}
+                                                                    </a>
+                                                                {% else %}
+                                                                    <span class="text-muted">-</span>
+                                                                {% endif %}
+                                                            </td>
+                                                            <td class="text-end text-danger">
+                                                                <strong>-{{ expense.amount|floatformat:2 }} €</strong>
+                                                            </td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                                <tfoot>
+                                                    <tr class="table-danger">
+                                                        <td colspan="4" class="text-end">
+                                                            <strong>{% trans "Total dépenses" %}</strong>
+                                                        </td>
+                                                        <td class="text-end">
+                                                            <strong>-{{ detailed_report.summary.total_expenses|floatformat:2 }} €</strong>
+                                                        </td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    {% else %}
+                                        <div class="text-center py-4">
+                                            <i class="fas fa-shopping-cart fa-3x text-muted mb-3"></i>
+                                            <h5>{% trans "Aucune dépense" %}</h5>
+                                            <p class="text-muted">{% trans "Aucune dépense enregistrée pour cette période." %}</p>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notes et actions -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-sticky-note"></i> {% trans "Notes et actions" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Notes" %}</label>
+                                {% if report.notes %}
+                                    <p>{{ report.notes|linebreaks }}</p>
+                                {% else %}
+                                    <p class="text-muted">{% trans "Aucune note" %}</p>
+                                {% endif %}
+                            </div>
+
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                {% if not report.is_approved %}
+                                    <button class="btn btn-success" onclick="approveReport()">
+                                        <i class="fas fa-check"></i> {% trans "Approuver" %}
+                                    </button>
+                                {% endif %}
+                                <button class="btn btn-outline-primary" onclick="sendToAccountant()">
+                                    <i class="fas fa-paper-plane"></i> {% trans "Envoyer à mon comptable" %}
+                                </button>
+                                <button class="btn btn-outline-info" onclick="compareWithPrevious()">
+                                    <i class="fas fa-chart-line"></i> {% trans "Comparer avec période précédente" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Graphique des catégories de dépenses
+{% if detailed_report.expenses_by_category %}
+const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+const categoryChart = new Chart(categoryCtx, {
+    type: 'doughnut',
+    data: {
+        labels: [
+            {% for category, amount in detailed_report.expenses_by_category.items %}
+                '{{ category }}',
+            {% endfor %}
+        ],
+        datasets: [{
+            data: [
+                {% for category, amount in detailed_report.expenses_by_category.items %}
+                    {{ amount }},
+                {% endfor %}
+            ],
+            backgroundColor: [
+                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+                '#9966FF', '#FF9F40', '#8AC926', '#1982C4',
+                '#6A4C93', '#FF595E'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'bottom',
+            }
+        }
+    }
+});
+{% endif %}
+
+// Imprimer le rapport
+function printReport() {
+    const printContent = document.createElement('div');
+    printContent.innerHTML = `
+        <html>
+            <head>
+                <title>Rapport financier - {{ report.period_start|date:"d/m/Y" }} au {{ report.period_end|date:"d/m/Y" }}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 20px; }
+                    .header { text-align: center; margin-bottom: 30px; }
+                    .summary { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; }
+                    .summary-item { margin-bottom: 10px; }
+                    .table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                    .table th, .table td { border: 1px solid #ddd; padding: 8px; }
+                    .table th { background-color: #f8f9fa; }
+                    .text-success { color: #28a745; }
+                    .text-danger { color: #dc3545; }
+                    .footer { margin-top: 30px; text-align: center; font-size: 0.9em; color: #666; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>Rapport financier</h1>
+                    <h3>{{ report.period_start|date:"d/m/Y" }} - {{ report.period_end|date:"d/m/Y" }}</h3>
+                    <p>{{ detailed_report.carrier.name }}</p>
+                </div>
+
+                <div class="summary">
+                    <h4>Résumé financier</h4>
+                    <div class="summary-item">
+                        <strong>Revenus totaux:</strong>
+                        <span class="text-success">{{ detailed_report.summary.total_income|floatformat:2 }} €</span>
+                    </div>
+                    <div class="summary-item">
+                        <strong>Dépenses totales:</strong>
+                        <span class="text-danger">{{ detailed_report.summary.total_expenses|floatformat:2 }} €</span>
+                    </div>
+                    <div class="summary-item">
+                        <strong>Bénéfice net:</strong>
+                        <span class="{% if detailed_report.summary.net_profit > 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ detailed_report.summary.net_profit|floatformat:2 }} €
+                        </span>
+                    </div>
+                    <div class="summary-item">
+                        <strong>Marge bénéficiaire:</strong> {{ detailed_report.summary.margin|floatformat:1 }}%
+                    </div>
+                </div>
+
+                <h4>Dépenses par catégorie</h4>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Catégorie</th>
+                            <th>Montant</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for category, amount in detailed_report.expenses_by_category.items %}
+                            <tr>
+                                <td>{{ category }}</td>
+                                <td>{{ amount|floatformat:2 }} €</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <h4>Transactions</h4>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Description</th>
+                            <th>Montant</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for income in detailed_report.detailed_income %}
+                            <tr>
+                                <td>{{ income.date|date:"d/m/Y" }}</td>
+                                <td>Revenu</td>
+                                <td>{{ income.mission|default:"-" }} ({{ income.payment_method }})</td>
+                                <td class="text-success">+{{ income.amount|floatformat:2 }} €</td>
+                            </tr>
+                        {% endfor %}
+                        {% for expense in detailed_report.detailed_expenses %}
+                            <tr>
+                                <td>{{ expense.date|date:"d/m/Y" }}</td>
+                                <td>Dépense</td>
+                                <td>{{ expense.description }} ({{ expense.category }})</td>
+                                <td class="text-danger">-{{ expense.amount|floatformat:2 }} €</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <div class="footer">
+                    <p>Généré le {{ report.created_at|date:"d/m/Y H:i" }} | Ebi3 Transporteurs</p>
+                </div>
+            </body>
+        </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(printContent.innerHTML);
+    printWindow.document.close();
+    printWindow.print();
+}
+
+// Approuver le rapport
+function approveReport() {
+    if (confirm('Êtes-vous sûr de vouloir approuver ce rapport ? Cette action est définitive.')) {
+        fetch(`/carriers/financial/reports/{{ report.pk }}/approve/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Rapport approuvé avec succès !');
+                location.reload();
+            }
+        });
+    }
+}
+
+// Envoyer au comptable
+function sendToAccountant() {
+    const email = prompt('Entrez l\'email de votre comptable :');
+    if (email) {
+        fetch(`/carriers/financial/reports/{{ report.pk }}/send/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ email: email })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Rapport envoyé avec succès !');
+            } else {
+                alert('Erreur lors de l\'envoi.');
+            }
+        });
+    }
+}
+
+// Comparer avec période précédente
+function compareWithPrevious() {
+    window.location.href = `/carriers/financial/reports/{{ report.pk }}/compare/`;
+}
+</script>
+{% endblock %}

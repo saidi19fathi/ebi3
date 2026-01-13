@@ -1,0 +1,305 @@
+{% extends "carriers/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Jours de collecte" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'carriers:dashboard' %}">{% trans "Tableau de bord" %}</a></li>
+                    <li class="breadcrumb-item active">{% trans "Collectes" %}</li>
+                </ol>
+            </nav>
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>{% trans "Jours de collecte" %}</h1>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createDayModal">
+                    <i class="fas fa-plus"></i> {% trans "Nouveau jour" %}
+                </button>
+            </div>
+
+            <!-- Jours à venir -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calendar-day"></i> {% trans "Jours à venir" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if upcoming_days %}
+                        <div class="row">
+                            {% for day in upcoming_days %}
+                                <div class="col-md-4 mb-3">
+                                    <div class="card h-100 mission-card">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <h5 class="card-title mb-0">
+                                                    {{ day.date|date:"l d/m/Y"|title }}
+                                                </h5>
+                                                <span class="badge bg-{% if day.is_scheduled %}success{% else %}warning{% endif %}">
+                                                    {% if day.is_scheduled %}
+                                                        {% trans "Planifié" %}
+                                                    {% else %}
+                                                        {% trans "À planifier" %}
+                                                    {% endif %}
+                                                </span>
+                                            </div>
+
+                                            <p class="card-text">
+                                                <i class="far fa-clock"></i>
+                                                {{ day.start_time|time:"H:i" }} - {{ day.end_time|time:"H:i" }}
+                                            </p>
+
+                                            <div class="mb-2">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-weight-hanging"></i>
+                                                    {% trans "Poids" %}: {{ day.planned_total_weight|default:"0" }} kg
+                                                </small><br>
+                                                <small class="text-muted">
+                                                    <i class="fas fa-archive"></i>
+                                                    {% trans "Volume" %}: {{ day.planned_total_volume|default:"0" }} m³
+                                                </small>
+                                            </div>
+
+                                            <div class="mt-3">
+                                                <a href="{% url 'carriers:collection_day_detail' day.pk %}"
+                                                   class="btn btn-sm btn-primary w-100">
+                                                    <i class="fas fa-tasks"></i> {% trans "Organiser" %}
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                            <h5>{% trans "Aucun jour de collecte à venir" %}</h5>
+                            <p class="text-muted">{% trans "Créez votre premier jour de collecte pour organiser vos missions." %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Missions sans collecte assignée -->
+            {% if unassigned_missions %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        {% trans "Missions sans jour de collecte" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "N° Mission" %}</th>
+                                    <th>{% trans "Expéditeur" %}</th>
+                                    <th>{% trans "Date prévue" %}</th>
+                                    <th>{% trans "Poids" %}</th>
+                                    <th>{% trans "Volume" %}</th>
+                                    <th>{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for mission in unassigned_missions %}
+                                    <tr>
+                                        <td>{{ mission.mission_number }}</td>
+                                        <td>{{ mission.sender.get_full_name }}</td>
+                                        <td>{{ mission.preferred_pickup_date|date:"d/m/Y" }}</td>
+                                        <td>{{ mission.weight }} kg</td>
+                                        <td>{{ mission.volume|floatformat:3 }} m³</td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="{% url 'carriers:mission_detail' mission.pk %}"
+                                                   class="btn btn-outline-primary">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                <button type="button" class="btn btn-outline-success"
+                                                        onclick="assignToDay('{{ mission.pk }}', '{{ mission.preferred_pickup_date|date:"Y-m-d" }}')">
+                                                    <i class="fas fa-calendar-plus"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Jours passés -->
+            {% if past_days %}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history"></i> {% trans "Jours passés" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Date" %}</th>
+                                    <th>{% trans "Heure" %}</th>
+                                    <th>{% trans "Statut" %}</th>
+                                    <th>{% trans "Missions" %}</th>
+                                    <th>{% trans "Poids total" %}</th>
+                                    <th>{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for day in past_days %}
+                                    <tr>
+                                        <td>{{ day.date|date:"d/m/Y" }}</td>
+                                        <td>{{ day.start_time|time:"H:i" }} - {{ day.end_time|time:"H:i" }}</td>
+                                        <td>
+                                            <span class="badge bg-{% if day.is_completed %}success{% else %}secondary{% endif %}">
+                                                {% if day.is_completed %}
+                                                    {% trans "Terminé" %}
+                                                {% else %}
+                                                    {% trans "Incomplet" %}
+                                                {% endif %}
+                                            </span>
+                                        </td>
+                                        <td>{{ day.missions.count }}</td>
+                                        <td>{{ day.actual_total_weight|default:day.planned_total_weight }} kg</td>
+                                        <td>
+                                            <a href="{% url 'carriers:collection_day_detail' day.pk %}"
+                                               class="btn btn-sm btn-outline-secondary">
+                                                <i class="fas fa-chart-bar"></i> {% trans "Détails" %}
+                                            </a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal création jour -->
+<div class="modal fade" id="createDayModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Nouveau jour de collecte" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="id_date" class="form-label">{% trans "Date" %} *</label>
+                        {{ form.date }}
+                        {% if form.date.errors %}
+                            <div class="text-danger">{{ form.date.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="id_start_time" class="form-label">{% trans "Heure de début" %} *</label>
+                                {{ form.start_time }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="id_end_time" class="form-label">{% trans "Heure de fin" %} *</label>
+                                {{ form.end_time }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_notes" class="form-label">{% trans "Notes" %}</label>
+                        {{ form.notes }}
+                    </div>
+
+                    <!-- Missions disponibles pour cette date -->
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Missions disponibles" %}</label>
+                        <div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
+                            {% for mission in unassigned_missions %}
+                                <div class="form-check">
+                                    <input type="checkbox"
+                                           name="mission_ids"
+                                           value="{{ mission.pk }}"
+                                           class="form-check-input"
+                                           id="mission_{{ mission.pk }}">
+                                    <label class="form-check-label" for="mission_{{ mission.pk }}">
+                                        {{ mission.mission_number }} - {{ mission.sender.get_full_name }}
+                                        ({{ mission.weight }} kg)
+                                    </label>
+                                </div>
+                            {% empty %}
+                                <p class="text-muted small mb-0">{% trans "Aucune mission disponible" %}</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "Annuler" %}
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-calendar-plus"></i> {% trans "Créer" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Assigner une mission à un jour
+function assignToDay(missionId, preferredDate) {
+    // Pré-remplir la date dans le modal
+    $('#id_date').val(preferredDate);
+
+    // Cochez la mission
+    $('#mission_' + missionId).prop('checked', true);
+
+    // Ouvrir le modal
+    $('#createDayModal').modal('show');
+}
+
+// Calculer les totaux en temps réel
+function calculateTotals() {
+    let totalWeight = 0;
+    let totalVolume = 0;
+
+    $('input[name="mission_ids"]:checked').each(function() {
+        const missionText = $(this).next('label').text();
+        const weightMatch = missionText.match(/\((\d+\.?\d*) kg\)/);
+        if (weightMatch) {
+            totalWeight += parseFloat(weightMatch[1]);
+        }
+    });
+
+    // Mettre à jour l'affichage (à implémenter selon vos besoins)
+    console.log('Poids total:', totalWeight, 'kg');
+}
+
+// Initialiser
+$(document).ready(function() {
+    $('input[name="mission_ids"]').change(calculateTotals);
+});
+</script>
+{% endblock %}

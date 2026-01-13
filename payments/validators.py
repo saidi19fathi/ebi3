@@ -212,7 +212,7 @@ def validate_card_holder_name(value):
 
     return value.title()
 
-def validate_phone_number_for_payment(value):
+def validate_phone_for_payment(value):
     """
     Valider un numéro de téléphone pour le paiement mobile
     """

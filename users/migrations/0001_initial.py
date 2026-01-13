@@ -118,7 +118,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
-                    "phone_number",
+                    "phone",
                     phonenumber_field.modelfields.PhoneNumberField(
                         blank=True,
                         max_length=128,

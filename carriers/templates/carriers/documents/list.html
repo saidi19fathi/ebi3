@@ -1,0 +1,862 @@
+{% extends "carriers/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Gestion des documents" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'carriers:dashboard' %}">{% trans "Tableau de bord" %}</a></li>
+                    <li class="breadcrumb-item active">{% trans "Documents" %}</li>
+                </ol>
+            </nav>
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>
+                    <i class="fas fa-file-alt"></i> {% trans "Gestion des documents" %}
+                </h1>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadDocumentModal">
+                    <i class="fas fa-upload"></i> {% trans "Uploader un document" %}
+                </button>
+            </div>
+
+            <!-- Alertes importantes -->
+            {% if expired_documents %}
+            <div class="alert alert-danger mb-4">
+                <div class="d-flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-exclamation-triangle fa-2x"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h5 class="alert-heading">{% trans "Documents expirés" %}</h5>
+                        <p class="mb-0">
+                            {% trans "Vous avez" %} {{ expired_documents|length }}
+                            {% trans "document(s) expiré(s). Veuillez les renouveler rapidement." %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if renewal_documents %}
+            <div class="alert alert-warning mb-4">
+                <div class="d-flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-exclamation-circle fa-2x"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h5 class="alert-heading">{% trans "Documents à renouveler" %}</h5>
+                        <p class="mb-0">
+                            {% trans "Vous avez" %} {{ renewal_documents|length }}
+                            {% trans "document(s) à renouveler bientôt." %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="row">
+                <!-- Liste des documents -->
+                <div class="col-md-8">
+                    <div class="card mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-list"></i> {% trans "Tous vos documents" %}
+                            </h5>
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                                        data-bs-toggle="dropdown">
+                                    <i class="fas fa-filter"></i> {% trans "Filtrer" %}
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="?filter=all">{% trans "Tous" %}</a></li>
+                                    <li><a class="dropdown-item" href="?filter=verified">{% trans "Vérifiés" %}</a></li>
+                                    <li><a class="dropdown-item" href="?filter=unverified">{% trans "Non vérifiés" %}</a></li>
+                                    <li><a class="dropdown-item" href="?filter=expired">{% trans "Expirés" %}</a></li>
+                                    <li><a class="dropdown-item" href="?filter=customs">{% trans "Douaniers" %}</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            {% if documents %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>{% trans "Type" %}</th>
+                                                <th>{% trans "Description" %}</th>
+                                                <th>{% trans "Date d'expiration" %}</th>
+                                                <th>{% trans "Statut" %}</th>
+                                                <th>{% trans "Actions" %}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for document in documents %}
+                                                <tr class="{% if document.is_expired %}table-danger{% elif document.needs_renewal %}table-warning{% endif %}">
+                                                    <td>
+                                                        <div class="d-flex align-items-center">
+                                                            <i class="fas fa-file-{{ document.get_file_icon }} text-primary me-2"></i>
+                                                            <div>
+                                                                <strong>{{ document.get_document_type_display }}</strong>
+                                                                {% if document.is_customs_document %}
+                                                                    <br>
+                                                                    <small class="text-muted">
+                                                                        <i class="fas fa-passport"></i>
+                                                                        {{ document.customs_type }}
+                                                                    </small>
+                                                                {% endif %}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        {% if document.description %}
+                                                            {{ document.description }}
+                                                        {% else %}
+                                                            <span class="text-muted">{% trans "Aucune description" %}</span>
+                                                        {% endif %}
+                                                        <br>
+                                                        <small class="text-muted">
+                                                            <i class="far fa-calendar"></i>
+                                                            {{ document.created_at|date:"d/m/Y" }}
+                                                        </small>
+                                                    </td>
+                                                    <td>
+                                                        {% if document.expiry_date %}
+                                                            {% if document.is_expired %}
+                                                                <span class="badge bg-danger">
+                                                                    {{ document.expiry_date|date:"d/m/Y" }}
+                                                                </span>
+                                                                <br>
+                                                                <small class="text-danger">{% trans "Expiré" %}</small>
+                                                            {% elif document.needs_renewal %}
+                                                                <span class="badge bg-warning">
+                                                                    {{ document.expiry_date|date:"d/m/Y" }}
+                                                                </span>
+                                                                <br>
+                                                                <small class="text-warning">{% trans "À renouveler" %}</small>
+                                                            {% else %}
+                                                                {{ document.expiry_date|date:"d/m/Y" }}
+                                                                <br>
+                                                                <small class="text-success">{% trans "Valide" %}</small>
+                                                            {% endif %}
+                                                        {% else %}
+                                                            <span class="text-muted">{% trans "Pas d'expiration" %}</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        {% if document.is_verified %}
+                                                            <span class="badge bg-success">
+                                                                <i class="fas fa-check-circle"></i> {% trans "Vérifié" %}
+                                                            </span>
+                                                            <br>
+                                                            <small class="text-muted">
+                                                                {{ document.verified_at|date:"d/m/Y" }}
+                                                            </small>
+                                                        {% else %}
+                                                            <span class="badge bg-warning">
+                                                                <i class="fas fa-clock"></i> {% trans "En attente" %}
+                                                            </span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        <div class="btn-group btn-group-sm">
+                                                            <a href="{{ document.file.url }}"
+                                                               target="_blank"
+                                                               class="btn btn-outline-primary"
+                                                               title="{% trans 'Voir' %}">
+                                                                <i class="fas fa-eye"></i>
+                                                            </a>
+                                                            <a href="{{ document.file.url }}"
+                                                               download
+                                                               class="btn btn-outline-success"
+                                                               title="{% trans 'Télécharger' %}">
+                                                                <i class="fas fa-download"></i>
+                                                            </a>
+                                                            {% if document.is_customs_document %}
+                                                                <a href="{% url 'carriers:generate_customs_form' document.pk %}"
+                                                                   class="btn btn-outline-info"
+                                                                   title="{% trans 'Générer formulaire' %}">
+                                                                    <i class="fas fa-file-export"></i>
+                                                                </a>
+                                                            {% endif %}
+                                                            <button type="button"
+                                                                    class="btn btn-outline-danger"
+                                                                    onclick="deleteDocument({{ document.pk }})"
+                                                                    title="{% trans 'Supprimer' %}">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="text-center py-5">
+                                    <i class="fas fa-file-alt fa-4x text-muted mb-3"></i>
+                                    <h4>{% trans "Aucun document" %}</h4>
+                                    <p class="text-muted">
+                                        {% trans "Commencez par uploader vos documents pour compléter votre profil." %}
+                                    </p>
+                                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadDocumentModal">
+                                        <i class="fas fa-upload"></i> {% trans "Uploader votre premier document" %}
+                                    </button>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Documents douaniers -->
+                    {% with customs_documents=documents.filter.is_customs_document %}
+                        {% if customs_documents %}
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-passport"></i> {% trans "Documents douaniers" %}
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted mb-3">
+                                    {% trans "Ces documents sont spécifiques aux formalités douanières transfrontalières." %}
+                                </p>
+
+                                <div class="row">
+                                    {% for document in customs_documents %}
+                                        <div class="col-md-6 mb-3">
+                                            <div class="card h-100">
+                                                <div class="card-body">
+                                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                                        <h6 class="card-title mb-0">
+                                                            {{ document.customs_type|default:document.get_document_type_display }}
+                                                        </h6>
+                                                        {% if document.is_verified %}
+                                                            <span class="badge bg-success">
+                                                                <i class="fas fa-check"></i>
+                                                            </span>
+                                                        {% endif %}
+                                                    </div>
+
+                                                    <p class="card-text small">
+                                                        {% if document.customs_country %}
+                                                            <i class="fas fa-flag"></i>
+                                                            {{ document.customs_country.name }}
+                                                            <br>
+                                                        {% endif %}
+
+                                                        {% if document.description %}
+                                                            {{ document.description|truncatechars:100 }}
+                                                            <br>
+                                                        {% endif %}
+
+                                                        {% if document.expiry_date %}
+                                                            <i class="far fa-calendar"></i>
+                                                            {% trans "Expire le" %} {{ document.expiry_date|date:"d/m/Y" }}
+                                                        {% endif %}
+                                                    </p>
+                                                </div>
+                                                <div class="card-footer bg-transparent">
+                                                    <div class="d-flex justify-content-between">
+                                                        <a href="{{ document.file.url }}"
+                                                           target="_blank"
+                                                           class="btn btn-sm btn-outline-primary">
+                                                            <i class="fas fa-eye"></i>
+                                                        </a>
+                                                        <a href="{% url 'carriers:generate_customs_form' document.pk %}"
+                                                           class="btn btn-sm btn-outline-info">
+                                                            <i class="fas fa-file-export"></i> {% trans "Formulaire" %}
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+
+                <!-- Statistiques et informations -->
+                <div class="col-md-4">
+                    <!-- Statut de vérification -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-user-check"></i> {% trans "Statut de vérification" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="text-center mb-3">
+                                <div class="verification-level mb-3">
+                                    {% for i in "12345"|make_list %}
+                                        {% if forloop.counter <= carrier.verification_level %}
+                                            <i class="fas fa-shield-alt fa-2x text-primary"></i>
+                                        {% else %}
+                                            <i class="fas fa-shield-alt fa-2x text-muted"></i>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                                <h4>Niveau {{ carrier.verification_level }}/5</h4>
+                                <p class="text-muted">
+                                    {{ carrier.get_verification_status }}
+                                </p>
+                            </div>
+
+                            <div class="progress mb-3" style="height: 20px;">
+                                <div class="progress-bar bg-primary"
+                                     role="progressbar"
+                                     style="width: {{ carrier.verification_level|multiply:20 }}%">
+                                    {{ carrier.verification_level|multiply:20 }}%
+                                </div>
+                            </div>
+
+                            <div class="list-group list-group-flush">
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    {% trans "Documents vérifiés" %}
+                                    <span class="badge bg-primary rounded-pill">
+                                        {{ documents.filter.is_verified.count }}/{{ documents.count }}
+                                    </span>
+                                </div>
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    {% trans "Documents expirés" %}
+                                    <span class="badge bg-danger rounded-pill">
+                                        {{ expired_documents|length }}
+                                    </span>
+                                </div>
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    {% trans "Documents douaniers" %}
+                                    <span class="badge bg-info rounded-pill">
+                                        {{ documents.filter.is_customs_document.count }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Documents obligatoires -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-exclamation-circle"></i> {% trans "Documents obligatoires" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="list-group list-group-flush">
+                                {% for doc_type, doc_name in required_documents %}
+                                    <div class="list-group-item">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <i class="fas fa-file-{{ doc_type|lower }} text-primary me-2"></i>
+                                                {{ doc_name }}
+                                            </div>
+                                            {% with existing_doc=documents.filter.document_type=doc_type.first %}
+                                                {% if existing_doc %}
+                                                    {% if existing_doc.is_verified %}
+                                                        <i class="fas fa-check-circle text-success"></i>
+                                                    {% else %}
+                                                        <i class="fas fa-clock text-warning"></i>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <i class="fas fa-times-circle text-danger"></i>
+                                                {% endif %}
+                                            {% endwith %}
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Rappels et alertes -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-bell"></i> {% trans "Rappels" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% if renewal_documents %}
+                                <div class="alert alert-warning">
+                                    <h6>{% trans "À renouveler bientôt" %}</h6>
+                                    <ul class="mb-0">
+                                        {% for document in renewal_documents|slice:":3" %}
+                                            <li>
+                                                {{ document.get_document_type_display }}
+                                                ({{ document.expiry_date|date:"d/m/Y" }})
+                                            </li>
+                                        {% endfor %}
+                                        {% if renewal_documents|length > 3 %}
+                                            <li>{% trans "... et" %} {{ renewal_documents|length|add:"-3" }} {% trans "autres" %}</li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            {% endif %}
+
+                            {% if expired_documents %}
+                                <div class="alert alert-danger">
+                                    <h6>{% trans "Documents expirés" %}</h6>
+                                    <ul class="mb-0">
+                                        {% for document in expired_documents|slice:":3" %}
+                                            <li>
+                                                {{ document.get_document_type_display }}
+                                                ({% trans "expiré le" %} {{ document.expiry_date|date:"d/m/Y" }})
+                                            </li>
+                                        {% endfor %}
+                                        {% if expired_documents|length > 3 %}
+                                            <li>{% trans "... et" %} {{ expired_documents|length|add:"-3" }} {% trans "autres" %}</li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            {% endif %}
+
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-outline-primary" onclick="setReminders()">
+                                    <i class="fas fa-calendar-plus"></i> {% trans "Configurer les rappels" %}
+                                </button>
+                                <button class="btn btn-outline-info" onclick="exportDocuments()">
+                                    <i class="fas fa-file-export"></i> {% trans "Exporter la liste" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal upload document -->
+<div class="modal fade" id="uploadDocumentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post" enctype="multipart/form-data" id="uploadDocumentForm">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Uploader un document" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <ul class="nav nav-tabs mb-3" id="documentTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="standard-tab" data-bs-toggle="tab"
+                                    data-bs-target="#standard" type="button">
+                                {% trans "Document standard" %}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="customs-tab" data-bs-toggle="tab"
+                                    data-bs-target="#customs" type="button">
+                                {% trans "Document douanier" %}
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="documentTabContent">
+                        <!-- Onglet Standard -->
+                        <div class="tab-pane fade show active" id="standard" role="tabpanel">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label for="id_document_type" class="form-label">
+                                            {% trans "Type de document" %} *
+                                        </label>
+                                        {{ form.document_type }}
+                                        {% if form.document_type.errors %}
+                                            <div class="text-danger">{{ form.document_type.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label for="id_file" class="form-label">
+                                            {% trans "Fichier" %} *
+                                        </label>
+                                        {{ form.file }}
+                                        {% if form.file.errors %}
+                                            <div class="text-danger">{{ form.file.errors }}</div>
+                                        {% endif %}
+                                        <small class="text-muted">
+                                            {% trans "Formats acceptés : PDF, JPG, PNG. Taille max : 5MB" %}
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group mb-3">
+                                <label for="id_description" class="form-label">
+                                    {% trans "Description" %}
+                                </label>
+                                {{ form.description }}
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label for="id_expiry_date" class="form-label">
+                                            {% trans "Date d'expiration" %}
+                                        </label>
+                                        {{ form.expiry_date }}
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label for="id_reminder_date" class="form-label">
+                                            {% trans "Date de rappel" %}
+                                        </label>
+                                        <input type="date" class="form-control" name="reminder_date"
+                                               id="id_reminder_date">
+                                        <small class="text-muted">
+                                            {% trans "Date à laquelle vous souhaitez être rappelé" %}
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Onglet Douanier -->
+                        <div class="tab-pane fade" id="customs" role="tabpanel">
+                            <div class="alert alert-info mb-3">
+                                <i class="fas fa-info-circle"></i>
+                                {% trans "Les documents douaniers sont spécifiques aux formalités transfrontalières." %}
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label for="id_customs_type" class="form-label">
+                                            {% trans "Type de document douanier" %} *
+                                        </label>
+                                        <input type="text" class="form-control" name="customs_type"
+                                               id="id_customs_type" required>
+                                        <small class="text-muted">
+                                            {% trans "Ex: Déclaration en douane, Certificat d'origine, etc." %}
+                                        </small>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label for="id_customs_country" class="form-label">
+                                            {% trans "Pays concerné" %}
+                                        </label>
+                                        <select class="form-control" name="customs_country" id="id_customs_country">
+                                            <option value="">{% trans "Sélectionnez un pays" %}</option>
+                                            <!-- Les options seront chargées dynamiquement -->
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group mb-3">
+                                <label for="id_customs_file" class="form-label">
+                                    {% trans "Fichier" %} *
+                                </label>
+                                <input type="file" class="form-control" name="file"
+                                       id="id_customs_file" accept=".pdf,.jpg,.jpeg,.png" required>
+                            </div>
+
+                            <div class="form-group mb-3">
+                                <label for="id_customs_description" class="form-label">
+                                    {% trans "Informations supplémentaires" %}
+                                </label>
+                                <textarea class="form-control" name="description"
+                                          id="id_customs_description" rows="3"></textarea>
+                                <small class="text-muted">
+                                    {% trans "Informations utiles pour le traitement douanier" %}
+                                </small>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label for="id_customs_expiry_date" class="form-label">
+                                            {% trans "Date d'expiration" %} *
+                                        </label>
+                                        <input type="date" class="form-control" name="expiry_date"
+                                               id="id_customs_expiry_date" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label for="id_customs_reminder_date" class="form-label">
+                                            {% trans "Date de rappel" %}
+                                        </label>
+                                        <input type="date" class="form-control" name="reminder_date"
+                                               id="id_customs_reminder_date">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Données de déclaration -->
+                            <div class="form-group mb-3">
+                                <label class="form-label">{% trans "Données de déclaration" %}</label>
+                                <div class="border rounded p-3">
+                                    <div class="row mb-2">
+                                        <div class="col-md-4">
+                                            <input type="text" class="form-control form-control-sm"
+                                                   name="declaration_data[]" placeholder="{% trans 'Champ' %}">
+                                        </div>
+                                        <div class="col-md-8">
+                                            <input type="text" class="form-control form-control-sm"
+                                                   name="declaration_value[]" placeholder="{% trans 'Valeur' %}">
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                            onclick="addDeclarationField()">
+                                        <i class="fas fa-plus"></i> {% trans "Ajouter un champ" %}
+                                    </button>
+                                </div>
+                                <small class="text-muted">
+                                    {% trans "Ces données seront utilisées pour générer les formulaires douaniers" %}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "Annuler" %}
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-upload"></i> {% trans "Uploader" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal confirmation suppression -->
+<div class="modal fade" id="deleteDocumentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Confirmer la suppression" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Êtes-vous sûr de vouloir supprimer ce document ?" %}</p>
+                <p class="text-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    {% trans "Cette action est irréversible." %}
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {% trans "Annuler" %}
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmDelete">
+                    <i class="fas fa-trash"></i> {% trans "Supprimer" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.verification-level i {
+    margin: 0 5px;
+}
+
+.document-icon {
+    font-size: 1.5rem;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let documentToDelete = null;
+
+// Supprimer un document
+function deleteDocument(documentId) {
+    documentToDelete = documentId;
+    $('#deleteDocumentModal').modal('show');
+}
+
+// Confirmer la suppression
+$('#confirmDelete').click(function() {
+    if (documentToDelete) {
+        fetch(`/documents/${documentToDelete}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Erreur lors de la suppression : ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Une erreur est survenue.');
+        });
+    }
+    $('#deleteDocumentModal').modal('hide');
+});
+
+// Configurer les rappels
+function setReminders() {
+    // Ici, vous pouvez implémenter la logique pour configurer les rappels
+    // Par exemple, ouvrir un modal ou rediriger vers une page de configuration
+    alert('Cette fonctionnalité sera bientôt disponible !');
+}
+
+// Exporter la liste des documents
+function exportDocuments() {
+    // Créer le CSV
+    let csv = 'Type,Description,Date expiration,Statut,Date création\n';
+
+    {% for document in documents %}
+        csv += '"{{ document.get_document_type_display }}",';
+        csv += '"{{ document.description|default:"Aucune description" }}",';
+        csv += '"{% if document.expiry_date %}{{ document.expiry_date|date:"d/m/Y" }}{% else %}N/A{% endif %}",';
+        csv += '"{% if document.is_verified %}Vérifié{% else %}En attente{% endif %}",';
+        csv += '"{{ document.created_at|date:"d/m/Y" }}"\n';
+    {% endfor %}
+
+    // Télécharger le fichier
+    const today = new Date().toISOString().split('T')[0];
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `documents_${today}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+// Ajouter un champ de déclaration
+function addDeclarationField() {
+    const container = $('button[onclick="addDeclarationField()"]').parent();
+    const newField = `
+        <div class="row mb-2">
+            <div class="col-md-4">
+                <input type="text" class="form-control form-control-sm"
+                       name="declaration_data[]" placeholder="{% trans 'Champ' %}">
+            </div>
+            <div class="col-md-7">
+                <input type="text" class="form-control form-control-sm"
+                       name="declaration_value[]" placeholder="{% trans 'Valeur' %}">
+            </div>
+            <div class="col-md-1">
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeDeclarationField(this)">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    $(newField).insertBefore(container.find('button'));
+}
+
+// Supprimer un champ de déclaration
+function removeDeclarationField(button) {
+    $(button).closest('.row').remove();
+}
+
+// Gérer les onglets de document
+$(document).ready(function() {
+    // Changer le type de document selon l'onglet
+    $('#standard-tab').click(function() {
+        $('input[name="is_customs_document"]').val('false');
+    });
+
+    $('#customs-tab').click(function() {
+        $('input[name="is_customs_document"]').val('true');
+        // Charger la liste des pays
+        loadCountries();
+    });
+
+    // Date minimale pour l'expiration
+    const today = new Date().toISOString().split('T')[0];
+    $('#id_expiry_date, #id_customs_expiry_date').attr('min', today);
+    $('#id_reminder_date, #id_customs_reminder_date').attr('min', today);
+
+    // Pré-remplir la date de rappel (30 jours avant expiration)
+    $('#id_expiry_date, #id_customs_expiry_date').change(function() {
+        if (this.value) {
+            const expiryDate = new Date(this.value);
+            const reminderDate = new Date(expiryDate);
+            reminderDate.setDate(reminderDate.getDate() - 30);
+
+            const reminderId = this.id === 'id_expiry_date'
+                ? 'id_reminder_date'
+                : 'id_customs_reminder_date';
+
+            if (reminderDate > new Date()) {
+                $(`#${reminderId}`).val(reminderDate.toISOString().split('T')[0]);
+            }
+        }
+    });
+});
+
+// Charger la liste des pays
+function loadCountries() {
+    if ($('#id_customs_country option').length <= 1) {
+        // Simuler le chargement des pays
+        const countries = [
+            {code: 'FR', name: 'France'},
+            {code: 'DE', name: 'Allemagne'},
+            {code: 'ES', name: 'Espagne'},
+            {code: 'IT', name: 'Italie'},
+            {code: 'BE', name: 'Belgique'},
+            {code: 'NL', name: 'Pays-Bas'},
+            {code: 'UK', name: 'Royaume-Uni'},
+            // Ajouter d'autres pays selon vos besoins
+        ];
+
+        countries.forEach(country => {
+            $('#id_customs_country').append(
+                `<option value="${country.code}">${country.name}</option>`
+            );
+        });
+    }
+}
+
+// Validation du formulaire
+$('#uploadDocumentForm').submit(function(e) {
+    const fileInput = $('#standard-tab').hasClass('active')
+        ? $('#id_file')[0]
+        : $('#id_customs_file')[0];
+
+    if (fileInput.files.length === 0) {
+        e.preventDefault();
+        alert('{% trans "Veuillez sélectionner un fichier." %}');
+        return;
+    }
+
+    const file = fileInput.files[0];
+    const maxSize = 5 * 1024 * 1024; // 5MB
+
+    if (file.size > maxSize) {
+        e.preventDefault();
+        alert('{% trans "Le fichier est trop volumineux. Taille max : 5MB" %}');
+        return;
+    }
+
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+    if (!allowedTypes.includes(file.type)) {
+        e.preventDefault();
+        alert('{% trans "Type de fichier non supporté. Formats acceptés : PDF, JPG, PNG" %}');
+    }
+});
+</script>
+{% endblock %}

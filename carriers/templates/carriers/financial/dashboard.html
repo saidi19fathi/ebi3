@@ -1,0 +1,504 @@
+{% extends "carriers/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Tableau de bord financier" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'carriers:dashboard' %}">{% trans "Tableau de bord" %}</a></li>
+                    <li class="breadcrumb-item active">{% trans "Finances" %}</li>
+                </ol>
+            </nav>
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>
+                    <i class="fas fa-euro-sign"></i> {% trans "Tableau de bord financier" %}
+                </h1>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTransactionModal">
+                    <i class="fas fa-plus"></i> {% trans "Nouvelle transaction" %}
+                </button>
+            </div>
+
+            <!-- Statistiques -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">{% trans "Revenus du mois" %}</h5>
+                            <h2 class="card-text">{{ monthly_income|floatformat:2 }} €</h2>
+                            <small class="opacity-75">
+                                {{ today|date:"F Y" }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">{% trans "Revenus de la semaine" %}</h5>
+                            <h2 class="card-text">{{ weekly_income|floatformat:2 }} €</h2>
+                            <small class="opacity-75">
+                                {% trans "Cette semaine" %}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-danger text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">{% trans "Dépenses du mois" %}</h5>
+                            <h2 class="card-text">{{ monthly_expenses|floatformat:2 }} €</h2>
+                            <small class="opacity-75">
+                                {% trans "Toutes catégories" %}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">{% trans "Bénéfice net" %}</h5>
+                            <h2 class="card-text">{{ monthly_income|add:monthly_expenses|floatformat:2 }} €</h2>
+                            <small class="opacity-75">
+                                {% trans "Mensuel" %}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Transactions récentes -->
+                <div class="col-md-8">
+                    <div class="card mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-exchange-alt"></i> {% trans "Transactions récentes" %}
+                            </h5>
+                            <div>
+                                <button class="btn btn-sm btn-outline-primary" onclick="exportTransactions()">
+                                    <i class="fas fa-download"></i> {% trans "Exporter" %}
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            {% if recent_transactions %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>{% trans "Date" %}</th>
+                                                <th>{% trans "Type" %}</th>
+                                                <th>{% trans "Description" %}</th>
+                                                <th>{% trans "Mission" %}</th>
+                                                <th>{% trans "Montant" %}</th>
+                                                <th>{% trans "Statut" %}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for transaction in recent_transactions %}
+                                                <tr class="{% if transaction.transaction_type == 'PAYMENT' %}table-success{% elif transaction.transaction_type == 'EXPENSE' %}table-danger{% endif %}">
+                                                    <td>{{ transaction.transaction_date|date:"d/m/Y H:i" }}</td>
+                                                    <td>
+                                                        <span class="badge bg-{% if transaction.transaction_type == 'PAYMENT' %}success{% else %}danger{% endif %}">
+                                                            {{ transaction.get_transaction_type_display }}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        {% if transaction.expense_description %}
+                                                            {{ transaction.expense_description|truncatechars:30 }}
+                                                        {% elif transaction.mission %}
+                                                            Mission {{ transaction.mission.mission_number }}
+                                                        {% else %}
+                                                            {{ transaction.get_payment_method_display|default:transaction.get_expense_category_display }}
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        {% if transaction.mission %}
+                                                            <a href="{% url 'carriers:mission_detail' transaction.mission.pk %}">
+                                                                {{ transaction.mission.mission_number }}
+                                                            </a>
+                                                        {% else %}
+                                                            -
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        <strong>{{ transaction.amount }} {{ transaction.currency }}</strong>
+                                                    </td>
+                                                    <td>
+                                                        {% if transaction.is_completed %}
+                                                            <span class="badge bg-success">{% trans "Terminé" %}</span>
+                                                        {% else %}
+                                                            <span class="badge bg-warning">{% trans "En attente" %}</span>
+                                                        {% endif %}
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4">
+                                    <i class="fas fa-exchange-alt fa-3x text-muted mb-3"></i>
+                                    <h5>{% trans "Aucune transaction" %}</h5>
+                                    <p class="text-muted">{% trans "Commencez à enregistrer vos transactions." %}</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Missions non payées -->
+                    {% if unpaid_missions %}
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-exclamation-circle"></i> {% trans "Missions non payées" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Mission" %}</th>
+                                            <th>{% trans "Expéditeur" %}</th>
+                                            <th>{% trans "Date livraison" %}</th>
+                                            <th>{% trans "Montant" %}</th>
+                                            <th>{% trans "Actions" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for mission in unpaid_missions %}
+                                            <tr>
+                                                <td>{{ mission.mission_number }}</td>
+                                                <td>{{ mission.sender.get_full_name }}</td>
+                                                <td>{{ mission.actual_delivery_date|date:"d/m/Y" }}</td>
+                                                <td>{{ mission.agreed_price }} {{ mission.currency }}</td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-success"
+                                                            onclick="createPayment({{ mission.pk }})">
+                                                        <i class="fas fa-euro-sign"></i> {% trans "Créer paiement" %}
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Dépenses par catégorie -->
+                <div class="col-md-4">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-chart-pie"></i> {% trans "Dépenses par catégorie" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="expenseChart" height="250"></canvas>
+
+                            {% if expense_categories %}
+                                <div class="mt-3">
+                                    {% for category in expense_categories %}
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span>{{ category.expense_category|default:"Non catégorisé" }}</span>
+                                            <span>{{ category.total|floatformat:2 }} €</span>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="text-muted text-center py-3">{% trans "Aucune dépense enregistrée" %}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Rapports rapides -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-file-alt"></i> {% trans "Rapports" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                <a href="{% url 'carriers:expense_reports' %}" class="btn btn-outline-primary">
+                                    <i class="fas fa-chart-bar"></i> {% trans "Voir tous les rapports" %}
+                                </a>
+                                <button class="btn btn-outline-success" onclick="generateMonthlyReport()">
+                                    <i class="fas fa-plus"></i> {% trans "Générer rapport mensuel" %}
+                                </button>
+                                <button class="btn btn-outline-info" onclick="downloadTaxReport()">
+                                    <i class="fas fa-file-invoice"></i> {% trans "Rapport fiscal" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal nouvelle transaction -->
+<div class="modal fade" id="addTransactionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post" enctype="multipart/form-data" id="transactionForm">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Nouvelle transaction" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <ul class="nav nav-tabs mb-3" id="transactionTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="payment-tab" data-bs-toggle="tab"
+                                    data-bs-target="#payment" type="button">
+                                {% trans "Paiement" %}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="expense-tab" data-bs-toggle="tab"
+                                    data-bs-target="#expense" type="button">
+                                {% trans "Dépense" %}
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="transactionTabContent">
+                        <!-- Onglet Paiement -->
+                        <div class="tab-pane fade show active" id="payment" role="tabpanel">
+                            <input type="hidden" name="transaction_type" value="PAYMENT">
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label for="id_mission" class="form-label">{% trans "Mission" %}</label>
+                                        {{ form.mission }}
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label for="id_payment_method" class="form-label">
+                                            {% trans "Méthode de paiement" %}
+                                        </label>
+                                        {{ form.payment_method }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label for="id_amount" class="form-label">{% trans "Montant" %} *</label>
+                                        {{ form.amount }}
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label for="id_currency" class="form-label">{% trans "Devise" %}</label>
+                                        {{ form.currency }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-check mb-3">
+                                {{ form.is_prepaid }}
+                                <label class="form-check-label" for="id_is_prepaid">
+                                    {% trans "Prépaiement" %}
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Onglet Dépense -->
+                        <div class="tab-pane fade" id="expense" role="tabpanel">
+                            <input type="hidden" name="transaction_type" value="EXPENSE">
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label for="id_expense_category" class="form-label">
+                                            {% trans "Catégorie" %}
+                                        </label>
+                                        {{ form.expense_category }}
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label for="id_amount" class="form-label">{% trans "Montant" %} *</label>
+                                        {{ form.amount }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group mb-3">
+                                <label for="id_expense_description" class="form-label">
+                                    {% trans "Description" %}
+                                </label>
+                                {{ form.expense_description }}
+                            </div>
+
+                            <div class="form-group mb-3">
+                                <label for="id_expense_receipt" class="form-label">
+                                    {% trans "Reçu" %}
+                                </label>
+                                {{ form.expense_receipt }}
+                                <small class="text-muted">{% trans "Photo ou scan du reçu" %}</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Champs communs -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="id_transaction_date" class="form-label">
+                                    {% trans "Date" %}
+                                </label>
+                                {{ form.transaction_date }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="id_notes" class="form-label">
+                                    {% trans "Notes" %}
+                                </label>
+                                {{ form.notes }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "Annuler" %}
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> {% trans "Enregistrer" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Initialiser le graphique des dépenses
+{% if expense_categories %}
+const ctx = document.getElementById('expenseChart').getContext('2d');
+const expenseChart = new Chart(ctx, {
+    type: 'pie',
+    data: {
+        labels: [
+            {% for category in expense_categories %}
+                '{{ category.expense_category|default:"Non catégorisé" }}',
+            {% endfor %}
+        ],
+        datasets: [{
+            data: [
+                {% for category in expense_categories %}
+                    {{ category.total }},
+                {% endfor %}
+            ],
+            backgroundColor: [
+                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+                '#9966FF', '#FF9F40', '#8AC926', '#1982C4'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'bottom',
+            }
+        }
+    }
+});
+{% endif %}
+
+// Créer un paiement pour une mission
+function createPayment(missionId) {
+    // Pré-remplir le formulaire
+    $('#addTransactionModal').modal('show');
+    $('#payment-tab').tab('show');
+    $('#id_mission').val(missionId);
+    $('#id_transaction_type').val('PAYMENT');
+}
+
+// Exporter les transactions
+function exportTransactions() {
+    // Format de date pour le nom du fichier
+    const today = new Date().toISOString().split('T')[0];
+
+    // Créer le CSV
+    let csv = 'Date,Type,Description,Mission,Montant,Devise,Statut\n';
+
+    {% for transaction in recent_transactions %}
+        csv += '"{{ transaction.transaction_date|date:"d/m/Y H:i" }}",';
+        csv += '"{{ transaction.get_transaction_type_display }}",';
+        csv += '"{% if transaction.expense_description %}{{ transaction.expense_description }}{% elif transaction.mission %}Mission {{ transaction.mission.mission_number }}{% else %}{{ transaction.get_payment_method_display|default:transaction.get_expense_category_display }}{% endif %}",';
+        csv += '"{% if transaction.mission %}{{ transaction.mission.mission_number }}{% else %}-{% endif %}",';
+        csv += '"{{ transaction.amount }}",';
+        csv += '"{{ transaction.currency }}",';
+        csv += '"{% if transaction.is_completed %}Terminé{% else %}En attente{% endif %}"\n';
+    {% endfor %}
+
+    // Télécharger le fichier
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `transactions_${today}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+// Générer un rapport mensuel
+function generateMonthlyReport() {
+    const month = prompt('Entrez le mois (format: YYYY-MM) :', '{{ today|date:"Y-m" }}');
+    if (month) {
+        window.location.href = `/carriers/financial/reports/generate/?month=${month}`;
+    }
+}
+
+// Télécharger le rapport fiscal
+function downloadTaxReport() {
+    const year = prompt('Entrez l\'année :', '{{ today|date:"Y" }}');
+    if (year) {
+        // Ici vous appelleriez une vue qui génère le rapport fiscal
+        alert('Cette fonctionnalité sera bientôt disponible !');
+    }
+}
+
+// Gestion du formulaire
+$(document).ready(function() {
+    // Changer le type de transaction selon l'onglet
+    $('#payment-tab').click(function() {
+        $('input[name="transaction_type"]').val('PAYMENT');
+    });
+
+    $('#expense-tab').click(function() {
+        $('input[name="transaction_type"]').val('EXPENSE');
+    });
+
+    // Date par défaut
+    if (!$('#id_transaction_date').val()) {
+        const now = new Date();
+        const localDateTime = now.toISOString().slice(0, 16);
+        $('#id_transaction_date').val(localDateTime);
+    }
+});
+</script>
+{% endblock %}

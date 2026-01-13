@@ -32,7 +32,7 @@
                                 <i class="fas fa-exclamation-triangle"></i>
                                 {% trans "Vous devez compléter votre profil avant de devenir transporteur." %}
                                 <!-- CORRIGER ICI -->
-                                <a href="{% url 'users:profile_edit' user.username %}" class="alert-link">
+                                <a href="{% url 'carriers:edit_profile' %}" class="alert-link">
                                     {% trans "Compléter mon profil" %}
                                 </a>
                             </div>

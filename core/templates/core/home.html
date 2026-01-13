@@ -40,11 +40,11 @@
 
                                     <!-- Ajouter un transporteur -->
                                     {% if user.carrier_profile %}
-                                    <a href="{% url 'carriers:carrier_dashboard' %}" class="btn btn-outline-warning btn-sm">
+                                    <a href="{% url 'carriers:dashboard' %}" class="btn btn-outline-warning btn-sm">
                                         <i class="fas fa-truck me-1"></i> {% trans "Dashboard Transport" %}
                                     </a>
                                     {% else %}
-                                    <a href="{% url 'carriers:apply' %}" class="btn btn-warning btn-sm">
+                                    <a href="{% url 'carriers:register' %}" class="btn btn-warning btn-sm">
                                         <i class="fas fa-truck me-1"></i> {% trans "Devenir transporteur" %}
                                     </a>
                                     {% endif %}
@@ -224,7 +224,7 @@
                                 <i class="fas fa-search"></i> {% trans "Voir expatriés" %}
                             </a>
                             {% if user.is_authenticated and not user.carrier_profile %}
-                            <a href="{% url 'carriers:apply' %}" class="btn btn-info mb-2">
+                            <a href="{% url 'carriers:register' %}" class="btn btn-info mb-2">
                                 <i class="fas fa-truck"></i> {% trans "Devenir transporteur" %}
                             </a>
                             {% elif not user.is_authenticated %}
@@ -316,14 +316,14 @@
                                     <p class="small text-muted mb-2">{% trans "Gérez le transport" %}</p>
                                     <div class="d-flex gap-1">
                                         {% if user.carrier_profile %}
-                                        <a href="{% url 'carriers:carrier_dashboard' %}" class="btn btn-outline-info btn-sm">
+                                        <a href="{% url 'carriers:dashboard' %}" class="btn btn-outline-info btn-sm">
                                             <i class="fas fa-tachometer-alt"></i> {% trans "Dashboard" %}
                                         </a>
-                                        <a href="{% url 'carriers:carrier_dashboard' %}" class="btn btn-info btn-sm">
+                                        <a href="{% url 'carriers:dashboard' %}" class="btn btn-info btn-sm">
                                             <i class="fas fa-edit"></i> {% trans "Profil" %}
                                         </a>
                                         {% else %}
-                                        <a href="{% url 'carriers:apply' %}" class="btn btn-info btn-sm">
+                                        <a href="{% url 'carriers:register' %}" class="btn btn-info btn-sm">
                                             <i class="fas fa-truck"></i> {% trans "Devenir transporteur" %}
                                         </a>
                                         <a href="{% url 'carriers:carrier_list' %}" class="btn btn-outline-info btn-sm">
@@ -431,7 +431,7 @@
                     {% trans "Tous les transporteurs" %}
                 </a>
                 {% if user.is_authenticated and not user.carrier_profile %}
-                <a href="{% url 'carriers:apply' %}" class="btn btn-warning">
+                <a href="{% url 'carriers:register' %}" class="btn btn-warning">
                     <i class="fas fa-truck me-1"></i> {% trans "Devenir transporteur" %}
                 </a>
                 {% endif %}
@@ -469,7 +469,7 @@
                         <div class="d-flex justify-content-between">
                             <span class="badge bg-secondary">{{ carrier.vehicle_type }}</span>
                             <div class="d-flex gap-1">
-                                <a href="{% url 'carriers:carrier_detail' carrier.user.username %}"
+                                <a href="{% url 'carriers:public_profile' carrier.user.username %}"
                                    class="btn btn-sm btn-outline-primary">
                                     <i class="fas fa-eye"></i>
                                 </a>
@@ -491,7 +491,7 @@
             <i class="fas fa-truck fa-3x text-muted mb-3"></i>
             <p class="text-muted">{% trans "Aucun transporteur pour le moment" %}</p>
             {% if user.is_authenticated %}
-            <a href="{% url 'carriers:apply' %}" class="btn btn-warning">
+            <a href="{% url 'carriers:register' %}" class="btn btn-warning">
                 <i class="fas fa-truck me-1"></i> {% trans "Devenir le premier transporteur" %}
             </a>
             {% endif %}
@@ -521,7 +521,7 @@
                     <a href="{% url 'colis:package_create' %}" class="btn btn-success px-4">
                         <i class="fas fa-box me-2"></i> {% trans "Publier un colis" %}
                     </a>
-                    <a href="{% url 'carriers:apply' %}" class="btn btn-outline-warning px-4">
+                    <a href="{% url 'carriers:register' %}" class="btn btn-outline-warning px-4">
                         <i class="fas fa-truck me-2"></i> {% trans "Devenir transporteur" %}
                     </a>
                     <a href="{% url 'core:contact' %}" class="btn btn-outline-secondary px-4">

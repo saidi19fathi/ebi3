@@ -1,0 +1,755 @@
+{% extends "carriers/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Transporteurs disponibles" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-md-12">
+            <!-- En-tête -->
+            <div class="jumbotron bg-light p-5 rounded mb-4">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h1 class="display-5">{% trans "Trouvez le transporteur idéal" %}</h1>
+                        <p class="lead">
+                            {% trans "Parcourez notre réseau de transporteurs vérifiés pour vos livraisons." %}
+                        </p>
+                        <div class="d-flex align-items-center mt-4">
+                            <div class="me-4">
+                                <h3 class="text-primary mb-0">{{ total_carriers }}</h3>
+                                <small class="text-muted">{% trans "Transporteurs" %}</small>
+                            </div>
+                            <div class="me-4">
+                                <h3 class="text-success mb-0">
+                                    {% with avg_rating=carriers.0.transport_average_rating %}
+                                        {{ avg_rating|default:"4.8"|floatformat:1 }}
+                                    {% endwith %}
+                                </h3>
+                                <small class="text-muted">{% trans "Note moyenne" %}</small>
+                            </div>
+                            <div>
+                                <h3 class="text-info mb-0">
+                                    {% with completed_missions=carriers.0.completed_transport_missions %}
+                                        {{ completed_missions|default:"1000"|add:"+" }}
+                                    {% endwith %}
+                                </h3>
+                                <small class="text-muted">{% trans "Livraisons" %}</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <i class="fas fa-truck-moving fa-7x text-primary opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filtres rapides -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <select class="form-select" id="quickCountry" onchange="filterByCountry(this.value)">
+                                <option value="">{% trans "Tous les pays" %}</option>
+                                {% for country in countries %}
+                                    <option value="{{ country }}">{{ country }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="quickVehicle" onchange="filterByVehicle(this.value)">
+                                <option value="">{% trans "Tous véhicules" %}</option>
+                                {% for value, label in vehicle_types %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="quickRating" onchange="filterByRating(this.value)">
+                                <option value="">{% trans "Toutes notes" %}</option>
+                                <option value="4.5">4.5 ★ et plus</option>
+                                <option value="4.0">4.0 ★ et plus</option>
+                                <option value="3.5">3.5 ★ et plus</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-primary w-100" onclick="showAdvancedFilters()">
+                                <i class="fas fa-sliders-h"></i> {% trans "Plus de filtres" %}
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filtres avancés (masqués par défaut) -->
+                    <div id="advancedFilters" style="display: none; margin-top: 20px;">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">{% trans "Types de marchandises" %}</label>
+                                <select class="form-select select2-multiple" multiple>
+                                    {% for value, label in merchandise_types %}
+                                        <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">{% trans "Capacité minimum" %}</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" placeholder="Poids (kg)" id="minWeight">
+                                    <span class="input-group-text">/</span>
+                                    <input type="number" class="form-control" placeholder="Volume (m³)" id="minVolume">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">{% trans "Prix maximum" %}</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" placeholder="Prix max" id="maxPrice">
+                                    <select class="form-select" style="max-width: 100px;">
+                                        <option value="EUR">€</option>
+                                        <option value="USD">$</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-12">
+                                <div class="form-check form-check-inline">
+                                    <input type="checkbox" class="form-check-input" id="verifiedOnly">
+                                    <label class="form-check-label" for="verifiedOnly">
+                                        {% trans "Vérifiés uniquement" %}
+                                    </label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input type="checkbox" class="form-check-input" id="availableNow">
+                                    <label class="form-check-label" for="availableNow">
+                                        {% trans "Disponibles maintenant" %}
+                                    </label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input type="checkbox" class="form-check-input" id="providesInsurance">
+                                    <label class="form-check-label" for="providesInsurance">
+                                        {% trans "Avec assurance" %}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <button class="btn btn-success" onclick="applyAdvancedFilters()">
+                                <i class="fas fa-check"></i> {% trans "Appliquer" %}
+                            </button>
+                            <button class="btn btn-outline-secondary" onclick="resetFilters()">
+                                <i class="fas fa-times"></i> {% trans "Réinitialiser" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Liste des transporteurs -->
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4>
+                            {% trans "Transporteurs disponibles" %}
+                            <small class="text-muted">({{ page_obj.paginator.count }})</small>
+                        </h4>
+                        <div>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-primary active" onclick="changeView('grid')">
+                                    <i class="fas fa-th"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-primary" onclick="changeView('list')">
+                                    <i class="fas fa-list"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-primary" onclick="changeView('map')">
+                                    <i class="fas fa-map"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Vue grille -->
+                    <div id="gridView">
+                        <div class="row">
+                            {% for carrier in carriers %}
+                                <div class="col-md-6 mb-4">
+                                    <div class="card h-100 carrier-card shadow-sm">
+                                        <div class="card-header bg-transparent border-0 pt-3">
+                                            <div class="d-flex align-items-center">
+                                                {% if carrier.profile_photo %}
+                                                    <img src="{{ carrier.profile_photo.url }}"
+                                                         alt="{{ carrier.user.get_full_name }}"
+                                                         class="rounded-circle me-3"
+                                                         style="width: 50px; height: 50px; object-fit: cover;">
+                                                {% else %}
+                                                    <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center me-3"
+                                                         style="width: 50px; height: 50px;">
+                                                        <i class="fas fa-user fa-lg text-white"></i>
+                                                    </div>
+                                                {% endif %}
+                                                <div>
+                                                    <h5 class="mb-1">
+                                                        <a href="{% url 'carriers:public_profile' carrier.user.username %}"
+                                                           class="text-decoration-none">
+                                                            {% if carrier.transport_company_name %}
+                                                                {{ carrier.transport_company_name }}
+                                                            {% else %}
+                                                                {{ carrier.user.get_full_name }}
+                                                            {% endif %}
+                                                        </a>
+                                                    </h5>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="rating-display me-2">
+                                                            {% for i in "12345"|make_list %}
+                                                                {% if forloop.counter <= carrier.transport_average_rating|floatformat:0 %}
+                                                                    <i class="fas fa-star text-warning"></i>
+                                                                {% else %}
+                                                                    <i class="far fa-star text-warning"></i>
+                                                                {% endif %}
+                                                            {% endfor %}
+                                                        </div>
+                                                        <small class="text-muted">
+                                                            {{ carrier.transport_average_rating|floatformat:1 }}
+                                                            ({{ carrier.transport_total_reviews }})
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <p class="text-muted small mb-2">
+                                                    <i class="fas fa-map-marker-alt"></i>
+                                                    {{ carrier.coverage_cities|truncatechars:50|default:"Non spécifié" }}
+                                                </p>
+                                                <div class="d-flex flex-wrap gap-1 mb-2">
+                                                    <span class="badge bg-light text-dark border">
+                                                        <i class="fas fa-truck"></i> {{ carrier.get_vehicle_type_display }}
+                                                    </span>
+                                                    <span class="badge bg-light text-dark border">
+                                                        <i class="fas fa-weight-hanging"></i> {{ carrier.max_weight }}kg
+                                                    </span>
+                                                    {% if carrier.provides_insurance %}
+                                                        <span class="badge bg-success">
+                                                            <i class="fas fa-shield-alt"></i> {% trans "Assuré" %}
+                                                        </span>
+                                                    {% endif %}
+                                                    {% if carrier.transport_is_available %}
+                                                        <span class="badge bg-info">
+                                                            <i class="fas fa-check-circle"></i> {% trans "Disponible" %}
+                                                        </span>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+
+                                            <!-- Offres récentes -->
+                                            {% with offers=carrier.transport_offers.all|slice:":1" %}
+                                                {% if offers %}
+                                                    {% for offer in offers %}
+                                                        <div class="border rounded p-2 mb-3 bg-light">
+                                                            <div class="d-flex justify-content-between align-items-center">
+                                                                <div>
+                                                                    <small class="text-muted d-block">{% trans "Prochain départ" %}</small>
+                                                                    <strong>{{ offer.start_city }} → {{ offer.end_city }}</strong>
+                                                                </div>
+                                                                <div class="text-end">
+                                                                    <strong class="text-primary d-block">{{ offer.price }} {{ offer.currency }}</strong>
+                                                                    <small class="text-muted">{{ offer.available_from|date:"d/m H:i" }}</small>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    {% endfor %}
+                                                {% endif %}
+                                            {% endwith %}
+
+                                            <p class="small text-muted mb-0">
+                                                <i class="fas fa-euro-sign"></i>
+                                                {% trans "À partir de" %} {{ carrier.min_price }} {{ carrier.currency }}
+                                                ({{ carrier.base_price_per_km }} €/km)
+                                            </p>
+                                        </div>
+                                        <div class="card-footer bg-transparent border-0 pt-0">
+                                            <div class="d-grid gap-2">
+                                                <a href="{% url 'carriers:public_profile' carrier.user.username %}"
+                                                   class="btn btn-outline-primary btn-sm">
+                                                    <i class="fas fa-eye"></i> {% trans "Voir profil" %}
+                                                </a>
+                                                <button class="btn btn-outline-success btn-sm" onclick="contactCarrier('{{ carrier.user.username }}')">
+                                                    <i class="fas fa-envelope"></i> {% trans "Contacter" %}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% empty %}
+                                <div class="col-12">
+                                    <div class="text-center py-5">
+                                        <i class="fas fa-truck fa-4x text-muted mb-3"></i>
+                                        <h4>{% trans "Aucun transporteur trouvé" %}</h4>
+                                        <p class="text-muted">{% trans "Essayez de modifier vos critères de recherche." %}</p>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Vue liste (masquée par défaut) -->
+                    <div id="listView" style="display: none;">
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>{% trans "Transporteur" %}</th>
+                                                <th>{% trans "Zone" %}</th>
+                                                <th>{% trans "Véhicule" %}</th>
+                                                <th>{% trans "Note" %}</th>
+                                                <th>{% trans "Prix" %}</th>
+                                                <th>{% trans "Actions" %}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for carrier in carriers %}
+                                                <tr>
+                                                    <td>
+                                                        <div class="d-flex align-items-center">
+                                                            {% if carrier.profile_photo %}
+                                                                <img src="{{ carrier.profile_photo.url }}"
+                                                                     alt="{{ carrier.user.get_full_name }}"
+                                                                     class="rounded-circle me-2"
+                                                                     style="width: 40px; height: 40px; object-fit: cover;">
+                                                            {% endif %}
+                                                            <div>
+                                                                <strong>
+                                                                    {% if carrier.transport_company_name %}
+                                                                        {{ carrier.transport_company_name }}
+                                                                    {% else %}
+                                                                        {{ carrier.user.get_full_name }}
+                                                                    {% endif %}
+                                                                </strong>
+                                                                <div class="small text-muted">
+                                                                    {{ carrier.get_carrier_type_display }}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <small>{{ carrier.coverage_cities|truncatechars:30|default:"-" }}</small>
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge bg-secondary">
+                                                            {{ carrier.get_vehicle_type_display }}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <div class="d-flex align-items-center">
+                                                            <div class="rating-display me-2">
+                                                                {% for i in "12345"|make_list %}
+                                                                    {% if forloop.counter <= carrier.transport_average_rating|floatformat:0 %}
+                                                                        <i class="fas fa-star text-warning"></i>
+                                                                    {% else %}
+                                                                        <i class="far fa-star text-warning"></i>
+                                                                    {% endif %}
+                                                                {% endfor %}
+                                                            </div>
+                                                            <span>{{ carrier.transport_average_rating|floatformat:1 }}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <strong>{{ carrier.min_price }} {{ carrier.currency }}</strong>
+                                                        <div class="small text-muted">
+                                                            {{ carrier.base_price_per_km }} €/km
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <div class="btn-group btn-group-sm">
+                                                            <a href="{% url 'carriers:public_profile' carrier.user.username %}"
+                                                               class="btn btn-outline-primary">
+                                                                <i class="fas fa-eye"></i>
+                                                            </a>
+                                                            <button class="btn btn-outline-success"
+                                                                    onclick="contactCarrier('{{ carrier.user.username }}')">
+                                                                <i class="fas fa-envelope"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Vue carte (masquée par défaut) -->
+                    <div id="mapView" style="display: none;">
+                        <div class="card">
+                            <div class="card-body">
+                                <div id="map" style="height: 500px; border-radius: 8px;"></div>
+                                <div class="mt-3">
+                                    <p class="text-muted">
+                                        <i class="fas fa-info-circle"></i>
+                                        {% trans "Cliquez sur les marqueurs pour voir les détails des transporteurs." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if is_paginated %}
+                    <nav aria-label="Page navigation" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                        {% trans "Première" %}
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                        {% trans "Précédent" %}
+                                    </a>
+                                </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                        {% trans "Suivant" %}
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                        {% trans "Dernière" %}
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+
+                <!-- Sidebar -->
+                <div class="col-md-4">
+                    <!-- Comment ça marche -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-question-circle"></i> {% trans "Comment ça marche ?" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <h6>1. {% trans "Trouvez un transporteur" %}</h6>
+                                <p class="small text-muted mb-0">
+                                    {% trans "Filtrez par zone, véhicule et disponibilité." %}
+                                </p>
+                            </div>
+                            <div class="mb-3">
+                                <h6>2. {% trans "Consultez le profil" %}</h6>
+                                <p class="small text-muted mb-0">
+                                    {% trans "Vérifiez les avis, les photos et les capacités." %}
+                                </p>
+                            </div>
+                            <div class="mb-3">
+                                <h6>3. {% trans "Contactez le transporteur" %}</h6>
+                                <p class="small text-muted mb-0">
+                                    {% trans "Envoyez un message ou créez une mission directement." %}
+                                </p>
+                            </div>
+                            <div>
+                                <h6>4. {% trans "Suivez votre livraison" %}</h6>
+                                <p class="small text-muted mb-0">
+                                    {% trans "Recevez des notifications et suivez en temps réel." %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Top transporteurs -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-crown"></i> {% trans "Top transporteurs" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% with top_carriers=carriers|slice:":3" %}
+                                {% for carrier in top_carriers %}
+                                    <div class="d-flex align-items-center mb-3">
+                                        {% if carrier.profile_photo %}
+                                            <img src="{{ carrier.profile_photo.url }}"
+                                                 alt="{{ carrier.user.get_full_name }}"
+                                                 class="rounded-circle me-2"
+                                                 style="width: 40px; height: 40px; object-fit: cover;">
+                                        {% else %}
+                                            <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center me-2"
+                                                 style="width: 40px; height: 40px;">
+                                                <i class="fas fa-user text-white"></i>
+                                            </div>
+                                        {% endif %}
+                                        <div class="flex-grow-1">
+                                            <strong class="d-block">
+                                                <a href="{% url 'carriers:public_profile' carrier.user.username %}"
+                                                   class="text-decoration-none">
+                                                    {% if carrier.transport_company_name %}
+                                                        {{ carrier.transport_company_name|truncatechars:20 }}
+                                                    {% else %}
+                                                        {{ carrier.user.get_full_name|truncatechars:20 }}
+                                                    {% endif %}
+                                                </a>
+                                            </strong>
+                                            <div class="d-flex align-items-center">
+                                                <div class="rating-display me-2">
+                                                    {% for i in "12345"|make_list %}
+                                                        {% if forloop.counter <= carrier.transport_average_rating|floatformat:0 %}
+                                                            <i class="fas fa-star text-warning fa-xs"></i>
+                                                        {% else %}
+                                                            <i class="far fa-star text-warning fa-xs"></i>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                </div>
+                                                <small class="text-muted">{{ carrier.transport_average_rating|floatformat:1 }}</small>
+                                            </div>
+                                        </div>
+                                        <span class="badge bg-warning">#{{ forloop.counter }}</span>
+                                    </div>
+                                {% endfor %}
+                            {% endwith %}
+                        </div>
+                    </div>
+
+                    <!-- Besoin d'aide ? -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-headset"></i> {% trans "Besoin d'aide ?" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="small text-muted mb-3">
+                                {% trans "Vous ne trouvez pas le transporteur qu'il vous faut ?" %}
+                            </p>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-outline-primary" onclick="window.location.href='{% url 'carriers:marketplace_offers' %}'">
+                                    <i class="fas fa-bullhorn"></i> {% trans "Diffuser ma demande" %}
+                                </button>
+                                <button class="btn btn-outline-success" onclick="window.location.href='{% url 'core:home' %}'">
+                                    <i class="fas fa-comments"></i> {% trans "Page d'accueil" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal recherche avancée -->
+<div class="modal fade" id="advancedSearchModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Recherche avancée" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Formulaire de recherche avancée -->
+                <form method="get" id="advancedSearchForm">
+                    <!-- Le contenu est similaire au formulaire de marketplace/search.html -->
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Changer la vue
+function changeView(view) {
+    $('#gridView, #listView, #mapView').hide();
+    $(`#${view}View`).show();
+
+    // Mettre à jour les boutons actifs
+    $('.btn-group .btn').removeClass('active');
+    $(`.btn-group .btn:contains("${view === 'grid' ? 'th' : view === 'list' ? 'list' : 'map'}")`).parent().addClass('active');
+
+    // Initialiser la carte si nécessaire
+    if (view === 'map') {
+        initMap();
+    }
+}
+
+// Initialiser la carte
+function initMap() {
+    if (typeof L === 'undefined') {
+        // Charger Leaflet si nécessaire
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://unpkg.com/leaflet@1.7.1/dist/leaflet.css';
+        document.head.appendChild(link);
+
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/leaflet@1.7.1/dist/leaflet.js';
+        script.onload = function() {
+            loadCarriersOnMap();
+        };
+        document.head.appendChild(script);
+    } else {
+        loadCarriersOnMap();
+    }
+}
+
+function loadCarriersOnMap() {
+    const map = L.map('map').setView([46.603354, 1.888334], 6); // Centre sur la France
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Ajouter des marqueurs pour chaque transporteur (exemple)
+    {% for carrier in carriers|slice:":10" %}
+        // Ici, vous devriez avoir les coordonnées GPS des transporteurs
+        // Pour l'exemple, on utilise des positions aléatoires en France
+        const lat = 46.603354 + (Math.random() - 0.5) * 4;
+        const lng = 1.888334 + (Math.random() - 0.5) * 4;
+
+        L.marker([lat, lng]).addTo(map)
+            .bindPopup(`
+                <strong>{% if carrier.transport_company_name %}{{ carrier.transport_company_name }}{% else %}{{ carrier.user.get_full_name }}{% endif %}</strong><br>
+                {{ carrier.get_vehicle_type_display }}<br>
+                Note: {{ carrier.transport_average_rating|floatformat:1 }}/5<br>
+                <a href="{% url 'carriers:public_profile' carrier.user.username %}" class="btn btn-sm btn-primary mt-1">
+                    Voir profil
+                </a>
+            `);
+    {% endfor %}
+}
+
+// Filtrer par pays
+function filterByCountry(country) {
+    if (country) {
+        window.location.href = `?country=${country}`;
+    } else {
+        window.location.href = '{% url "carriers:carrier_list" %}';
+    }
+}
+
+// Filtrer par véhicule
+function filterByVehicle(vehicle) {
+    if (vehicle) {
+        window.location.href = `?vehicle_type=${vehicle}`;
+    } else {
+        window.location.href = '{% url "carriers:carrier_list" %}';
+    }
+}
+
+// Filtrer par note
+function filterByRating(rating) {
+    if (rating) {
+        window.location.href = `?min_rating=${rating}`;
+    } else {
+        window.location.href = '{% url "carriers:carrier_list" %}';
+    }
+}
+
+// Afficher les filtres avancés
+function showAdvancedFilters() {
+    $('#advancedFilters').slideToggle();
+}
+
+// Appliquer les filtres avancés
+function applyAdvancedFilters() {
+    const params = new URLSearchParams();
+
+    // Récupérer les valeurs des filtres
+    const minWeight = $('#minWeight').val();
+    const minVolume = $('#minVolume').val();
+    const maxPrice = $('#maxPrice').val();
+    const verifiedOnly = $('#verifiedOnly').is(':checked');
+    const availableNow = $('#availableNow').is(':checked');
+    const providesInsurance = $('#providesInsurance').is(':checked');
+
+    if (minWeight) params.append('min_weight', minWeight);
+    if (minVolume) params.append('min_volume', minVolume);
+    if (maxPrice) params.append('max_price', maxPrice);
+    if (verifiedOnly) params.append('verified_only', 'true');
+    if (availableNow) params.append('available_now', 'true');
+    if (providesInsurance) params.append('provides_insurance', 'true');
+
+    // Types de marchandises
+    const merchandiseTypes = $('.select2-multiple').val();
+    if (merchandiseTypes && merchandiseTypes.length > 0) {
+        merchandiseTypes.forEach(type => params.append('merchandise_types', type));
+    }
+
+    window.location.href = `?${params.toString()}`;
+}
+
+// Réinitialiser les filtres
+function resetFilters() {
+    window.location.href = '{% url "carriers:carrier_list" %}';
+}
+
+// Contacter un transporteur
+function contactCarrier(username) {
+    const message = prompt('Entrez votre message au transporteur :');
+    if (message) {
+        fetch('/api/contact-carrier/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                username: username,
+                message: message
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Message envoyé avec succès !');
+            } else {
+                alert('Erreur lors de l\'envoi du message.');
+            }
+        });
+    }
+}
+
+// Initialiser Select2
+$(document).ready(function() {
+    $('.select2-multiple').select2({
+        placeholder: "Sélectionnez...",
+        allowClear: true
+    });
+
+    // Récupérer les paramètres d'URL pour pré-remplir les filtres
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('country')) {
+        $('#quickCountry').val(urlParams.get('country'));
+    }
+    if (urlParams.get('vehicle_type')) {
+        $('#quickVehicle').val(urlParams.get('vehicle_type'));
+    }
+    if (urlParams.get('min_rating')) {
+        $('#quickRating').val(urlParams.get('min_rating'));
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,583 @@
+{% extends "carriers/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Collecte du" %} {{ collection_day.date|date:"d/m/Y" }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'carriers:dashboard' %}">{% trans "Tableau de bord" %}</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'carriers:collection_days' %}">{% trans "Collectes" %}</a></li>
+                    <li class="breadcrumb-item active">{{ collection_day.date|date:"d/m/Y" }}</li>
+                </ol>
+            </nav>
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>
+                    <i class="fas fa-calendar-day"></i>
+                    {% trans "Collecte du" %} {{ collection_day.date|date:"l d/m/Y"|title }}
+                </h1>
+                <div>
+                    {% if not collection_day.is_scheduled %}
+                        <button class="btn btn-success" onclick="startCollection()">
+                            <i class="fas fa-play"></i> {% trans "Démarrer la collecte" %}
+                        </button>
+                    {% elif not collection_day.is_completed %}
+                        <button class="btn btn-primary" onclick="completeCollection()">
+                            <i class="fas fa-check"></i> {% trans "Terminer la collecte" %}
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Informations générales -->
+            <div class="row mb-4">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <h6>{% trans "Horaires" %}</h6>
+                                    <p class="mb-1">
+                                        <i class="far fa-clock"></i>
+                                        {{ collection_day.start_time|time:"H:i" }} - {{ collection_day.end_time|time:"H:i" }}
+                                    </p>
+                                </div>
+                                <div class="col-md-4">
+                                    <h6>{% trans "Statut" %}</h6>
+                                    <p class="mb-0">
+                                        {% if collection_day.is_completed %}
+                                            <span class="badge bg-success">{% trans "Terminé" %}</span>
+                                        {% elif collection_day.is_scheduled %}
+                                            <span class="badge bg-primary">{% trans "En cours" %}</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">{% trans "À organiser" %}</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                                <div class="col-md-4">
+                                    <h6>{% trans "Notes" %}</h6>
+                                    <p class="mb-0 text-muted">
+                                        {{ collection_day.notes|default:"Aucune note" }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-light">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">{% trans "Résumé" %}</h5>
+                            <div class="row">
+                                <div class="col-6">
+                                    <h2 class="text-primary">{{ missions.count }}</h2>
+                                    <small>{% trans "Missions" %}</small>
+                                </div>
+                                <div class="col-6">
+                                    <h2 class="text-success">{{ planning.total_weight|floatformat:1 }}</h2>
+                                    <small>kg</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Planification -->
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-tasks"></i> {% trans "Planification" %}
+                            </h5>
+                            <div>
+                                <button class="btn btn-sm btn-outline-primary" onclick="optimizeRoute()">
+                                    <i class="fas fa-route"></i> {% trans "Optimiser" %}
+                                </button>
+                                <button class="btn btn-sm btn-success" onclick="saveOrganization()">
+                                    <i class="fas fa-save"></i> {% trans "Enregistrer" %}
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            {% if planning.capacity_ok %}
+                                <div class="alert alert-success">
+                                    <i class="fas fa-check-circle"></i>
+                                    {% trans "La capacité de votre véhicule est suffisante pour cette collecte." %}
+                                </div>
+                            {% else %}
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    {% trans "Attention : cette collecte dépasse les capacités de votre véhicule." %}
+                                </div>
+                            {% endif %}
+
+                            <div class="table-responsive">
+                                <table class="table table-hover" id="collectionTable">
+                                    <thead>
+                                        <tr>
+                                            <th width="60">{% trans "Ordre" %}</th>
+                                            <th>{% trans "Mission" %}</th>
+                                            <th>{% trans "Expéditeur" %}</th>
+                                            <th>{% trans "Adresse" %}</th>
+                                            <th>{% trans "Poids" %}</th>
+                                            <th>{% trans "Position" %}</th>
+                                            <th>{% trans "Actions" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="collectionBody">
+                                        {% for mission in missions %}
+                                            <tr data-mission-id="{{ mission.pk }}">
+                                                <td>
+                                                    <input type="number"
+                                                           class="form-control form-control-sm order-input"
+                                                           value="{{ mission.collection_order|default:forloop.counter }}"
+                                                           min="1"
+                                                           style="width: 60px;">
+                                                </td>
+                                                <td>
+                                                    <strong>{{ mission.mission_number }}</strong>
+                                                    {% if mission.is_fragile %}
+                                                        <i class="fas fa-exclamation-triangle text-warning"
+                                                           title="Fragile"></i>
+                                                    {% endif %}
+                                                </td>
+                                                <td>{{ mission.sender.get_full_name }}</td>
+                                                <td>
+                                                    <small class="text-muted">
+                                                        {{ mission.sender_address|truncatechars:30 }}
+                                                    </small>
+                                                </td>
+                                                <td>{{ mission.weight }} kg</td>
+                                                <td>
+                                                    <select class="form-select form-select-sm position-select">
+                                                        <option value="">{% trans "Choisir..." %}</option>
+                                                        <option value="avant-gauche" {% if mission.position_in_vehicle == 'avant-gauche' %}selected{% endif %}>
+                                                            {% trans "Avant gauche" %}
+                                                        </option>
+                                                        <option value="avant-droit" {% if mission.position_in_vehicle == 'avant-droit' %}selected{% endif %}>
+                                                            {% trans "Avant droit" %}
+                                                        </option>
+                                                        <option value="arriere-gauche" {% if mission.position_in_vehicle == 'arriere-gauche' %}selected{% endif %}>
+                                                            {% trans "Arrière gauche" %}
+                                                        </option>
+                                                        <option value="arriere-droit" {% if mission.position_in_vehicle == 'arriere-droit' %}selected{% endif %}>
+                                                            {% trans "Arrière droit" %}
+                                                        </option>
+                                                        <option value="dessus" {% if mission.position_in_vehicle == 'dessus' %}selected{% endif %}>
+                                                            {% trans "Dessus" %}
+                                                        </option>
+                                                        <option value="dessous" {% if mission.position_in_vehicle == 'dessous' %}selected{% endif %}>
+                                                            {% trans "Dessous" %}
+                                                        </option>
+                                                        <option value="central" {% if mission.position_in_vehicle == 'central' %}selected{% endif %}>
+                                                            {% trans "Central" %}
+                                                        </option>
+                                                    </select>
+                                                </td>
+                                                <td>
+                                                    <button type="button"
+                                                            class="btn btn-sm btn-outline-danger"
+                                                            onclick="removeMission(this)">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        {% empty %}
+                                            <tr>
+                                                <td colspan="7" class="text-center text-muted py-4">
+                                                    {% trans "Aucune mission à collecter ce jour." %}
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Capacités -->
+                            <div class="row mt-4">
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <h6>{% trans "Capacités du véhicule" %}</h6>
+                                            <div class="mb-2">
+                                                <small>{% trans "Poids maximum" %}:</small>
+                                                <div class="progress">
+                                                    <div class="progress-bar"
+                                                         role="progressbar"
+                                                         style="width: {{ planning.weight_percentage }}%">
+                                                        {{ planning.total_weight|floatformat:1 }} / {{ carrier.max_weight }} kg
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <small>{% trans "Volume maximum" %}:</small>
+                                                <div class="progress">
+                                                    <div class="progress-bar"
+                                                         role="progressbar"
+                                                         style="width: {{ planning.volume_percentage }}%">
+                                                        {{ planning.total_volume|floatformat:3 }} / {{ carrier.max_volume }} m³
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <h6>{% trans "Reste disponible" %}</h6>
+                                            <p class="mb-1">
+                                                <i class="fas fa-weight-hanging"></i>
+                                                {% trans "Poids" %}:
+                                                <strong>{{ planning.remaining_weight|floatformat:1 }} kg</strong>
+                                            </p>
+                                            <p class="mb-0">
+                                                <i class="fas fa-archive"></i>
+                                                {% trans "Volume" %}:
+                                                <strong>{{ planning.remaining_volume|floatformat:3 }} m³</strong>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <!-- Liste de collecte -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-list-check"></i> {% trans "Liste de collecte" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <button class="btn btn-sm btn-outline-primary w-100 mb-2" onclick="printCollectionList()">
+                                    <i class="fas fa-print"></i> {% trans "Imprimer" %}
+                                </button>
+                                <button class="btn btn-sm btn-outline-success w-100" onclick="downloadCollectionList()">
+                                    <i class="fas fa-download"></i> {% trans "Télécharger" %}
+                                </button>
+                            </div>
+
+                            <div id="collectionList">
+                                {% for item in collection_list %}
+                                    <div class="border-bottom pb-2 mb-2">
+                                        <div class="d-flex justify-content-between">
+                                            <strong>#{{ item.order }} {{ item.mission_number }}</strong>
+                                            <small>{{ item.weight }} kg</small>
+                                        </div>
+                                        <small class="text-muted d-block">{{ item.sender }}</small>
+                                        <small class="d-block">{{ item.address|truncatechars:30 }}</small>
+                                        {% if item.fragile %}
+                                            <span class="badge bg-warning badge-sm">{% trans "Fragile" %}</span>
+                                        {% endif %}
+                                        {% if item.special_handling %}
+                                            <span class="badge bg-info badge-sm">{% trans "Spécial" %}</span>
+                                        {% endif %}
+                                    </div>
+                                {% empty %}
+                                    <p class="text-muted">{% trans "Aucun élément dans la liste" %}</p>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Itinéraire optimisé -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-route"></i> {% trans "Itinéraire" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <button class="btn btn-sm btn-outline-primary w-100"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#optimizeModal">
+                                    <i class="fas fa-magic"></i> {% trans "Optimiser l'itinéraire" %}
+                                </button>
+                            </div>
+
+                            {% if collection_day.optimized_route %}
+                                <div id="routeList">
+                                    {% for stop in collection_day.optimized_route %}
+                                        <div class="d-flex mb-2">
+                                            <div class="me-2">
+                                                <span class="badge bg-primary rounded-circle d-flex align-items-center justify-content-center"
+                                                      style="width: 24px; height: 24px;">
+                                                    {{ forloop.counter }}
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <small class="d-block">{{ stop.address|truncatechars:30 }}</small>
+                                                <small class="text-muted">Mission #{{ stop.mission_id }}</small>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+
+                                {% if collection_day.estimated_distance %}
+                                    <div class="mt-3 pt-3 border-top">
+                                        <small class="text-muted">
+                                            <i class="fas fa-route"></i>
+                                            {% trans "Distance estimée" %}: {{ collection_day.estimated_distance }} km
+                                        </small><br>
+                                        {% if collection_day.estimated_duration %}
+                                            <small class="text-muted">
+                                                <i class="far fa-clock"></i>
+                                                {% trans "Durée estimée" %}: {{ collection_day.estimated_duration }}
+                                            </small>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                            {% else %}
+                                <p class="text-muted small">
+                                    {% trans "Aucun itinéraire optimisé. Cliquez sur 'Optimiser' pour générer le meilleur parcours." %}
+                                </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal d'optimisation -->
+<div class="modal fade" id="optimizeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'carriers:optimize_route' collection_day.pk %}" id="optimizeForm">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Optimiser l'itinéraire" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="id_optimization_type" class="form-label">
+                            {% trans "Type d'optimisation" %}
+                        </label>
+                        {{ optimization_form.optimization_type }}
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            {{ optimization_form.consider_traffic }}
+                            <label class="form-check-label" for="id_consider_traffic">
+                                {% trans "Prendre en compte le trafic" %}
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_max_distance" class="form-label">
+                            {% trans "Distance maximale (km)" %}
+                        </label>
+                        {{ optimization_form.max_distance }}
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        {% trans "L'optimisation permet de réduire la distance parcourue et le temps de collecte." %}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "Annuler" %}
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-magic"></i> {% trans "Optimiser" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Sauvegarder l'organisation
+function saveOrganization() {
+    const orderData = [];
+
+    $('#collectionBody tr').each(function(index) {
+        const missionId = $(this).data('mission-id');
+        const order = $(this).find('.order-input').val();
+        const position = $(this).find('.position-select').val();
+
+        orderData.push({
+            mission_id: missionId,
+            order: order || (index + 1),
+            position: position
+        });
+    });
+
+    fetch("{% url 'carriers:organize_collection' collection_day.pk %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ order_data: orderData })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Organisation sauvegardée avec succès !');
+            location.reload();
+        }
+    });
+}
+
+// Optimiser l'itinéraire
+function optimizeRoute() {
+    $('#optimizeModal').modal('show');
+}
+
+// Démarrer la collecte
+function startCollection() {
+    if (confirm('Êtes-vous sûr de vouloir démarrer la collecte ?')) {
+        window.location.href = "{% url 'carriers:start_collection' collection_day.pk %}";
+    }
+}
+
+// Terminer la collecte
+function completeCollection() {
+    const actualWeight = prompt('Entrez le poids total réel collecté (kg) :');
+    const actualVolume = prompt('Entrez le volume total réel collecté (m³) :');
+
+    if (actualWeight && actualVolume) {
+        // Envoyer les données au serveur
+        fetch("{% url 'carriers:complete_collection' collection_day.pk %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                actual_weight: parseFloat(actualWeight),
+                actual_volume: parseFloat(actualVolume)
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Collecte terminée avec succès !');
+                location.reload();
+            }
+        });
+    }
+}
+
+// Supprimer une mission de la collecte
+function removeMission(button) {
+    const row = $(button).closest('tr');
+    const missionId = row.data('mission-id');
+
+    if (confirm('Retirer cette mission de la collecte ?')) {
+        row.fadeOut(function() {
+            $(this).remove();
+            updateOrderNumbers();
+        });
+    }
+}
+
+// Mettre à jour les numéros d'ordre
+function updateOrderNumbers() {
+    $('#collectionBody tr').each(function(index) {
+        $(this).find('.order-input').val(index + 1);
+    });
+}
+
+// Imprimer la liste de collecte
+function printCollectionList() {
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+            <head>
+                <title>Liste de collecte - {{ collection_day.date|date:"d/m/Y" }}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 20px; }
+                    h1 { color: #333; }
+                    .mission { margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+                    .mission-number { font-weight: bold; }
+                    .address { color: #666; }
+                    .notes { font-size: 0.9em; color: #888; }
+                </style>
+            </head>
+            <body>
+                <h1>Liste de collecte - {{ collection_day.date|date:"d/m/Y" }}</h1>
+                <p>Heure: {{ collection_day.start_time|time:"H:i" }} - {{ collection_day.end_time|time:"H:i" }}</p>
+                <hr>
+                {% for item in collection_list %}
+                    <div class="mission">
+                        <div class="mission-number">#{{ item.order }} - {{ item.mission_number }}</div>
+                        <div class="address">{{ item.address }}</div>
+                        <div class="notes">
+                            Contact: {{ item.phone }} | Poids: {{ item.weight }} kg | Volume: {{ item.volume }} m³
+                            {% if item.fragile %} | FRAGILE{% endif %}
+                            {% if item.special_handling %} | Manipulation spéciale{% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+}
+
+// Télécharger la liste de collecte
+function downloadCollectionList() {
+    const data = {{ collection_list|safe }};
+    const csv = convertToCSV(data);
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'collecte_{{ collection_day.date|date:"Y-m-d" }}.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+// Convertir en CSV
+function convertToCSV(data) {
+    const headers = ['Ordre', 'Mission', 'Expéditeur', 'Adresse', 'Téléphone', 'Poids', 'Volume', 'Fragile', 'Spécial'];
+    const rows = data.map(item => [
+        item.order,
+        item.mission_number,
+        item.sender,
+        `"${item.address}"`,
+        item.phone,
+        item.weight,
+        item.volume,
+        item.fragile ? 'Oui' : 'Non',
+        item.special_handling ? 'Oui' : 'Non'
+    ]);
+
+    return [headers, ...rows].map(row => row.join(',')).join('\n');
+}
+
+// Initialiser le tri
+$(document).ready(function() {
+    $('#collectionTable tbody').sortable({
+        handle: '.order-input',
+        update: function() {
+            updateOrderNumbers();
+        }
+    });
+});
+</script>
+{% endblock %}

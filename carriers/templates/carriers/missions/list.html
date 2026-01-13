@@ -1,0 +1,364 @@
+{% extends "carriers/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Mes missions" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'carriers:dashboard' %}">{% trans "Tableau de bord" %}</a></li>
+                    <li class="breadcrumb-item active">{% trans "Missions" %}</li>
+                </ol>
+            </nav>
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>{% trans "Mes missions" %}</h1>
+                <div>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#filterModal">
+                        <i class="fas fa-filter"></i> {% trans "Filtrer" %}
+                    </button>
+                </div>
+            </div>
+
+            <!-- Statistiques -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-light">
+                        <div class="card-body text-center">
+                            <h5 class="card-title text-muted">{% trans "Total" %}</h5>
+                            <h2 class="card-text">{{ stats.total }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning bg-opacity-25">
+                        <div class="card-body text-center">
+                            <h5 class="card-title text-muted">{% trans "En attente" %}</h5>
+                            <h2 class="card-text">{{ stats.pending }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info bg-opacity-25">
+                        <div class="card-body text-center">
+                            <h5 class="card-title text-muted">{% trans "En cours" %}</h5>
+                            <h2 class="card-text">{{ stats.active }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success bg-opacity-25">
+                        <div class="card-body text-center">
+                            <h5 class="card-title text-muted">{% trans "Livrées" %}</h5>
+                            <h2 class="card-text">{{ stats.delivered }}</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Liste des missions -->
+            <div class="card">
+                <div class="card-body">
+                    {% if missions %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>{% trans "N° Mission" %}</th>
+                                        <th>{% trans "Expéditeur" %}</th>
+                                        <th>{% trans "Destinataire" %}</th>
+                                        <th>{% trans "Date collecte" %}</th>
+                                        <th>{% trans "Prix" %}</th>
+                                        <th>{% trans "Statut" %}</th>
+                                        <th>{% trans "Priorité" %}</th>
+                                        <th>{% trans "Actions" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for mission in missions %}
+                                        <tr class="mission-card">
+                                            <td>
+                                                <strong>{{ mission.mission_number }}</strong>
+                                                {% if mission.is_fragile %}
+                                                    <i class="fas fa-exclamation-triangle text-warning"
+                                                       title="{% trans 'Fragile' %}"></i>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ mission.sender.get_full_name }}</td>
+                                            <td>{{ mission.recipient_name }}</td>
+                                            <td>{{ mission.preferred_pickup_date|date:"d/m/Y" }}</td>
+                                            <td>{{ mission.agreed_price }} {{ mission.currency }}</td>
+                                            <td>
+                                                <span class="badge bg-{{ mission.get_status_color }}">
+                                                    {{ mission.get_status_display }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-{{ mission.get_priority_color }}">
+                                                    {{ mission.get_priority_display }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm">
+                                                    <a href="{% url 'carriers:mission_detail' mission.pk %}"
+                                                       class="btn btn-outline-primary">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                    {% if mission.status == 'PENDING' %}
+                                                        <button type="button"
+                                                                class="btn btn-outline-success"
+                                                                data-bs-toggle="modal"
+                                                                data-bs-target="#acceptModal{{ mission.pk }}">
+                                                            <i class="fas fa-check"></i>
+                                                        </button>
+                                                    {% endif %}
+                                                    {% if mission.status == 'DELIVERING' %}
+                                                        <button type="button"
+                                                                class="btn btn-outline-info"
+                                                                data-bs-toggle="modal"
+                                                                data-bs-target="#deliveryModal{{ mission.pk }}">
+                                                            <i class="fas fa-box-open"></i>
+                                                        </button>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+
+                                        <!-- Modal d'acceptation -->
+                                        {% if mission.status == 'PENDING' %}
+                                        <div class="modal fade" id="acceptModal{{ mission.pk }}" tabindex="-1">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <form method="post" action="{% url 'carriers:mission_accept' mission.pk %}">
+                                                        {% csrf_token %}
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title">{% trans "Accepter la mission" %}</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                        </div>
+                                                        <div class="modal-body">
+                                                            <p>{% trans "Voulez-vous accepter la mission" %} <strong>{{ mission.mission_number }}</strong> ?</p>
+                                                            <div class="form-check">
+                                                                <input class="form-check-input" type="radio"
+                                                                       name="accept" value="true" id="acceptYes{{ mission.pk }}" checked>
+                                                                <label class="form-check-label" for="acceptYes{{ mission.pk }}">
+                                                                    {% trans "Oui, accepter" %}
+                                                                </label>
+                                                            </div>
+                                                            <div class="form-check">
+                                                                <input class="form-check-input" type="radio"
+                                                                       name="accept" value="false" id="acceptNo{{ mission.pk }}">
+                                                                <label class="form-check-label" for="acceptNo{{ mission.pk }}">
+                                                                    {% trans "Non, refuser" %}
+                                                                </label>
+                                                            </div>
+                                                            <div class="mt-3" id="rejectionReason{{ mission.pk }}" style="display: none;">
+                                                                <label for="id_rejection_reason" class="form-label">
+                                                                    {% trans "Raison du refus (optionnel)" %}
+                                                                </label>
+                                                                <textarea name="rejection_reason" class="form-control" rows="3"></textarea>
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                                                {% trans "Annuler" %}
+                                                            </button>
+                                                            <button type="submit" class="btn btn-primary">
+                                                                {% trans "Confirmer" %}
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+
+                                        <!-- Modal de livraison -->
+                                        {% if mission.status == 'DELIVERING' %}
+                                        <div class="modal fade" id="deliveryModal{{ mission.pk }}" tabindex="-1">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <form method="post" action="{% url 'carriers:upload_delivery_proof' mission.pk %}"
+                                                          enctype="multipart/form-data">
+                                                        {% csrf_token %}
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title">{% trans "Confirmer la livraison" %}</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                        </div>
+                                                        <div class="modal-body">
+                                                            <p>{% trans "Confirmez la livraison de la mission" %} <strong>{{ mission.mission_number }}</strong></p>
+
+                                                            <div class="mb-3">
+                                                                <label for="delivery_proof{{ mission.pk }}" class="form-label">
+                                                                    {% trans "Photo preuve de livraison" %}
+                                                                </label>
+                                                                <input type="file" class="form-control"
+                                                                       name="delivery_proof_photo"
+                                                                       id="delivery_proof{{ mission.pk }}"
+                                                                       accept="image/*" capture="environment">
+                                                            </div>
+
+                                                            <div class="mb-3">
+                                                                <label for="signature{{ mission.pk }}" class="form-label">
+                                                                    {% trans "Signature du destinataire" %}
+                                                                </label>
+                                                                <input type="file" class="form-control"
+                                                                       name="recipient_signature"
+                                                                       id="signature{{ mission.pk }}"
+                                                                       accept="image/*">
+                                                            </div>
+
+                                                            <div class="mb-3">
+                                                                <label for="notes{{ mission.pk }}" class="form-label">
+                                                                    {% trans "Notes de livraison" %}
+                                                                </label>
+                                                                <textarea name="delivery_notes" class="form-control"
+                                                                          id="notes{{ mission.pk }}" rows="3"></textarea>
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                                                {% trans "Annuler" %}
+                                                            </button>
+                                                            <button type="submit" class="btn btn-success">
+                                                                <i class="fas fa-check"></i> {% trans "Confirmer la livraison" %}
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination -->
+                        {% if is_paginated %}
+                        <nav aria-label="Page navigation">
+                            <ul class="pagination justify-content-center">
+                                {% if page_obj.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            {% trans "Première" %}
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            {% trans "Précédent" %}
+                                        </a>
+                                    </li>
+                                {% endif %}
+
+                                <li class="page-item disabled">
+                                    <span class="page-link">
+                                        {% trans "Page" %} {{ page_obj.number }} {% trans "sur" %} {{ page_obj.paginator.num_pages }}
+                                    </span>
+                                </li>
+
+                                {% if page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            {% trans "Suivant" %}
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            {% trans "Dernière" %}
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-box-open fa-4x text-muted mb-3"></i>
+                            <h4>{% trans "Aucune mission trouvée" %}</h4>
+                            <p class="text-muted">{% trans "Vous n'avez pas encore de missions." %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de filtres -->
+<div class="modal fade" id="filterModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="get">
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Filtrer les missions" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="id_status" class="form-label">{% trans "Statut" %}</label>
+                        {{ form.status }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_priority" class="form-label">{% trans "Priorité" %}</label>
+                        {{ form.priority }}
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="id_date_from" class="form-label">{% trans "Du" %}</label>
+                                {{ form.date_from }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="id_date_to" class="form-label">{% trans "Au" %}</label>
+                                {{ form.date_to }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <a href="{% url 'carriers:mission_list' %}" class="btn btn-outline-secondary">
+                        {% trans "Réinitialiser" %}
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter"></i> {% trans "Appliquer les filtres" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Gestion de l'affichage de la raison de refus
+    $('input[name="accept"]').change(function() {
+        const missionId = $(this).closest('.modal').attr('id').replace('acceptModal', '');
+        if ($(this).val() === 'false') {
+            $('#rejectionReason' + missionId).show();
+        } else {
+            $('#rejectionReason' + missionId).hide();
+        }
+    });
+
+    // Photo capture avec l'appareil photo
+    $('input[type="file"][accept="image/*"][capture]').on('change', function() {
+        const file = this.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                // Vous pouvez prévisualiser l'image ici
+                console.log('Photo capturée:', file.name);
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+});
+</script>
+{% endblock %}

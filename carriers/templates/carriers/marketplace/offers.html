@@ -1,0 +1,559 @@
+{% extends "carriers/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Mes offres" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'carriers:dashboard' %}">{% trans "Tableau de bord" %}</a></li>
+                    <li class="breadcrumb-item active">{% trans "Mes offres" %}</li>
+                </ol>
+            </nav>
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>
+                    <i class="fas fa-store"></i> {% trans "Mes offres" %}
+                </h1>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createOfferModal">
+                    <i class="fas fa-plus"></i> {% trans "Nouvelle offre" %}
+                </button>
+            </div>
+
+            <!-- Statistiques -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-light">
+                        <div class="card-body text-center">
+                            <h5 class="card-title text-muted">{% trans "Offres actives" %}</h5>
+                            <h2 class="card-text">{{ active_offers.count }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success bg-opacity-25">
+                        <div class="card-body text-center">
+                            <h5 class="card-title text-muted">{% trans "Vues totales" %}</h5>
+                            <h2 class="card-text">
+                                {% with total_views=active_offers.aggregate.views_count__sum %}
+                                    {{ total_views.views_count__sum|default:0 }}
+                                {% endwith %}
+                            </h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info bg-opacity-25">
+                        <div class="card-body text-center">
+                            <h5 class="card-title text-muted">{% trans "Demandes" %}</h5>
+                            <h2 class="card-text">
+                                {% with total_inquiries=active_offers.aggregate.inquiries_count__sum %}
+                                    {{ total_inquiries.inquiries_count__sum|default:0 }}
+                                {% endwith %}
+                            </h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-primary bg-opacity-25">
+                        <div class="card-body text-center">
+                            <h5 class="card-title text-muted">{% trans "Taux de conversion" %}</h5>
+                            <h2 class="card-text">
+                                {% with total_views=active_offers.aggregate.views_count__sum total_inquiries=active_offers.aggregate.inquiries_count__sum %}
+                                    {% if total_views.views_count__sum > 0 %}
+                                        {{ total_inquiries.inquiries_count__sum|default:0|floatformat:2 }}%
+                                    {% else %}
+                                        0%
+                                    {% endif %}
+                                {% endwith %}
+                            </h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Offres actives -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bolt"></i> {% trans "Offres actives" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if active_offers %}
+                        <div class="row">
+                            {% for offer in active_offers %}
+                                <div class="col-md-6 mb-4">
+                                    <div class="card h-100 offer-card">
+                                        <div class="card-header d-flex justify-content-between align-items-center">
+                                            <h5 class="mb-0">{{ offer.title }}</h5>
+                                            <div>
+                                                <span class="badge bg-{{ offer.get_status_color }}">
+                                                    {{ offer.get_offer_type_display }}
+                                                </span>
+                                                {% if offer.is_booked %}
+                                                    <span class="badge bg-success">{% trans "Réservé" %}</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <p class="card-text">{{ offer.description|truncatechars:100 }}</p>
+                                            </div>
+
+                                            <div class="row mb-3">
+                                                <div class="col-6">
+                                                    <small class="text-muted d-block">{% trans "Trajet" %}</small>
+                                                    <strong>{{ offer.start_city }} → {{ offer.end_city }}</strong>
+                                                </div>
+                                                <div class="col-6">
+                                                    <small class="text-muted d-block">{% trans "Prix" %}</small>
+                                                    <strong>{{ offer.price }} {{ offer.currency }}</strong>
+                                                </div>
+                                            </div>
+
+                                            <div class="row mb-3">
+                                                <div class="col-6">
+                                                    <small class="text-muted d-block">{% trans "Disponibilité" %}</small>
+                                                    <small>
+                                                        {{ offer.available_from|date:"d/m H:i" }} -
+                                                        {{ offer.available_until|date:"d/m H:i" }}
+                                                    </small>
+                                                </div>
+                                                <div class="col-6">
+                                                    <small class="text-muted d-block">{% trans "Capacité" %}</small>
+                                                    <small>
+                                                        {{ offer.available_weight }} kg /
+                                                        {{ offer.available_volume }} m³
+                                                    </small>
+                                                </div>
+                                            </div>
+
+                                            <div class="row">
+                                                <div class="col-6">
+                                                    <small class="text-muted d-block">{% trans "Statistiques" %}</small>
+                                                    <small>
+                                                        <i class="fas fa-eye"></i> {{ offer.views_count }}
+                                                        <i class="fas fa-envelope ms-2"></i> {{ offer.inquiries_count }}
+                                                    </small>
+                                                </div>
+                                                <div class="col-6">
+                                                    <small class="text-muted d-block">{% trans "Créé le" %}</small>
+                                                    <small>{{ offer.created_at|date:"d/m/Y" }}</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="card-footer">
+                                            <div class="btn-group w-100">
+                                                <button class="btn btn-sm btn-outline-primary"
+                                                        onclick="viewOffer({{ offer.pk }})">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-success"
+                                                        onclick="editOffer({{ offer.pk }})">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                {% if not offer.is_booked %}
+                                                    <button class="btn btn-sm btn-outline-warning"
+                                                            onclick="toggleOfferStatus({{ offer.pk }}, false)">
+                                                        <i class="fas fa-pause"></i>
+                                                    </button>
+                                                {% else %}
+                                                    <button class="btn btn-sm btn-outline-info" disabled>
+                                                        <i class="fas fa-check"></i>
+                                                    </button>
+                                                {% endif %}
+                                                <button class="btn btn-sm btn-outline-danger"
+                                                        onclick="deleteOffer({{ offer.pk }})">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-store-slash fa-4x text-muted mb-3"></i>
+                            <h4>{% trans "Aucune offre active" %}</h4>
+                            <p class="text-muted">{% trans "Créez votre première offre pour attirer des clients." %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Offres expirées -->
+            {% if expired_offers %}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history"></i> {% trans "Offres expirées" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Titre" %}</th>
+                                    <th>{% trans "Trajet" %}</th>
+                                    <th>{% trans "Prix" %}</th>
+                                    <th>{% trans "Expiré le" %}</th>
+                                    <th>{% trans "Vues" %}</th>
+                                    <th>{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for offer in expired_offers %}
+                                    <tr class="text-muted">
+                                        <td>{{ offer.title }}</td>
+                                        <td>{{ offer.start_city }} → {{ offer.end_city }}</td>
+                                        <td>{{ offer.price }} {{ offer.currency }}</td>
+                                        <td>{{ offer.available_until|date:"d/m/Y H:i" }}</td>
+                                        <td>{{ offer.views_count }}</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-success"
+                                                    onclick="renewOffer({{ offer.pk }})">
+                                                <i class="fas fa-redo"></i> {% trans "Renouveler" %}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal création offre -->
+<div class="modal fade" id="createOfferModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post" id="offerForm">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Nouvelle offre" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="id_title" class="form-label">
+                                    {% trans "Titre de l'offre" %} *
+                                </label>
+                                {{ form.title }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="id_offer_type" class="form-label">
+                                    {% trans "Type d'offre" %} *
+                                </label>
+                                {{ form.offer_type }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="id_description" class="form-label">
+                            {% trans "Description" %} *
+                        </label>
+                        {{ form.description }}
+                        <small class="text-muted">{% trans "Décrivez votre offre de manière attractive" %}</small>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="id_start_country" class="form-label">
+                                    {% trans "Pays de départ" %} *
+                                </label>
+                                {{ form.start_country }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="id_start_city" class="form-label">
+                                    {% trans "Ville de départ" %} *
+                                </label>
+                                {{ form.start_city }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="id_end_country" class="form-label">
+                                    {% trans "Pays d'arrivée" %} *
+                                </label>
+                                {{ form.end_country }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="id_end_city" class="form-label">
+                                    {% trans "Ville d'arrivée" %} *
+                                </label>
+                                {{ form.end_city }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="id_available_from" class="form-label">
+                                    {% trans "Disponible du" %} *
+                                </label>
+                                {{ form.available_from }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="id_available_until" class="form-label">
+                                    {% trans "Disponible jusqu'au" %} *
+                                </label>
+                                {{ form.available_until }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="id_price" class="form-label">
+                                    {% trans "Prix" %} *
+                                </label>
+                                {{ form.price }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="id_currency" class="form-label">
+                                    {% trans "Devise" %} *
+                                </label>
+                                {{ form.currency }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="id_available_weight" class="form-label">
+                                    {% trans "Poids disponible (kg)" %} *
+                                </label>
+                                {{ form.available_weight }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="id_available_volume" class="form-label">
+                                    {% trans "Volume disponible (m³)" %} *
+                                </label>
+                                {{ form.available_volume }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-lightbulb"></i>
+                        <strong>{% trans "Conseil" %}:</strong>
+                        {% trans "Les offres avec des photos et des descriptions détaillées reçoivent 50% plus de demandes." %}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "Annuler" %}
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-rocket"></i> {% trans "Publier l'offre" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal édition offre -->
+<div class="modal fade" id="editOfferModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post" id="editOfferForm" action="{% url 'carriers:marketplace_offers' %}">
+                {% csrf_token %}
+                <input type="hidden" name="offer_id" id="editOfferId">
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Modifier l'offre" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Le contenu sera chargé dynamiquement -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "Annuler" %}
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> {% trans "Enregistrer" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Vue d'une offre
+function viewOffer(offerId) {
+    window.open(`/carriers/marketplace/offers/${offerId}/view/`, '_blank');
+}
+
+// Éditer une offre
+function editOffer(offerId) {
+    fetch(`/carriers/marketplace/offers/${offerId}/edit/`)
+        .then(response => response.text())
+        .then(html => {
+            $('#editOfferModal .modal-body').html(html);
+            $('#editOfferId').val(offerId);
+            $('#editOfferModal').modal('show');
+        });
+}
+
+// Changer le statut d'une offre
+function toggleOfferStatus(offerId, activate) {
+    const action = activate ? 'activate' : 'deactivate';
+    const confirmMsg = activate
+        ? 'Êtes-vous sûr de vouloir activer cette offre ?'
+        : 'Êtes-vous sûr de vouloir désactiver cette offre ?';
+
+    if (confirm(confirmMsg)) {
+        fetch(`/carriers/marketplace/offers/${offerId}/${action}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(activate ? 'Offre activée !' : 'Offre désactivée !');
+                location.reload();
+            }
+        });
+    }
+}
+
+// Supprimer une offre
+function deleteOffer(offerId) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cette offre ? Cette action est irréversible.')) {
+        fetch(`/carriers/marketplace/offers/${offerId}/delete/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Offre supprimée avec succès !');
+                location.reload();
+            }
+        });
+    }
+}
+
+// Renouveler une offre expirée
+function renewOffer(offerId) {
+    if (confirm('Renouveler cette offre avec les mêmes paramètres ?')) {
+        fetch(`/carriers/marketplace/offers/${offerId}/renew/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Offre renouvelée avec succès !');
+                location.reload();
+            }
+        });
+    }
+}
+
+// Gestion des dates
+$(document).ready(function() {
+    // Date de début par défaut : maintenant
+    if (!$('#id_available_from').val()) {
+        const now = new Date();
+        const localDateTime = now.toISOString().slice(0, 16);
+        $('#id_available_from').val(localDateTime);
+    }
+
+    // Date de fin par défaut : dans 7 jours
+    if (!$('#id_available_until').val()) {
+        const now = new Date();
+        now.setDate(now.getDate() + 7);
+        const localDateTime = now.toISOString().slice(0, 16);
+        $('#id_available_until').val(localDateTime);
+    }
+
+    // Validation des dates
+    $('form').submit(function(e) {
+        const startDate = new Date($('#id_available_from').val());
+        const endDate = new Date($('#id_available_until').val());
+
+        if (endDate <= startDate) {
+            e.preventDefault();
+            alert('La date de fin doit être après la date de début.');
+            return false;
+        }
+
+        // Vérifier que la date de début n'est pas dans le passé
+        const now = new Date();
+        if (startDate < now) {
+            if (!confirm('La date de début est dans le passé. Voulez-vous continuer ?')) {
+                e.preventDefault();
+                return false;
+            }
+        }
+    });
+});
+
+// Aperçu du prix calculé
+function updatePricePreview() {
+    const weight = parseFloat($('#id_available_weight').val()) || 0;
+    const volume = parseFloat($('#id_available_volume').val()) || 0;
+    const startCity = $('#id_start_city').val();
+    const endCity = $('#id_end_city').val();
+
+    // Simuler un calcul de prix (dans une vraie app, on appellerait une API)
+    if (startCity && endCity && (weight > 0 || volume > 0)) {
+        const basePrice = 10;
+        const weightPrice = weight * 0.5;
+        const volumePrice = volume * 2;
+        const distancePrice = 0.5; // prix fictif par km
+
+        const estimatedPrice = basePrice + weightPrice + volumePrice + distancePrice;
+        $('#pricePreview').text(`Prix estimé : ${estimatedPrice.toFixed(2)} €`);
+    }
+}
+
+// Initialiser les écouteurs pour le calcul du prix
+$(document).ready(function() {
+    $('#id_available_weight, #id_available_volume, #id_start_city, #id_end_city').on('input', updatePricePreview);
+});
+</script>
+{% endblock %}

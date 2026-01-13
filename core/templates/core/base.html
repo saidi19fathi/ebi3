@@ -120,7 +120,7 @@
                                         <!-- Lien vers le dashboard transporteur si applicable -->
                                         {% if user.carrier_profile %}
                                             <li>
-                                                <a class="dropdown-item" href="{% url 'carriers:carrier_dashboard' %}">
+                                                <a class="dropdown-item" href="{% url 'carriers:dashboard' %}">
                                                     <i class="fas fa-tachometer-alt"></i> {% trans "Dashboard Transporteur" %}
                                                 </a>
                                             </li>
@@ -235,14 +235,23 @@
                             </a>
                         {% endif %}
 
-                        <!-- Bouton devenir transporteur -->
-                        {% if user.is_authenticated and not user.carrier_profile %}
-                            <a href="{% url 'carriers:apply' %}" class="btn btn-warning btn-sm">
+                        <!-- Bouton devenir transporteur - CORRIGÉ -->
+                        {% if user.is_authenticated %}
+                            {% if not user.carrier_profile %}
+                                <!-- Lien direct vers l'inscription transporteur -->
+                                <a href="{% url 'users:carrier_register' %}" class="btn btn-warning btn-sm">
+                                    <i class="fas fa-truck"></i> {% trans "Devenir transporteur" %}
+                                </a>
+                            {% else %}
+                                <!-- Si déjà transporteur, lien vers le dashboard -->
+                                <a href="{% url 'carriers:dashboard' %}" class="btn btn-info btn-sm">
+                                    <i class="fas fa-tachometer-alt"></i> {% trans "Dashboard Transport" %}
+                                </a>
+                            {% endif %}
+                        {% else %}
+                            <!-- Si non connecté, lien vers connexion avec redirection vers l'inscription transporteur -->
+                            <a href="{% url 'users:login' %}?next={% url 'carriers:register' %}" class="btn btn-warning btn-sm">
                                 <i class="fas fa-truck"></i> {% trans "Devenir transporteur" %}
-                            </a>
-                        {% elif user.is_authenticated and user.carrier_profile %}
-                            <a href="{% url 'carriers:carrier_dashboard' %}" class="btn btn-info btn-sm">
-                                <i class="fas fa-tachometer-alt"></i> {% trans "Dashboard Transport" %}
                             </a>
                         {% endif %}
                     </div>
@@ -268,147 +277,147 @@
         {% block content %}{% endblock %}
     </main>
 
-<!-- Footer -->
-<footer class="text-dark mt-auto" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);">
-    <div class="container py-5">
-        <div class="row">
-            <!-- Logo et description -->
-            <div class="col-lg-4 mb-4">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="logo-icon bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2"
-                         style="width: 40px; height: 40px;">
-                        <i class="fas fa-box"></i>
+    <!-- Footer -->
+    <footer class="text-dark mt-auto" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);">
+        <div class="container py-5">
+            <div class="row">
+                <!-- Logo et description -->
+                <div class="col-lg-4 mb-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="logo-icon bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2"
+                             style="width: 40px; height: 40px;">
+                            <i class="fas fa-box"></i>
+                        </div>
+                        <h4 class="mb-0 fw-bold" style="color: #667eea;">EBI3</h4>
                     </div>
-                    <h4 class="mb-0 fw-bold" style="color: #667eea;">EBI3</h4>
+                    <p class="text-muted">
+                        {% trans "Plateforme logistique transfrontalière pour les expatriés." %}
+                    </p>
+                    <div class="social-links mt-4">
+                        {% if FACEBOOK_URL %}
+                            <a href="{{ FACEBOOK_URL }}" class="text-secondary me-3">
+                                <i class="fab fa-facebook fa-lg"></i>
+                            </a>
+                        {% endif %}
+                        {% if TWITTER_URL %}
+                            <a href="{{ TWITTER_URL }}" class="text-secondary me-3">
+                                <i class="fab fa-twitter fa-lg"></i>
+                            </a>
+                        {% endif %}
+                        {% if INSTAGRAM_URL %}
+                            <a href="{{ INSTAGRAM_URL }}" class="text-secondary me-3">
+                                <i class="fab fa-instagram fa-lg"></i>
+                            </a>
+                        {% endif %}
+                    </div>
                 </div>
-                <p class="text-muted">
-                    {% trans "Plateforme logistique transfrontalière pour les expatriés." %}
-                </p>
-                <div class="social-links mt-4">
-                    {% if FACEBOOK_URL %}
-                        <a href="{{ FACEBOOK_URL }}" class="text-secondary me-3">
-                            <i class="fab fa-facebook fa-lg"></i>
-                        </a>
-                    {% endif %}
-                    {% if TWITTER_URL %}
-                        <a href="{{ TWITTER_URL }}" class="text-secondary me-3">
-                            <i class="fab fa-twitter fa-lg"></i>
-                        </a>
-                    {% endif %}
-                    {% if INSTAGRAM_URL %}
-                        <a href="{{ INSTAGRAM_URL }}" class="text-secondary me-3">
-                            <i class="fab fa-instagram fa-lg"></i>
-                        </a>
-                    {% endif %}
+
+                <!-- Liens rapides -->
+                <div class="col-lg-2 col-md-6 mb-4">
+                    <h6 class="fw-bold mb-3 text-primary">{% trans "Navigation" %}</h6>
+                    <ul class="list-unstyled">
+                        <li class="mb-2">
+                            <a href="{% url 'core:home' %}" class="text-dark text-decoration-none">
+                                <i class="fas fa-chevron-right me-1 text-primary"></i> {% trans "Accueil" %}
+                            </a>
+                        </li>
+                        <li class="mb-2">
+                            <a href="{% url 'ads:ad_list' %}" class="text-dark text-decoration-none">
+                                <i class="fas fa-chevron-right me-1 text-primary"></i> {% trans "Annonces" %}
+                            </a>
+                        </li>
+                        <li class="mb-2">
+                            <a href="{% url 'colis:package_list' %}" class="text-dark text-decoration-none">
+                                <i class="fas fa-chevron-right me-1 text-success"></i> {% trans "Colis" %}
+                            </a>
+                        </li>
+                        <li class="mb-2">
+                            <a href="{% url 'carriers:carrier_list' %}" class="text-dark text-decoration-none">
+                                <i class="fas fa-chevron-right me-1 text-primary"></i> {% trans "Transporteurs" %}
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Liens légaux -->
+                <div class="col-lg-2 col-md-6 mb-4">
+                    <h6 class="fw-bold mb-3 text-primary">{% trans "Légal" %}</h6>
+                    <ul class="list-unstyled">
+                        <li class="mb-2">
+                            <a href="{% url 'core:terms' %}" class="text-dark text-decoration-none">
+                                <i class="fas fa-chevron-right me-1 text-primary"></i> {% trans "Conditions" %}
+                            </a>
+                        </li>
+                        <li class="mb-2">
+                            <a href="{% url 'core:privacy' %}" class="text-dark text-decoration-none">
+                                <i class="fas fa-chevron-right me-1 text-primary"></i> {% trans "Confidentialité" %}
+                            </a>
+                        </li>
+                        <li class="mb-2">
+                            <a href="{% url 'core:contact' %}" class="text-dark text-decoration-none">
+                                <i class="fas fa-chevron-right me-1 text-primary"></i> {% trans "Contact" %}
+                            </a>
+                        </li>
+                        <li class="mb-2">
+                            <a href="{% url 'colis:how_it_works' %}" class="text-dark text-decoration-none">
+                                <i class="fas fa-chevron-right me-1 text-info"></i> {% trans "Comment ça marche" %}
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Contact -->
+                <div class="col-lg-4 mb-4">
+                    <h6 class="fw-bold mb-3 text-primary">{% trans "Contact" %}</h6>
+                    <ul class="list-unstyled">
+                        {% if CONTACT_EMAIL %}
+                        <li class="mb-3">
+                            <div class="d-flex align-items-start">
+                                <i class="fas fa-envelope text-primary mt-1 me-2"></i>
+                                <div>
+                                    <small class="text-muted d-block">{% trans "Email" %}</small>
+                                    <a href="mailto:{{ CONTACT_EMAIL }}" class="text-dark">{{ CONTACT_EMAIL }}</a>
+                                </div>
+                            </div>
+                        </li>
+                        {% endif %}
+                        {% if PHONE_NUMBER %}
+                        <li class="mb-3">
+                            <div class="d-flex align-items-start">
+                                <i class="fas fa-phone text-primary mt-1 me-2"></i>
+                                <div>
+                                    <small class="text-muted d-block">{% trans "Téléphone" %}</small>
+                                    <a href="tel:{{ PHONE_NUMBER }}" class="text-dark">{{ PHONE_NUMBER }}</a>
+                                </div>
+                            </div>
+                        </li>
+                        {% endif %}
+                    </ul>
+
+                    <!-- Newsletter -->
+                    <div class="mt-4">
+                        <p class="text-muted mb-2">{% trans "Inscrivez-vous à notre newsletter" %}</p>
+                        <form class="d-flex">
+                            <input type="email" class="form-control form-control-sm me-2 border-primary"
+                                   placeholder="Votre email">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
 
-            <!-- Liens rapides -->
-            <div class="col-lg-2 col-md-6 mb-4">
-                <h6 class="fw-bold mb-3 text-primary">{% trans "Navigation" %}</h6>
-                <ul class="list-unstyled">
-                    <li class="mb-2">
-                        <a href="{% url 'core:home' %}" class="text-dark text-decoration-none">
-                            <i class="fas fa-chevron-right me-1 text-primary"></i> {% trans "Accueil" %}
-                        </a>
-                    </li>
-                    <li class="mb-2">
-                        <a href="{% url 'ads:ad_list' %}" class="text-dark text-decoration-none">
-                            <i class="fas fa-chevron-right me-1 text-primary"></i> {% trans "Annonces" %}
-                        </a>
-                    </li>
-                    <li class="mb-2">
-                        <a href="{% url 'colis:package_list' %}" class="text-dark text-decoration-none">
-                            <i class="fas fa-chevron-right me-1 text-success"></i> {% trans "Colis" %}
-                        </a>
-                    </li>
-                    <li class="mb-2">
-                        <a href="{% url 'carriers:carrier_list' %}" class="text-dark text-decoration-none">
-                            <i class="fas fa-chevron-right me-1 text-primary"></i> {% trans "Transporteurs" %}
-                        </a>
-                    </li>
-                </ul>
-            </div>
-
-            <!-- Liens légaux -->
-            <div class="col-lg-2 col-md-6 mb-4">
-                <h6 class="fw-bold mb-3 text-primary">{% trans "Légal" %}</h6>
-                <ul class="list-unstyled">
-                    <li class="mb-2">
-                        <a href="{% url 'core:terms' %}" class="text-dark text-decoration-none">
-                            <i class="fas fa-chevron-right me-1 text-primary"></i> {% trans "Conditions" %}
-                        </a>
-                    </li>
-                    <li class="mb-2">
-                        <a href="{% url 'core:privacy' %}" class="text-dark text-decoration-none">
-                            <i class="fas fa-chevron-right me-1 text-primary"></i> {% trans "Confidentialité" %}
-                        </a>
-                    </li>
-                    <li class="mb-2">
-                        <a href="{% url 'core:contact' %}" class="text-dark text-decoration-none">
-                            <i class="fas fa-chevron-right me-1 text-primary"></i> {% trans "Contact" %}
-                        </a>
-                    </li>
-                    <li class="mb-2">
-                        <a href="{% url 'colis:how_it_works' %}" class="text-dark text-decoration-none">
-                            <i class="fas fa-chevron-right me-1 text-info"></i> {% trans "Comment ça marche" %}
-                        </a>
-                    </li>
-                </ul>
-            </div>
-
-            <!-- Contact -->
-            <div class="col-lg-4 mb-4">
-                <h6 class="fw-bold mb-3 text-primary">{% trans "Contact" %}</h6>
-                <ul class="list-unstyled">
-                    {% if CONTACT_EMAIL %}
-                    <li class="mb-3">
-                        <div class="d-flex align-items-start">
-                            <i class="fas fa-envelope text-primary mt-1 me-2"></i>
-                            <div>
-                                <small class="text-muted d-block">{% trans "Email" %}</small>
-                                <a href="mailto:{{ CONTACT_EMAIL }}" class="text-dark">{{ CONTACT_EMAIL }}</a>
-                            </div>
-                        </div>
-                    </li>
-                    {% endif %}
-                    {% if PHONE_NUMBER %}
-                    <li class="mb-3">
-                        <div class="d-flex align-items-start">
-                            <i class="fas fa-phone text-primary mt-1 me-2"></i>
-                            <div>
-                                <small class="text-muted d-block">{% trans "Téléphone" %}</small>
-                                <a href="tel:{{ PHONE_NUMBER }}" class="text-dark">{{ PHONE_NUMBER }}</a>
-                            </div>
-                        </div>
-                    </li>
-                    {% endif %}
-                </ul>
-
-                <!-- Newsletter -->
-                <div class="mt-4">
-                    <p class="text-muted mb-2">{% trans "Inscrivez-vous à notre newsletter" %}</p>
-                    <form class="d-flex">
-                        <input type="email" class="form-control form-control-sm me-2 border-primary"
-                               placeholder="Votre email">
-                        <button type="submit" class="btn btn-primary btn-sm">
-                            <i class="fas fa-paper-plane"></i>
-                        </button>
-                    </form>
+            <!-- Copyright -->
+            <div class="row pt-4 border-top">
+                <div class="col-md-12 text-center">
+                    <p class="mb-0 text-muted">
+                        &copy; {% now "Y" %} {{ SITE_NAME }}. {% trans "Tous droits réservés." %}
+                    </p>
                 </div>
             </div>
         </div>
-
-        <!-- Copyright -->
-        <div class="row pt-4 border-top">
-            <div class="col-md-12 text-center">
-                <p class="mb-0 text-muted">
-                    &copy; {% now "Y" %} {{ SITE_NAME }}. {% trans "Tous droits réservés." %}
-                </p>
-            </div>
-        </div>
-    </div>
-</footer>
+    </footer>
 
     <!-- JavaScript -->
     <!-- Bootstrap Bundle with Popper -->
@@ -491,6 +500,14 @@
                     $(this).remove();
                 });
             }
+
+            // Debug pour le bouton Devenir transporteur
+            console.log('=== DEBUG TRANSPORTEUR ===');
+            console.log('User authenticated:', {{ user.is_authenticated|yesno:"true,false" }});
+            console.log('Has carrier profile:', {% if user.is_authenticated %}{{ user.carrier_profile|yesno:"true,false" }}{% else %}false{% endif %});
+            console.log('Register URL:', "{% url 'carriers:register' %}");
+            console.log('Dashboard URL:', "{% url 'carriers:dashboard' %}");
+            console.log('=== FIN DEBUG ===');
         });
     </script>
 

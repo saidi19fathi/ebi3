@@ -1,0 +1,1074 @@
+{# ~/ebi3/users/templates/users/register_carrier.html #}
+{% extends 'users/base_auth.html' %}
+{% load i18n crispy_forms_tags %}
+
+{% block title %}{% trans "Devenez transporteur - Ebi3" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .carrier-registration {
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+
+    .registration-step {
+        background: #fff;
+        border-radius: 10px;
+        padding: 25px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .step-header {
+        border-bottom: 2px solid #0d6efd;
+        padding-bottom: 15px;
+        margin-bottom: 25px;
+    }
+
+    .step-badge {
+        display: inline-block;
+        width: 30px;
+        height: 30px;
+        line-height: 30px;
+        text-align: center;
+        background: #0d6efd;
+        color: white;
+        border-radius: 50%;
+        margin-right: 10px;
+    }
+
+    .company-fields {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 15px 0;
+        border-left: 4px solid #0d6efd;
+    }
+
+    .vehicle-capacity-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+
+    .capacity-card {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+    }
+
+    .capacity-card label {
+        font-weight: bold;
+        color: #495057;
+        margin-bottom: 10px;
+        display: block;
+    }
+
+    .service-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 15px 0;
+    }
+
+    .service-badge {
+        padding: 8px 15px;
+        background: #e9ecef;
+        border-radius: 20px;
+        font-size: 0.9em;
+    }
+
+    .service-badge.active {
+        background: #0d6efd;
+        color: white;
+    }
+
+    .merchandise-types {
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 15px;
+    }
+
+    .form-check.merchandise-check {
+        margin-bottom: 8px;
+        padding-left: 30px;
+    }
+
+    .price-input-group {
+        max-width: 300px;
+    }
+
+    .progress-container {
+        margin: 30px 0;
+    }
+
+    .progress {
+        height: 8px;
+        border-radius: 4px;
+    }
+
+    .progress-bar {
+        transition: width 0.5s ease;
+    }
+
+    .form-section {
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .form-section:last-child {
+        border-bottom: none;
+    }
+
+    .required-field::after {
+        content: " *";
+        color: #dc3545;
+    }
+
+    .photo-upload {
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .photo-upload:hover {
+        border-color: #0d6efd;
+        background: #f8f9fa;
+    }
+
+    .photo-preview {
+        width: 100px;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 50%;
+        border: 3px solid #dee2e6;
+        margin: 10px auto;
+        display: none;
+    }
+
+    @media (max-width: 768px) {
+        .registration-step {
+            padding: 15px;
+        }
+
+        .vehicle-capacity-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="carrier-registration">
+    <!-- En-tête -->
+    <div class="text-center mb-5">
+        <h1 class="display-5 fw-bold text-primary">
+            <i class="fas fa-truck"></i> {% trans "Devenez transporteur Ebi3" %}
+        </h1>
+        <p class="lead text-muted">
+            {% trans "Rejoignez notre réseau de transporteurs et commencez à gagner de l'argent dès aujourd'hui" %}
+        </p>
+
+        <div class="row mt-4">
+            <div class="col-md-3">
+                <div class="text-center">
+                    <i class="fas fa-user-check fa-2x text-primary mb-2"></i>
+                    <h6>{% trans "Profil vérifié" %}</h6>
+                    <small class="text-muted">{% trans "Confiance garantie" %}</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <i class="fas fa-euro-sign fa-2x text-success mb-2"></i>
+                    <h6>{% trans "Rémunération rapide" %}</h6>
+                    <small class="text-muted">{% trans "Paiements sécurisés" %}</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <i class="fas fa-headset fa-2x text-info mb-2"></i>
+                    <h6>{% trans "Support 7j/7" %}</h6>
+                    <small class="text-muted">{% trans "Assistance permanente" %}</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <i class="fas fa-shield-alt fa-2x text-warning mb-2"></i>
+                    <h6>{% trans "Assurance incluse" %}</h6>
+                    <small class="text-muted">{% trans "Protection complète" %}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barre de progression -->
+    <div class="progress-container">
+        <div class="d-flex justify-content-between mb-2">
+            <small class="text-muted">{% trans "Informations personnelles" %}</small>
+            <small class="text-muted">{% trans "Véhicule & Capacités" %}</small>
+            <small class="text-muted">{% trans "Services & Tarifs" %}</small>
+            <small class="text-muted">{% trans "Finalisation" %}</small>
+        </div>
+        <div class="progress">
+            <div class="progress-bar" id="registrationProgress" role="progressbar" style="width: 25%"></div>
+        </div>
+    </div>
+
+    <!-- Formulaire -->
+    <form method="post" enctype="multipart/form-data" id="carrierRegistrationForm">
+        {% csrf_token %}
+
+        <!-- Étape 1 : Informations personnelles -->
+        <div class="registration-step" id="step1">
+            <div class="step-header">
+                <h3>
+                    <span class="step-badge">1</span>
+                    {% trans "Informations personnelles" %}
+                </h3>
+                <p class="text-muted mb-0">
+                    {% trans "Remplissez vos informations de base pour créer votre compte" %}
+                </p>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Identité" %}</h5>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.first_name.id_for_label }}" class="form-label required-field">
+                            {% trans "Prénom" %}
+                        </label>
+                        {{ form.first_name }}
+                        {% if form.first_name.errors %}
+                            <div class="invalid-feedback d-block">{{ form.first_name.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.last_name.id_for_label }}" class="form-label required-field">
+                            {% trans "Nom" %}
+                        </label>
+                        {{ form.last_name }}
+                        {% if form.last_name.errors %}
+                            <div class="invalid-feedback d-block">{{ form.last_name.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.email.id_for_label }}" class="form-label required-field">
+                            {% trans "Email" %}
+                        </label>
+                        {{ form.email }}
+                        {% if form.email.errors %}
+                            <div class="invalid-feedback d-block">{{ form.email.errors|striptags }}</div>
+                        {% endif %}
+                        <small class="text-muted">{% trans "Ce sera votre identifiant de connexion" %}</small>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.phone.id_for_label }}" class="form-label required-field">
+                            {% trans "Téléphone" %}
+                        </label>
+                        {{ form.phone }}
+                        {% if form.phone.errors %}
+                            <div class="invalid-feedback d-block">{{ form.phone.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Compte" %}</h5>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.username.id_for_label }}" class="form-label required-field">
+                            {% trans "Nom d'utilisateur" %}
+                        </label>
+                        {{ form.username }}
+                        {% if form.username.errors %}
+                            <div class="invalid-feedback d-block">{{ form.username.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.password1.id_for_label }}" class="form-label required-field">
+                            {% trans "Mot de passe" %}
+                        </label>
+                        {{ form.password1 }}
+                        {% if form.password1.errors %}
+                            <div class="invalid-feedback d-block">{{ form.password1.errors|striptags }}</div>
+                        {% endif %}
+                        <small class="text-muted">
+                            {% trans "Minimum 8 caractères, avec majuscules, minuscules et chiffres" %}
+                        </small>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.password2.id_for_label }}" class="form-label required-field">
+                            {% trans "Confirmer le mot de passe" %}
+                        </label>
+                        {{ form.password2 }}
+                        {% if form.password2.errors %}
+                            <div class="invalid-feedback d-block">{{ form.password2.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.preferred_language.id_for_label }}" class="form-label">
+                            {% trans "Langue préférée" %}
+                        </label>
+                        {{ form.preferred_language }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Localisation" %}</h5>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.country.id_for_label }}" class="form-label required-field">
+                            {% trans "Pays" %}
+                        </label>
+                        {{ form.country }}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.city.id_for_label }}" class="form-label">
+                            {% trans "Ville" %}
+                        </label>
+                        {{ form.city }}
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.address.id_for_label }}" class="form-label">
+                        {% trans "Adresse" %}
+                    </label>
+                    {{ form.address }}
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between mt-4">
+                <button type="button" class="btn btn-outline-secondary" disabled>
+                    <i class="fas fa-arrow-left"></i> {% trans "Précédent" %}
+                </button>
+                <button type="button" class="btn btn-primary" onclick="nextStep(2)">
+                    {% trans "Suivant" %} <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Étape 2 : Informations professionnelles -->
+        <div class="registration-step" id="step2" style="display: none;">
+            <div class="step-header">
+                <h3>
+                    <span class="step-badge">2</span>
+                    {% trans "Informations professionnelles" %}
+                </h3>
+                <p class="text-muted mb-0">
+                    {% trans "Décrivez votre activité de transport" %}
+                </p>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Type de transporteur" %}</h5>
+                <div class="mb-4">
+                    <label for="{{ form.carrier_type.id_for_label }}" class="form-label required-field">
+                        {% trans "Vous êtes" %}
+                    </label>
+                    {{ form.carrier_type }}
+                    <small class="text-muted">
+                        {% trans "Choisissez le type qui correspond à votre situation" %}
+                    </small>
+                </div>
+
+                <!-- Champs entreprise (uniquement pour professionnels) -->
+                <div id="companyFields" class="company-fields" style="display: none;">
+                    <h6 class="mb-3">{% trans "Informations de l'entreprise" %}</h6>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.transport_company_name.id_for_label }}" class="form-label">
+                                {% trans "Nom de l'entreprise" %}
+                            </label>
+                            {{ form.transport_company_name }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.transport_company_registration.id_for_label }}" class="form-label">
+                                {% trans "Numéro d'immatriculation" %}
+                            </label>
+                            {{ form.transport_company_registration }}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.transport_tax_id.id_for_label }}" class="form-label">
+                                {% trans "Numéro fiscal/TVA" %}
+                            </label>
+                            {{ form.transport_tax_id }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.transport_company_address.id_for_label }}" class="form-label">
+                                {% trans "Adresse de l'entreprise" %}
+                            </label>
+                            {{ form.transport_company_address }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Véhicule" %}</h5>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.vehicle_type.id_for_label }}" class="form-label required-field">
+                            {% trans "Type de véhicule" %}
+                        </label>
+                        {{ form.vehicle_type }}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.vehicle_registration.id_for_label }}" class="form-label">
+                            {% trans "Plaque d'immatriculation" %}
+                        </label>
+                        {{ form.vehicle_registration }}
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.vehicle_make.id_for_label }}" class="form-label">
+                            {% trans "Marque" %}
+                        </label>
+                        {{ form.vehicle_make }}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.vehicle_model.id_for_label }}" class="form-label">
+                            {% trans "Modèle" %}
+                        </label>
+                        {{ form.vehicle_model }}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.vehicle_year.id_for_label }}" class="form-label">
+                            {% trans "Année" %}
+                        </label>
+                        {{ form.vehicle_year }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Capacités de chargement" %}</h5>
+                <div class="vehicle-capacity-grid">
+                    <div class="capacity-card">
+                        <label for="{{ form.max_weight.id_for_label }}" class="required-field">
+                            {% trans "Poids max (kg)" %}
+                        </label>
+                        {{ form.max_weight }}
+                        {% if form.max_weight.errors %}
+                            <div class="invalid-feedback d-block">{{ form.max_weight.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="capacity-card">
+                        <label for="{{ form.max_volume.id_for_label }}" class="required-field">
+                            {% trans "Volume max (m³)" %}
+                        </label>
+                        {{ form.max_volume }}
+                        {% if form.max_volume.errors %}
+                            <div class="invalid-feedback d-block">{{ form.max_volume.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="capacity-card">
+                        <label for="{{ form.max_length.id_for_label }}">
+                            {% trans "Longueur max (m)" %}
+                        </label>
+                        {{ form.max_length }}
+                    </div>
+
+                    <div class="capacity-card">
+                        <label for="{{ form.max_width.id_for_label }}">
+                            {% trans "Largeur max (m)" %}
+                        </label>
+                        {{ form.max_width }}
+                    </div>
+
+                    <div class="capacity-card">
+                        <label for="{{ form.max_height.id_for_label }}">
+                            {% trans "Hauteur max (m)" %}
+                        </label>
+                        {{ form.max_height }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Zones de couverture" %}</h5>
+                <div class="mb-3">
+                    <label for="{{ form.coverage_cities.id_for_label }}" class="form-label">
+                        {% trans "Villes desservies" %}
+                    </label>
+                    {{ form.coverage_cities }}
+                    <small class="text-muted">
+                        {% trans "Séparez les noms de villes par des virgules" %}
+                    </small>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between mt-4">
+                <button type="button" class="btn btn-outline-secondary" onclick="prevStep(1)">
+                    <i class="fas fa-arrow-left"></i> {% trans "Précédent" %}
+                </button>
+                <button type="button" class="btn btn-primary" onclick="nextStep(3)">
+                    {% trans "Suivant" %} <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Étape 3 : Services et tarifs -->
+        <div class="registration-step" id="step3" style="display: none;">
+            <div class="step-header">
+                <h3>
+                    <span class="step-badge">3</span>
+                    {% trans "Services et tarification" %}
+                </h3>
+                <p class="text-muted mb-0">
+                    {% trans "Définissez vos services et vos tarifs" %}
+                </p>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Services proposés" %}</h5>
+                <div class="service-badges">
+                    <div class="form-check form-check-inline">
+                        {{ form.provides_packaging }}
+                        <label class="form-check-label service-badge" for="{{ form.provides_packaging.id_for_label }}">
+                            <i class="fas fa-box"></i> {% trans "Emballage" %}
+                        </label>
+                    </div>
+
+                    <div class="form-check form-check-inline">
+                        {{ form.provides_insurance }}
+                        <label class="form-check-label service-badge" for="{{ form.provides_insurance.id_for_label }}">
+                            <i class="fas fa-shield-alt"></i> {% trans "Assurance" %}
+                        </label>
+                    </div>
+
+                    <div class="form-check form-check-inline">
+                        {{ form.provides_loading }}
+                        <label class="form-check-label service-badge" for="{{ form.provides_loading.id_for_label }}">
+                            <i class="fas fa-dolly"></i> {% trans "Chargement" %}
+                        </label>
+                    </div>
+
+                    <div class="form-check form-check-inline">
+                        {{ form.provides_unloading }}
+                        <label class="form-check-label service-badge" for="{{ form.provides_unloading.id_for_label }}">
+                            <i class="fas fa-dolly-flatbed"></i> {% trans "Déchargement" %}
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Types de marchandises acceptées" %}</h5>
+                <div class="merchandise-types">
+                    {% for checkbox in form.accepted_merchandise_types %}
+                        <div class="form-check merchandise-check">
+                            {{ checkbox.tag }}
+                            <label class="form-check-label" for="{{ checkbox.id_for_label }}">
+                                {{ checkbox.choice_label }}
+                            </label>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="mt-3" id="customMerchandiseField" style="display: none;">
+                    <label for="{{ form.custom_merchandise_types.id_for_label }}" class="form-label">
+                        {% trans "Autres types de marchandises" %}
+                    </label>
+                    {{ form.custom_merchandise_types }}
+                    <small class="text-muted">{% trans "Séparez par des virgules" %}</small>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Tarification" %}</h5>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.base_price_per_km.id_for_label }}" class="form-label required-field">
+                            {% trans "Prix de base par km (€)" %}
+                        </label>
+                        <div class="input-group price-input-group">
+                            {{ form.base_price_per_km }}
+                            <span class="input-group-text">€/km</span>
+                        </div>
+                        {% if form.base_price_per_km.errors %}
+                            <div class="invalid-feedback d-block">{{ form.base_price_per_km.errors|striptags }}</div>
+                        {% endif %}
+                        <small class="text-muted">
+                            {% trans "Ce prix sera utilisé comme base pour calculer vos tarifs" %}
+                        </small>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.min_price.id_for_label }}" class="form-label required-field">
+                            {% trans "Prix minimum par mission (€)" %}
+                        </label>
+                        <div class="input-group price-input-group">
+                            {{ form.min_price }}
+                            <span class="input-group-text">€</span>
+                        </div>
+                        {% if form.min_price.errors %}
+                            <div class="invalid-feedback d-block">{{ form.min_price.errors|striptags }}</div>
+                        {% endif %}
+                        <small class="text-muted">
+                            {% trans "Le montant minimum que vous facturez pour une mission" %}
+                        </small>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.currency.id_for_label }}" class="form-label required-field">
+                            {% trans "Devise" %}
+                        </label>
+                        {{ form.currency }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Photos et documents" %}</h5>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <div class="photo-upload" onclick="document.getElementById('{{ form.profile_photo.id_for_label }}').click()">
+                            <i class="fas fa-camera fa-3x text-muted mb-3"></i>
+                            <h6>{% trans "Photo de profil" %}</h6>
+                            <small class="text-muted">{% trans "Cliquez pour uploader" %}</small>
+                            {{ form.profile_photo }}
+                            <img id="profilePhotoPreview" class="photo-preview" src="" alt="">
+                        </div>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <div class="photo-upload" onclick="document.getElementById('{{ form.id_front.id_for_label }}').click()">
+                            <i class="fas fa-id-card fa-3x text-muted mb-3"></i>
+                            <h6>{% trans "Recto pièce d'identité" %} *</h6>
+                            <small class="text-muted">{% trans "Cliquez pour uploader" %}</small>
+                            {{ form.id_front }}
+                            <img id="idFrontPreview" class="photo-preview" src="" alt="">
+                        </div>
+                        {% if form.id_front.errors %}
+                            <div class="invalid-feedback d-block">{{ form.id_front.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <div class="photo-upload" onclick="document.getElementById('{{ form.id_back.id_for_label }}').click()">
+                            <i class="fas fa-id-card fa-3x text-muted mb-3"></i>
+                            <h6>{% trans "Verso pièce d'identité" %}</h6>
+                            <small class="text-muted">{% trans "Cliquez pour uploader" %}</small>
+                            {{ form.id_back }}
+                            <img id="idBackPreview" class="photo-preview" src="" alt="">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    {% trans "Formats acceptés : JPG, PNG, PDF. Taille max : 5MB par fichier." %}
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between mt-4">
+                <button type="button" class="btn btn-outline-secondary" onclick="prevStep(2)">
+                    <i class="fas fa-arrow-left"></i> {% trans "Précédent" %}
+                </button>
+                <button type="button" class="btn btn-primary" onclick="nextStep(4)">
+                    {% trans "Suivant" %} <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Étape 4 : Conditions et finalisation -->
+        <div class="registration-step" id="step4" style="display: none;">
+            <div class="step-header">
+                <h3>
+                    <span class="step-badge">4</span>
+                    {% trans "Conditions et finalisation" %}
+                </h3>
+                <p class="text-muted mb-0">
+                    {% trans "Vérifiez vos informations et acceptez les conditions" %}
+                </p>
+            </div>
+
+            <div class="alert alert-warning">
+                <div class="d-flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-exclamation-triangle fa-2x"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h5 class="alert-heading">{% trans "Important" %}</h5>
+                        <p class="mb-0">
+                            {% trans "Votre compte sera soumis à validation par notre équipe. " %}
+                            {% trans "Vous recevrez une confirmation par email dans les 24-48 heures. " %}
+                            {% trans "Une fois approuvé, vous pourrez commencer à accepter des missions." %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Récapitulatif" %}</h5>
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>{% trans "Informations personnelles" %}</h6>
+                                <div class="mb-2">
+                                    <small class="text-muted">{% trans "Nom complet" %}:</small>
+                                    <div id="summaryName"></div>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted">{% trans "Email" %}:</small>
+                                    <div id="summaryEmail"></div>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted">{% trans "Téléphone" %}:</small>
+                                    <div id="summaryPhone"></div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <h6>{% trans "Activité" %}</h6>
+                                <div class="mb-2">
+                                    <small class="text-muted">{% trans "Type" %}:</small>
+                                    <div id="summaryType"></div>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted">{% trans "Véhicule" %}:</small>
+                                    <div id="summaryVehicle"></div>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted">{% trans "Capacité" %}:</small>
+                                    <div id="summaryCapacity"></div>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted">{% trans "Tarif" %}:</small>
+                                    <div id="summaryPrice"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Conditions d'utilisation" %}</h5>
+                <div class="mb-3">
+                    <div class="form-check">
+                        {{ form.rgpd_consent }}
+                        <label class="form-check-label" for="{{ form.rgpd_consent.id_for_label }}">
+                            {% trans "J'accepte la" %}
+                            <a href="{% url 'core:privacy' %}" target="_blank">{% trans "politique de confidentialité" %}</a>
+                            *
+                        </label>
+                    </div>
+                    {% if form.rgpd_consent.errors %}
+                        <div class="invalid-feedback d-block">{{ form.rgpd_consent.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check">
+                        {{ form.terms_accepted }}
+                        <label class="form-check-label" for="{{ form.terms_accepted.id_for_label }}">
+                            {% trans "J'accepte les" %}
+                            <a href="{% url 'core:terms' %}" target="_blank">{% trans "conditions générales d'utilisation" %}</a>
+                            *
+                        </label>
+                    </div>
+                    {% if form.terms_accepted.errors %}
+                        <div class="invalid-feedback d-block">{{ form.terms_accepted.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between mt-4">
+                <button type="button" class="btn btn-outline-secondary" onclick="prevStep(3)">
+                    <i class="fas fa-arrow-left"></i> {% trans "Précédent" %}
+                </button>
+                <button type="submit" class="btn btn-success btn-lg">
+                    <i class="fas fa-check"></i> {% trans "Terminer l'inscription" %}
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <div class="text-center mt-5">
+        <p class="text-muted">
+            {% trans "Déjà un compte ?" %}
+            <a href="{% url 'users:login' %}" class="text-decoration-none fw-bold">
+                {% trans "Connectez-vous" %}
+            </a>
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+// Remplacer tout le bloc JavaScript par ceci :
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let currentStep = 1;
+
+    // Afficher/masquer les étapes
+    function showStep(step) {
+        // Cacher toutes les étapes
+        document.querySelectorAll('.registration-step').forEach(el => {
+            el.style.display = 'none';
+        });
+
+        // Afficher l'étape actuelle
+        const currentStepElement = document.getElementById(`step${step}`);
+        if (currentStepElement) {
+            currentStepElement.style.display = 'block';
+        }
+
+        // Mettre à jour la barre de progression
+        const progress = (step / 4) * 100;
+        const progressBar = document.getElementById('registrationProgress');
+        if (progressBar) {
+            progressBar.style.width = `${progress}%`;
+        }
+
+        currentStep = step;
+
+        // Pré-remplir le récapitulatif à l'étape 4
+        if (step === 4) {
+            updateSummary();
+        }
+
+        // Scroll vers le haut de l'étape
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Valider l'étape actuelle
+    function validateStep(step) {
+        let isValid = true;
+        const stepElement = document.getElementById(`step${step}`);
+
+        if (!stepElement) return false;
+
+        // Valider tous les champs requis de cette étape
+        const requiredFields = stepElement.querySelectorAll('[required]');
+        requiredFields.forEach(field => {
+            const isCheckbox = field.type === 'checkbox';
+            const isFile = field.type === 'file';
+            let fieldValid = true;
+
+            if (isCheckbox) {
+                if (!field.checked) {
+                    fieldValid = false;
+                }
+            } else if (isFile) {
+                // Pour les fichiers, vérifier si le champ id_front a un fichier
+                if (field.id.includes('id_front') && !field.files.length) {
+                    fieldValid = false;
+                }
+            } else {
+                if (!field.value || field.value.trim() === '') {
+                    fieldValid = false;
+                }
+            }
+
+            if (!fieldValid) {
+                isValid = false;
+                field.classList.add('is-invalid');
+
+                // Ajouter un message d'erreur
+                let errorMsg = field.parentElement.querySelector('.field-error');
+                if (!errorMsg) {
+                    errorMsg = document.createElement('div');
+                    errorMsg.className = 'text-danger field-error small mt-1';
+                    errorMsg.textContent = 'Ce champ est requis';
+                    field.parentElement.appendChild(errorMsg);
+                }
+            } else {
+                field.classList.remove('is-invalid');
+
+                // Supprimer le message d'erreur
+                const errorMsg = field.parentElement.querySelector('.field-error');
+                if (errorMsg) {
+                    errorMsg.remove();
+                }
+            }
+        });
+
+        return isValid;
+    }
+
+    // Aller à l'étape suivante
+    window.nextStep = function(next) {
+        if (validateStep(currentStep)) {
+            showStep(next);
+        } else {
+            // Afficher une alerte
+            const alertHtml = `
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <strong>Erreur :</strong> Veuillez remplir tous les champs obligatoires.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+
+            const stepElement = document.getElementById(`step${currentStep}`);
+            const existingAlert = stepElement.querySelector('.alert');
+            if (existingAlert) {
+                existingAlert.remove();
+            }
+
+            stepElement.insertAdjacentHTML('afterbegin', alertHtml);
+
+            // Trouver le premier champ invalide et y scroller
+            const firstInvalid = stepElement.querySelector('.is-invalid');
+            if (firstInvalid) {
+                firstInvalid.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+            }
+        }
+    };
+
+    // Retour à l'étape précédente
+    window.prevStep = function(prev) {
+        showStep(prev);
+    };
+
+    // Mettre à jour le récapitulatif
+    function updateSummary() {
+        // Informations personnelles
+        const firstName = document.getElementById('{{ form.first_name.id_for_label }}')?.value || '';
+        const lastName = document.getElementById('{{ form.last_name.id_for_label }}')?.value || '';
+        const summaryName = document.getElementById('summaryName');
+        if (summaryName) summaryName.textContent = `${firstName} ${lastName}`;
+
+        const email = document.getElementById('{{ form.email.id_for_label }}')?.value || '';
+        const summaryEmail = document.getElementById('summaryEmail');
+        if (summaryEmail) summaryEmail.textContent = email;
+
+        const phone = document.getElementById('{{ form.phone.id_for_label }}')?.value || '';
+        const summaryPhone = document.getElementById('summaryPhone');
+        if (summaryPhone) summaryPhone.textContent = phone;
+
+        // Activité
+        const carrierTypeSelect = document.getElementById('{{ form.carrier_type.id_for_label }}');
+        const carrierType = carrierTypeSelect?.options[carrierTypeSelect.selectedIndex]?.text || '';
+        const summaryType = document.getElementById('summaryType');
+        if (summaryType) summaryType.textContent = carrierType;
+
+        const vehicleTypeSelect = document.getElementById('{{ form.vehicle_type.id_for_label }}');
+        const vehicleType = vehicleTypeSelect?.options[vehicleTypeSelect.selectedIndex]?.text || '';
+        const vehicleMake = document.getElementById('{{ form.vehicle_make.id_for_label }}')?.value || '';
+        const vehicleModel = document.getElementById('{{ form.vehicle_model.id_for_label }}')?.value || '';
+        const summaryVehicle = document.getElementById('summaryVehicle');
+        if (summaryVehicle) summaryVehicle.textContent = `${vehicleType} ${vehicleMake} ${vehicleModel}`.trim();
+
+        const maxWeight = document.getElementById('{{ form.max_weight.id_for_label }}')?.value || '';
+        const maxVolume = document.getElementById('{{ form.max_volume.id_for_label }}')?.value || '';
+        const summaryCapacity = document.getElementById('summaryCapacity');
+        if (summaryCapacity) summaryCapacity.textContent = `${maxWeight} kg / ${maxVolume} m³`;
+
+        const basePrice = document.getElementById('{{ form.base_price_per_km.id_for_label }}')?.value || '';
+        const currencySelect = document.getElementById('{{ form.currency.id_for_label }}');
+        const currency = currencySelect?.options[currencySelect.selectedIndex]?.text || '';
+        const summaryPrice = document.getElementById('summaryPrice');
+        if (summaryPrice) summaryPrice.textContent = `${basePrice} ${currency} / km`;
+    }
+
+    // Gérer l'affichage des champs entreprise
+    const carrierTypeSelect = document.getElementById('{{ form.carrier_type.id_for_label }}');
+    if (carrierTypeSelect) {
+        carrierTypeSelect.addEventListener('change', function() {
+            const companyFields = document.getElementById('companyFields');
+            if (companyFields) {
+                if (this.value === 'PROFESSIONAL') {
+                    companyFields.style.display = 'block';
+                } else {
+                    companyFields.style.display = 'none';
+                }
+            }
+        });
+    }
+
+    // Afficher l'aperçu des photos
+    function setupImagePreview(inputId, previewId) {
+        const input = document.getElementById(inputId);
+        const preview = document.getElementById(previewId);
+
+        if (input && preview) {
+            input.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        preview.src = e.target.result;
+                        preview.style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+    }
+
+    // Configurer les prévisualisations d'images
+    setupImagePreview('{{ form.profile_photo.id_for_label }}', 'profilePhotoPreview');
+    setupImagePreview('{{ form.id_front.id_for_label }}', 'idFrontPreview');
+    setupImagePreview('{{ form.id_back.id_for_label }}', 'idBackPreview');
+
+    // Gérer le champ "Autres" pour les marchandises
+    const acceptedMerchandiseDiv = document.getElementById('{{ form.accepted_merchandise_types.id_for_label }}');
+    if (acceptedMerchandiseDiv) {
+        acceptedMerchandiseDiv.addEventListener('change', function(e) {
+            if (e.target.type === 'checkbox' && e.target.value === 'OTHER') {
+                const customField = document.getElementById('customMerchandiseField');
+                if (customField) {
+                    if (e.target.checked) {
+                        customField.style.display = 'block';
+                    } else {
+                        customField.style.display = 'none';
+                    }
+                }
+            }
+        });
+    }
+
+    // Initialiser la première étape
+    showStep(1);
+
+    // Ajouter un style pour les champs invalides
+    const style = document.createElement('style');
+    style.textContent = `
+        .is-invalid {
+            border-color: #dc3545 !important;
+        }
+        .is-invalid:focus {
+            box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25) !important;
+        }
+        .field-error {
+            font-size: 0.875em;
+            margin-top: 0.25rem;
+        }
+    `;
+    document.head.appendChild(style);
+});
+</script>
+{% endblock %}

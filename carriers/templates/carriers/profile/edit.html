@@ -1,0 +1,589 @@
+{% extends "carriers/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Modifier mon profil" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'carriers:dashboard' %}">{% trans "Tableau de bord" %}</a></li>
+                    <li class="breadcrumb-item active">{% trans "Mon profil" %}</li>
+                </ol>
+            </nav>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user-edit"></i> {% trans "Modifier mon profil" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        <ul class="nav nav-tabs mb-4" id="profileTab" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="personal-tab" data-bs-toggle="tab"
+                                        data-bs-target="#personal" type="button">
+                                    {% trans "Personnel" %}
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="professional-tab" data-bs-toggle="tab"
+                                        data-bs-target="#professional" type="button">
+                                    {% trans "Professionnel" %}
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="vehicle-tab" data-bs-toggle="tab"
+                                        data-bs-target="#vehicle" type="button">
+                                    {% trans "Véhicule" %}
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="services-tab" data-bs-toggle="tab"
+                                        data-bs-target="#services" type="button">
+                                    {% trans "Services" %}
+                                </button>
+                            </li>
+                        </ul>
+
+                        <div class="tab-content" id="profileTabContent">
+                            <!-- Onglet Personnel -->
+                            <div class="tab-pane fade show active" id="personal" role="tabpanel">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="text-center mb-4">
+                                            {% if carrier.profile_photo %}
+                                                <img src="{{ carrier.profile_photo.url }}"
+                                                     alt="Photo de profil"
+                                                     class="img-thumbnail mb-3"
+                                                     style="width: 200px; height: 200px; object-fit: cover;">
+                                            {% else %}
+                                                <div class="img-thumbnail bg-light d-flex align-items-center justify-content-center mb-3"
+                                                     style="width: 200px; height: 200px;">
+                                                    <i class="fas fa-user fa-4x text-secondary"></i>
+                                                </div>
+                                            {% endif %}
+                                            <div class="form-group">
+                                                <label for="id_profile_photo" class="form-label">
+                                                    {% trans "Photo de profil" %}
+                                                </label>
+                                                {{ form.profile_photo }}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-8">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="form-group mb-3">
+                                                    <label for="id_first_name" class="form-label">
+                                                        {% trans "Prénom" %} *
+                                                    </label>
+                                                    {{ form.first_name }}
+                                                    {% if form.first_name.errors %}
+                                                        <div class="text-danger">{{ form.first_name.errors }}</div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="form-group mb-3">
+                                                    <label for="id_last_name" class="form-label">
+                                                        {% trans "Nom" %} *
+                                                    </label>
+                                                    {{ form.last_name }}
+                                                    {% if form.last_name.errors %}
+                                                        <div class="text-danger">{{ form.last_name.errors }}</div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group mb-3">
+                                            <label for="id_phone" class="form-label">
+                                                {% trans "Téléphone" %} *
+                                            </label>
+                                            {{ form.phone }}
+                                            {% if form.phone.errors %}
+                                                <div class="text-danger">{{ form.phone.errors }}</div>
+                                            {% endif %}
+                                        </div>
+
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="form-group mb-3">
+                                                    <label class="form-label">
+                                                        {% trans "Recto pièce d'identité" %}
+                                                    </label>
+                                                    {% if carrier.id_front %}
+                                                        <div class="mb-2">
+                                                            <img src="{{ carrier.id_front.url }}"
+                                                                 alt="Recto pièce d'identité"
+                                                                 class="img-thumbnail"
+                                                                 style="max-width: 200px;">
+                                                        </div>
+                                                    {% endif %}
+                                                    {{ form.id_front }}
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="form-group mb-3">
+                                                    <label class="form-label">
+                                                        {% trans "Verso pièce d'identité" %}
+                                                    </label>
+                                                    {% if carrier.id_back %}
+                                                        <div class="mb-2">
+                                                            <img src="{{ carrier.id_back.url }}"
+                                                                 alt="Verso pièce d'identité"
+                                                                 class="img-thumbnail"
+                                                                 style="max-width: 200px;">
+                                                        </div>
+                                                    {% endif %}
+                                                    {{ form.id_back }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Onglet Professionnel -->
+                            <div class="tab-pane fade" id="professional" role="tabpanel">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group mb-3">
+                                            <label for="id_carrier_type" class="form-label">
+                                                {% trans "Type de transporteur" %}
+                                            </label>
+                                            {{ form.carrier_type }}
+                                        </div>
+
+                                        <div id="company-fields" style="display: {% if carrier.carrier_type == 'PROFESSIONAL' %}block{% else %}none{% endif %};">
+                                            <div class="form-group mb-3">
+                                                <label for="id_company_name" class="form-label">
+                                                    {% trans "Nom de l'entreprise" %}
+                                                </label>
+                                                {{ form.company_name }}
+                                            </div>
+
+                                            <div class="form-group mb-3">
+                                                <label for="id_company_registration" class="form-label">
+                                                    {% trans "Numéro d'immatriculation" %}
+                                                </label>
+                                                {{ form.company_registration }}
+                                            </div>
+
+                                            <div class="form-group mb-3">
+                                                <label for="id_tax_id" class="form-label">
+                                                    {% trans "Numéro fiscal/TVA" %}
+                                                </label>
+                                                {{ form.tax_id }}
+                                            </div>
+
+                                            <div class="form-group mb-3">
+                                                <label for="id_company_address" class="form-label">
+                                                    {% trans "Adresse de l'entreprise" %}
+                                                </label>
+                                                {{ form.company_address }}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <div class="form-group mb-3">
+                                            <label for="id_coverage_countries" class="form-label">
+                                                {% trans "Pays de couverture" %}
+                                            </label>
+                                            {{ form.coverage_countries }}
+                                        </div>
+
+                                        <div class="form-group mb-3">
+                                            <label for="id_coverage_cities" class="form-label">
+                                                {% trans "Villes de couverture" %}
+                                            </label>
+                                            {{ form.coverage_cities }}
+                                            <small class="text-muted">{% trans "Séparez les villes par des virgules" %}</small>
+                                        </div>
+
+                                        <div class="form-group mb-3">
+                                            <label class="form-label">{% trans "Horaires de disponibilité" %}</label>
+                                            <div id="weekly-schedule-editor">
+                                                <!-- JavaScript va générer l'éditeur -->
+                                            </div>
+                                            {{ form.weekly_schedule }}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <div class="form-group mb-3">
+                                            <label class="form-label">{% trans "Types de marchandises acceptées" %}</label>
+                                            <div class="row">
+                                                {% for value, label in merchandise_types %}
+                                                    <div class="col-md-3 mb-2">
+                                                        <div class="form-check">
+                                                            <input type="checkbox"
+                                                                   name="accepted_merchandise_types"
+                                                                   value="{{ value }}"
+                                                                   class="form-check-input"
+                                                                   id="type_{{ value }}"
+                                                                   {% if value in carrier.accepted_merchandise_types %}checked{% endif %}>
+                                                            <label class="form-check-label" for="type_{{ value }}">
+                                                                {{ label }}
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group mb-3">
+                                            <label for="id_custom_merchandise_types" class="form-label">
+                                                {% trans "Autres types de marchandises" %}
+                                            </label>
+                                            {{ form.custom_merchandise_types }}
+                                            <small class="text-muted">{% trans "Séparez par des virgules" %}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Onglet Véhicule -->
+                            <div class="tab-pane fade" id="vehicle" role="tabpanel">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group mb-3">
+                                            <label for="id_vehicle_type" class="form-label">
+                                                {% trans "Type de véhicule" %}
+                                            </label>
+                                            {{ form.vehicle_type }}
+                                        </div>
+
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="form-group mb-3">
+                                                    <label for="id_vehicle_make" class="form-label">
+                                                        {% trans "Marque" %}
+                                                    </label>
+                                                    {{ form.vehicle_make }}
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="form-group mb-3">
+                                                    <label for="id_vehicle_model" class="form-label">
+                                                        {% trans "Modèle" %}
+                                                    </label>
+                                                    {{ form.vehicle_model }}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="form-group mb-3">
+                                                    <label for="id_vehicle_year" class="form-label">
+                                                        {% trans "Année" %}
+                                                    </label>
+                                                    {{ form.vehicle_year }}
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="form-group mb-3">
+                                                    <label for="id_vehicle_registration" class="form-label">
+                                                        {% trans "Plaque d'immatriculation" %}
+                                                    </label>
+                                                    {{ form.vehicle_registration }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">{% trans "Photos du véhicule" %}</label>
+                                            <div class="row">
+                                                <div class="col-md-4">
+                                                    <div class="text-center">
+                                                        <label class="form-label small">{% trans "Avant" %}</label>
+                                                        {% if carrier.vehicle_photo_front %}
+                                                            <img src="{{ carrier.vehicle_photo_front.url }}"
+                                                                 class="img-thumbnail mb-2"
+                                                                 style="width: 100%; height: 100px; object-fit: cover;">
+                                                        {% else %}
+                                                            <div class="img-thumbnail bg-light d-flex align-items-center justify-content-center mb-2"
+                                                                 style="height: 100px;">
+                                                                <i class="fas fa-car fa-2x text-secondary"></i>
+                                                            </div>
+                                                        {% endif %}
+                                                        {{ form.vehicle_photo_front }}
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <div class="text-center">
+                                                        <label class="form-label small">{% trans "Arrière" %}</label>
+                                                        {% if carrier.vehicle_photo_back %}
+                                                            <img src="{{ carrier.vehicle_photo_back.url }}"
+                                                                 class="img-thumbnail mb-2"
+                                                                 style="width: 100%; height: 100px; object-fit: cover;">
+                                                        {% else %}
+                                                            <div class="img-thumbnail bg-light d-flex align-items-center justify-content-center mb-2"
+                                                                 style="height: 100px;">
+                                                                <i class="fas fa-car fa-2x text-secondary"></i>
+                                                            </div>
+                                                        {% endif %}
+                                                        {{ form.vehicle_photo_back }}
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <div class="text-center">
+                                                        <label class="form-label small">{% trans "Côté" %}</label>
+                                                        {% if carrier.vehicle_photo_side %}
+                                                            <img src="{{ carrier.vehicle_photo_side.url }}"
+                                                                 class="img-thumbnail mb-2"
+                                                                 style="width: 100%; height: 100px; object-fit: cover;">
+                                                        {% else %}
+                                                            <div class="img-thumbnail bg-light d-flex align-items-center justify-content-center mb-2"
+                                                                 style="height: 100px;">
+                                                                <i class="fas fa-car fa-2x text-secondary"></i>
+                                                            </div>
+                                                        {% endif %}
+                                                        {{ form.vehicle_photo_side }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <h6 class="mt-4 mb-3">{% trans "Capacités du véhicule" %}</h6>
+                                        <div class="row">
+                                            <div class="col-md-3">
+                                                <div class="form-group mb-3">
+                                                    <label for="id_max_weight" class="form-label">
+                                                        {% trans "Poids max (kg)" %}
+                                                    </label>
+                                                    {{ form.max_weight }}
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="form-group mb-3">
+                                                    <label for="id_max_volume" class="form-label">
+                                                        {% trans "Volume max (m³)" %}
+                                                    </label>
+                                                    {{ form.max_volume }}
+                                                </div>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <div class="form-group mb-3">
+                                                    <label for="id_max_length" class="form-label">
+                                                        {% trans "Longueur (m)" %}
+                                                    </label>
+                                                    {{ form.max_length }}
+                                                </div>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <div class="form-group mb-3">
+                                                    <label for="id_max_width" class="form-label">
+                                                        {% trans "Largeur (m)" %}
+                                                    </label>
+                                                    {{ form.max_width }}
+                                                </div>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <div class="form-group mb-3">
+                                                    <label for="id_max_height" class="form-label">
+                                                        {% trans "Hauteur (m)" %}
+                                                    </label>
+                                                    {{ form.max_height }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Onglet Services -->
+                            <div class="tab-pane fade" id="services" role="tabpanel">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6 class="mb-3">{% trans "Services proposés" %}</h6>
+                                        <div class="form-check mb-3">
+                                            {{ form.provides_packaging }}
+                                            <label class="form-check-label" for="id_provides_packaging">
+                                                {% trans "Fournit l'emballage" %}
+                                            </label>
+                                        </div>
+
+                                        <div class="form-check mb-3">
+                                            {{ form.provides_insurance }}
+                                            <label class="form-check-label" for="id_provides_insurance">
+                                                {% trans "Fournit l'assurance" %}
+                                            </label>
+                                        </div>
+
+                                        <div class="form-check mb-3">
+                                            {{ form.provides_loading }}
+                                            <label class="form-check-label" for="id_provides_loading">
+                                                {% trans "Fournit le chargement" %}
+                                            </label>
+                                        </div>
+
+                                        <div class="form-check mb-3">
+                                            {{ form.provides_unloading }}
+                                            <label class="form-check-label" for="id_provides_unloading">
+                                                {% trans "Fournit le déchargement" %}
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <h6 class="mb-3">{% trans "Tarification" %}</h6>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="form-group mb-3">
+                                                    <label for="id_base_price_per_km" class="form-label">
+                                                        {% trans "Prix par km (€)" %}
+                                                    </label>
+                                                    {{ form.base_price_per_km }}
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="form-group mb-3">
+                                                    <label for="id_min_price" class="form-label">
+                                                        {% trans "Prix minimum (€)" %}
+                                                    </label>
+                                                    {{ form.min_price }}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group mb-3">
+                                            <label for="id_currency" class="form-label">
+                                                {% trans "Devise" %}
+                                            </label>
+                                            {{ form.currency }}
+                                        </div>
+
+                                        <h6 class="mt-4 mb-3">{% trans "Disponibilité" %}</h6>
+                                        <div class="form-check mb-3">
+                                            {{ form.is_available }}
+                                            <label class="form-check-label" for="id_is_available">
+                                                {% trans "Disponible pour des missions" %}
+                                            </label>
+                                        </div>
+
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="form-group mb-3">
+                                                    <label for="id_available_from" class="form-label">
+                                                        {% trans "Disponible du" %}
+                                                    </label>
+                                                    {{ form.available_from }}
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="form-group mb-3">
+                                                    <label for="id_available_until" class="form-label">
+                                                        {% trans "Disponible jusqu'au" %}
+                                                    </label>
+                                                    {{ form.available_until }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> {% trans "Enregistrer les modifications" %}
+                            </button>
+                            <a href="{% url 'carriers:dashboard' %}" class="btn btn-secondary">
+                                {% trans "Annuler" %}
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Afficher/masquer les champs entreprise selon le type
+    $('#id_carrier_type').change(function() {
+        if ($(this).val() === 'PROFESSIONAL') {
+            $('#company-fields').show();
+        } else {
+            $('#company-fields').hide();
+        }
+    });
+
+    // Éditeur d'horaires hebdomadaires
+    const days = [
+        {id: 'monday', label: 'Lundi'},
+        {id: 'tuesday', label: 'Mardi'},
+        {id: 'wednesday', label: 'Mercredi'},
+        {id: 'thursday', label: 'Jeudi'},
+        {id: 'friday', label: 'Vendredi'},
+        {id: 'saturday', label: 'Samedi'},
+        {id: 'sunday', label: 'Dimanche'}
+    ];
+
+    let schedule = {{ carrier.weekly_schedule|safe|default:"{}" }};
+
+    const editor = $('#weekly-schedule-editor');
+    days.forEach(day => {
+        const daySchedule = schedule[day.id] || {start: '08:00', end: '18:00'};
+        editor.append(`
+            <div class="row mb-2">
+                <div class="col-md-3">
+                    <label class="form-label">${day.label}</label>
+                </div>
+                <div class="col-md-4">
+                    <input type="time" class="form-control schedule-start"
+                           data-day="${day.id}"
+                           value="${daySchedule.start}">
+                </div>
+                <div class="col-md-1 text-center">
+                    <span>à</span>
+                </div>
+                <div class="col-md-4">
+                    <input type="time" class="form-control schedule-end"
+                           data-day="${day.id}"
+                           value="${daySchedule.end}">
+                </div>
+            </div>
+        `);
+    });
+
+    // Mettre à jour le champ caché quand les horaires changent
+    function updateSchedule() {
+        const newSchedule = {};
+        $('.schedule-start').each(function() {
+            const day = $(this).data('day');
+            const start = $(this).val();
+            const end = $(`[data-day="${day}"].schedule-end`).val();
+            if (start && end) {
+                newSchedule[day] = {start, end};
+            }
+        });
+        $('#id_weekly_schedule').val(JSON.stringify(newSchedule));
+    }
+
+    $('.schedule-start, .schedule-end').change(updateSchedule);
+    updateSchedule();
+});
+</script>
+{% endblock %}

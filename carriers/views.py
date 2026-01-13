@@ -1,1078 +1,1223 @@
 # ~/ebi3/carriers/views.py
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.views.generic import (
-    ListView, DetailView, CreateView, UpdateView,
-    TemplateView, DeleteView, FormView
-)
-from django.db.models import Q, Count, Avg, F, ExpressionWrapper, DecimalField
-from django.utils import timezone
-from django.urls import reverse_lazy
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
-from django.core.paginator import Paginator
 from django.http import JsonResponse, HttpResponseForbidden
-from django.views.decorators.http import require_POST
-from django.views.decorators.csrf import csrf_protect
-from django.db import transaction
-from django.db.models import Min, Max, Sum
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, FormView
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.urls import reverse_lazy, reverse
+from django.db.models import Q, Count, Avg, Sum
+from django.utils import timezone
+from datetime import datetime, timedelta
+import json
+import logging
 
 from .models import (
-    Carrier, CarrierRoute, CarrierDocument, CarrierReview,
-    CarrierAvailability, CarrierNotification
+    Carrier, CarrierRoute, Mission, CollectionDay,
+    CarrierDocument, FinancialTransaction, CarrierReview,
+    CarrierOffer, CarrierAvailability, CarrierNotification,
+    CarrierStatistics, ExpenseReport
 )
 from .forms import (
-    CarrierApplicationForm, CarrierUpdateForm,
-    CarrierRouteForm, CarrierDocumentForm,
-    CarrierReviewForm, CarrierSearchForm,
-    CarrierDocumentFormSet, CarrierRouteFormSet
+    CarrierRegistrationForm, CarrierProfileForm, CarrierRouteForm,
+    MissionForm, CollectionDayForm, DocumentUploadForm,
+    FinancialTransactionForm, CarrierReviewForm, CarrierOfferForm,
+    MissionAcceptanceForm, MissionStatusUpdateForm, DeliveryProofForm,
+    MissionFilterForm, RouteOptimizationForm, CarrierSearchForm
 )
 from users.models import User
-from ads.models import Ad
+
+logger = logging.getLogger(__name__)
+
+
+
+def is_carrier(user):
+    """Vérifie si l'utilisateur est un transporteur"""
+    return hasattr(user, 'carrier_profile')
+
+
+def is_approved_carrier(user):
+    """Vérifie si l'utilisateur est un transporteur approuvé"""
+    if hasattr(user, 'carrier_profile'):
+        return user.carrier_profile.status == Carrier.Status.APPROVED
+    return False
+
+
+def is_carrier_owner(user, carrier):
+    """Vérifie si l'utilisateur est propriétaire du transporteur"""
+    return user == carrier.user
+
+
+class CarrierRegistrationView(CreateView):
+    """Vue d'inscription pour les transporteurs avec CreateView"""
+    template_name = 'carriers/registration/register.html'
+    form_class = CarrierRegistrationForm
+    success_url = reverse_lazy('carriers:registration_success')
+    model = Carrier
+
+    def dispatch(self, request, *args, **kwargs):
+        # Vérifier si l'utilisateur est déjà authentifié
+        if request.user.is_authenticated:
+            if hasattr(request.user, 'carrier_profile'):
+                return redirect('carriers:dashboard')
+            else:
+                return redirect('carriers:profile')
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_initial(self):
+        """Pré-remplir le formulaire avec les données de la session"""
+        initial = super().get_initial()
+        session_data = self.request.session.get('user_registration_data')
+
+        if session_data:
+            # Pré-remplir les champs avec les données de la session
+            initial['email'] = session_data.get('email')
+            initial['password'] = session_data.get('password')
+            initial['password_confirm'] = session_data.get('password')
+            initial['first_name'] = session_data.get('first_name')
+            initial['last_name'] = session_data.get('last_name')
+            initial['phone'] = session_data.get('phone')
+
+        return initial
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = _("Inscription Transporteur")
+
+        # Vérifier s'il y a des données en session pour le transporteur
+        session_data = self.request.session.get('user_registration_data')
+        if session_data:
+            context['prefilled_data'] = True
+
+        return context
+
+    def form_valid(self, form):
+        try:
+            # Supprimer les données de session après utilisation réussie
+            if 'user_registration_data' in self.request.session:
+                del self.request.session['user_registration_data']
+
+            # Le formulaire s'occupe de créer User et Carrier
+            carrier = form.save()
+
+            # Connecter l'utilisateur
+            from django.contrib.auth import login
+            login(self.request, carrier.user)
+
+            messages.success(self.request,
+                _("Inscription réussie ! Votre compte transporteur est en attente de validation."))
+
+            return redirect(self.success_url)
+
+        except Exception as e:
+            logger.error(f"Erreur lors de l'inscription: {str(e)}")
+            messages.error(self.request,
+                _("Une erreur est survenue lors de l'inscription. Veuillez réessayer."))
+
+            # Réafficher le formulaire avec les erreurs
+            return self.render_to_response(self.get_context_data(form=form))
+
+def registration_success(request):
+    """Page de succès d'inscription"""
+    return render(request, 'carriers/registration/success.html')
+
+
+
+@login_required
+def carrier_dashboard(request):
+    """Tableau de bord du transporteur"""
+    try:
+        carrier = request.user.carrier_profile
+    except Carrier.DoesNotExist:
+        return redirect('carriers:register')
+
+    # Récupérer les statistiques
+    today = timezone.now().date()
+
+    # Missions du jour
+    today_missions = Mission.objects.filter(
+        carrier=carrier,
+        preferred_pickup_date=today
+    ).order_by('collection_order')
+
+    # Missions en attente
+    pending_missions = Mission.objects.filter(
+        carrier=carrier,
+        status=Mission.MissionStatus.PENDING
+    ).count()
+
+    # Missions en cours
+    active_missions = Mission.objects.filter(
+        carrier=carrier,
+        status__in=[
+            Mission.MissionStatus.ACCEPTED,
+            Mission.MissionStatus.COLLECTING,
+            Mission.MissionStatus.IN_TRANSIT,
+            Mission.MissionStatus.DELIVERING
+        ]
+    ).count()
+
+    # Revenus du mois
+    month_start = today.replace(day=1)
+    month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+
+    monthly_income = FinancialTransaction.objects.filter(
+        carrier=carrier,
+        transaction_type=FinancialTransaction.TransactionType.PAYMENT,
+        transaction_date__range=[month_start, month_end],
+        is_completed=True
+    ).aggregate(total=Sum('amount'))['total'] or 0
+
+    # Notifications non lues
+    unread_notifications = CarrierNotification.objects.filter(
+        carrier=carrier,
+        is_read=False
+    ).count()
+
+    # Prochain jour de collecte
+    next_collection_day = CollectionDay.objects.filter(
+        carrier=carrier,
+        date__gte=today,
+        is_completed=False
+    ).order_by('date').first()
+
+    context = {
+        'carrier': carrier,
+        'today_missions': today_missions,
+        'pending_missions': pending_missions,
+        'active_missions': active_missions,
+        'monthly_income': monthly_income,
+        'unread_notifications': unread_notifications,
+        'next_collection_day': next_collection_day,
+        'today': today,
+    }
+
+    return render(request, 'carriers/dashboard.html', context)
+
+
+@login_required
+@user_passes_test(is_carrier)
+def carrier_profile(request):
+    """Profil du transporteur"""
+    carrier = request.user.carrier_profile
+
+    if request.method == 'POST':
+        form = CarrierProfileForm(request.POST, request.FILES, instance=carrier)
+        if form.is_valid():
+            form.save()
+            messages.success(request, _("Profil mis à jour avec succès !"))
+            return redirect('carriers:profile')
+    else:
+        form = CarrierProfileForm(instance=carrier)
+
+    # Documents du transporteur
+    documents = CarrierDocument.objects.filter(carrier=carrier)
+
+    # Routes actives
+    routes = CarrierRoute.objects.filter(carrier=carrier, is_active=True)
+
+    context = {
+        'carrier': carrier,
+        'form': form,
+        'documents': documents,
+        'routes': routes,
+    }
+
+    return render(request, 'carriers/profile.html', context)
+
+
+
+@login_required
+def apply_as_carrier(request):
+    """Vue pour devenir transporteur"""
+    # Vérifier si l'utilisateur a déjà un profil transporteur
+    if hasattr(request.user, 'carrier_profile'):
+        messages.info(request, _("Vous êtes déjà transporteur."))
+        return redirect('carriers:dashboard')
+
+    # Rediriger vers la page d'inscription des transporteurs
+    return redirect('carriers:register')
+
+@login_required
+@user_passes_test(is_carrier)
+def mission_list(request):
+    """Liste des missions"""
+    carrier = request.user.carrier_profile
+
+    form = MissionFilterForm(request.GET or None)
+
+    missions = Mission.objects.filter(carrier=carrier)
+
+    if form.is_valid():
+        status = form.cleaned_data.get('status')
+        priority = form.cleaned_data.get('priority')
+        date_from = form.cleaned_data.get('date_from')
+        date_to = form.cleaned_data.get('date_to')
+
+        if status:
+            missions = missions.filter(status=status)
+
+        if priority:
+            missions = missions.filter(priority=priority)
+
+        if date_from:
+            missions = missions.filter(preferred_pickup_date__gte=date_from)
+
+        if date_to:
+            missions = missions.filter(preferred_pickup_date__lte=date_to)
+
+    # Statistiques
+    stats = {
+        'total': missions.count(),
+        'pending': missions.filter(status=Mission.MissionStatus.PENDING).count(),
+        'active': missions.filter(
+            status__in=[
+                Mission.MissionStatus.ACCEPTED,
+                Mission.MissionStatus.COLLECTING,
+                Mission.MissionStatus.IN_TRANSIT,
+                Mission.MissionStatus.DELIVERING
+            ]
+        ).count(),
+        'delivered': missions.filter(status=Mission.MissionStatus.DELIVERED).count(),
+    }
+
+    context = {
+        'missions': missions.order_by('-created_at'),
+        'form': form,
+        'stats': stats,
+    }
+
+    return render(request, 'carriers/missions/list.html', context)
+
+
+@login_required
+@user_passes_test(is_carrier)
+def mission_detail(request, pk):
+    """Détail d'une mission"""
+    mission = get_object_or_404(Mission, pk=pk)
+    carrier = request.user.carrier_profile
+
+    # Vérifier que la mission appartient au transporteur
+    if mission.carrier != carrier:
+        return HttpResponseForbidden(_("Vous n'avez pas accès à cette mission."))
+
+    # Formulaires
+    status_form = MissionStatusUpdateForm(instance=mission)
+    delivery_form = DeliveryProofForm(instance=mission)
+
+    # Transactions liées
+    transactions = FinancialTransaction.objects.filter(
+        mission=mission,
+        carrier=carrier
+    )
+
+    context = {
+        'mission': mission,
+        'status_form': status_form,
+        'delivery_form': delivery_form,
+        'transactions': transactions,
+    }
+
+    return render(request, 'carriers/missions/detail.html', context)
+
+
+@login_required
+@user_passes_test(is_carrier)
+def mission_accept(request, pk):
+    """Accepter ou refuser une mission"""
+    mission = get_object_or_404(Mission, pk=pk)
+    carrier = request.user.carrier_profile
+
+    if mission.carrier != carrier:
+        return HttpResponseForbidden(_("Vous n'avez pas accès à cette mission."))
+
+    if mission.status != Mission.MissionStatus.PENDING:
+        messages.error(request, _("Cette mission ne peut plus être acceptée ou refusée."))
+        return redirect('carriers:mission_detail', pk=mission.pk)
+
+    if request.method == 'POST':
+        form = MissionAcceptanceForm(request.POST)
+        if form.is_valid():
+            accept = form.cleaned_data.get('accept')
+
+            if accept:
+                mission.accept()
+                messages.success(request, _("Mission acceptée avec succès !"))
+            else:
+                mission.status = Mission.MissionStatus.CANCELLED
+                mission.save()
+                messages.info(request, _("Mission refusée."))
+
+            return redirect('carriers:mission_detail', pk=mission.pk)
+
+    return redirect('carriers:mission_detail', pk=mission.pk)
+
+
+@login_required
+@user_passes_test(is_carrier)
+def update_mission_status(request, pk):
+    """Mettre à jour le statut d'une mission"""
+    mission = get_object_or_404(Mission, pk=pk)
+    carrier = request.user.carrier_profile
+
+    if mission.carrier != carrier:
+        return HttpResponseForbidden(_("Vous n'avez pas accès à cette mission."))
+
+    if request.method == 'POST':
+        form = MissionStatusUpdateForm(request.POST, instance=mission)
+        if form.is_valid():
+            form.save()
+
+            # Si la mission passe en collecte, mettre à jour la date de collecte
+            if mission.status == Mission.MissionStatus.COLLECTING:
+                mission.actual_pickup_date = timezone.now()
+                mission.save(update_fields=['actual_pickup_date'])
+
+            messages.success(request, _("Statut de la mission mis à jour."))
+
+    return redirect('carriers:mission_detail', pk=mission.pk)
+
+
+@login_required
+@user_passes_test(is_carrier)
+def upload_delivery_proof(request, pk):
+    """Uploader la preuve de livraison"""
+    mission = get_object_or_404(Mission, pk=pk)
+    carrier = request.user.carrier_profile
+
+    if mission.carrier != carrier:
+        return HttpResponseForbidden(_("Vous n'avez pas accès à cette mission."))
+
+    if request.method == 'POST':
+        form = DeliveryProofForm(request.POST, request.FILES, instance=mission)
+        if form.is_valid():
+            mission = form.save(commit=False)
+            mission.status = Mission.MissionStatus.DELIVERED
+            mission.actual_delivery_date = timezone.now()
+            mission.save()
+
+            messages.success(request, _("Preuve de livraison enregistrée !"))
+
+    return redirect('carriers:mission_detail', pk=mission.pk)
+
+
+@login_required
+@user_passes_test(is_carrier)
+def collection_days(request):
+    """Gestion des jours de collecte"""
+    carrier = request.user.carrier_profile
+
+    # Jours de collecte à venir
+    upcoming_days = CollectionDay.objects.filter(
+        carrier=carrier,
+        date__gte=timezone.now().date()
+    ).order_by('date')
+
+    # Jours de collecte passés
+    past_days = CollectionDay.objects.filter(
+        carrier=carrier,
+        date__lt=timezone.now().date()
+    ).order_by('-date')[:10]
+
+    # Missions sans jour de collecte assigné
+    unassigned_missions = Mission.objects.filter(
+        carrier=carrier,
+        status__in=[Mission.MissionStatus.ACCEPTED, Mission.MissionStatus.PENDING],
+        preferred_pickup_date__gte=timezone.now().date()
+    ).exclude(
+        preferred_pickup_date__in=upcoming_days.values_list('date', flat=True)
+    )
+
+    if request.method == 'POST':
+        form = CollectionDayForm(request.POST)
+        if form.is_valid():
+            collection_day = form.save(commit=False)
+            collection_day.carrier = carrier
+            collection_day.save()
+
+            messages.success(request, _("Jour de collecte créé avec succès !"))
+            return redirect('carriers:collection_days')
+    else:
+        form = CollectionDayForm()
+
+    context = {
+        'upcoming_days': upcoming_days,
+        'past_days': past_days,
+        'unassigned_missions': unassigned_missions,
+        'form': form,
+    }
+
+    return render(request, 'carriers/collection/days.html', context)
+
+
+@login_required
+@user_passes_test(is_carrier)
+def collection_day_detail(request, pk):
+    """Détail d'un jour de collecte"""
+    collection_day = get_object_or_404(CollectionDay, pk=pk)
+    carrier = request.user.carrier_profile
+
+    if collection_day.carrier != carrier:
+        return HttpResponseForbidden(_("Vous n'avez pas accès à ce jour de collecte."))
+
+    # Missions associées
+    missions = Mission.objects.filter(
+        carrier=carrier,
+        preferred_pickup_date=collection_day.date,
+        status__in=[Mission.MissionStatus.ACCEPTED, Mission.MissionStatus.COLLECTING]
+    ).order_by('collection_order')
+
+    # Calcul de la planification
+    planning = collection_day.calculate_planning()
+
+    # Générer la liste de collecte
+    collection_list = collection_day.generate_collection_list()
+
+    # Formulaire d'optimisation
+    optimization_form = RouteOptimizationForm()
+
+    context = {
+        'collection_day': collection_day,
+        'missions': missions,
+        'planning': planning,
+        'collection_list': collection_list,
+        'optimization_form': optimization_form,
+    }
+
+    return render(request, 'carriers/collection/detail.html', context)
+
+
+@login_required
+@user_passes_test(is_carrier)
+def organize_collection(request, pk):
+    """Organiser la collecte pour un jour donné"""
+    collection_day = get_object_or_404(CollectionDay, pk=pk)
+    carrier = request.user.carrier_profile
+
+    if collection_day.carrier != carrier:
+        return HttpResponseForbidden(_("Vous n'avez pas accès à ce jour de collecte."))
+
+    if request.method == 'POST':
+        # Récupérer l'ordre de collecte
+        order_data = json.loads(request.POST.get('order_data', '[]'))
+
+        for item in order_data:
+            mission_id = item.get('mission_id')
+            order = item.get('order')
+            position = item.get('position')
+
+            try:
+                mission = Mission.objects.get(pk=mission_id, carrier=carrier)
+                mission.collection_order = order
+                mission.position_in_vehicle = position
+                mission.save()
+            except Mission.DoesNotExist:
+                pass
+
+        messages.success(request, _("Collecte organisée avec succès !"))
+
+        return JsonResponse({'success': True})
+
+    return JsonResponse({'success': False})
+
+
+@login_required
+@user_passes_test(is_carrier)
+def optimize_route(request, pk):
+    """Optimiser l'itinéraire de collecte"""
+    collection_day = get_object_or_404(CollectionDay, pk=pk)
+    carrier = request.user.carrier_profile
+
+    if collection_day.carrier != carrier:
+        return HttpResponseForbidden(_("Vous n'avez pas accès à ce jour de collecte."))
+
+    if request.method == 'POST':
+        form = RouteOptimizationForm(request.POST)
+        if form.is_valid():
+            # Optimiser l'itinéraire
+            optimized_route = collection_day.optimize_route()
+
+            messages.success(request, _("Itinéraire optimisé avec succès !"))
+
+            return JsonResponse({
+                'success': True,
+                'route': optimized_route
+            })
+
+    return JsonResponse({'success': False})
+
+
+@login_required
+@user_passes_test(is_carrier)
+def start_collection(request, pk):
+    """Démarrer la collecte"""
+    collection_day = get_object_or_404(CollectionDay, pk=pk)
+    carrier = request.user.carrier_profile
+
+    if collection_day.carrier != carrier:
+        return HttpResponseForbidden(_("Vous n'avez pas accès à ce jour de collecte."))
+
+    collection_day.start_collection()
+    messages.success(request, _("Collecte démarrée !"))
+
+    return redirect('carriers:collection_day_detail', pk=collection_day.pk)
+
+
+@login_required
+@user_passes_test(is_carrier)
+def financial_dashboard(request):
+    """Tableau de bord financier"""
+    carrier = request.user.carrier_profile
+
+    # Transactions récentes
+    recent_transactions = FinancialTransaction.objects.filter(
+        carrier=carrier
+    ).order_by('-transaction_date')[:20]
+
+    # Statistiques financières
+    today = timezone.now().date()
+    month_start = today.replace(day=1)
+    week_start = today - timedelta(days=today.weekday())
+
+    # Revenus
+    monthly_income = FinancialTransaction.objects.filter(
+        carrier=carrier,
+        transaction_type=FinancialTransaction.TransactionType.PAYMENT,
+        transaction_date__gte=month_start,
+        is_completed=True
+    ).aggregate(total=Sum('amount'))['total'] or 0
+
+    weekly_income = FinancialTransaction.objects.filter(
+        carrier=carrier,
+        transaction_type=FinancialTransaction.TransactionType.PAYMENT,
+        transaction_date__gte=week_start,
+        is_completed=True
+    ).aggregate(total=Sum('amount'))['total'] or 0
+
+    # Dépenses
+    monthly_expenses = FinancialTransaction.objects.filter(
+        carrier=carrier,
+        transaction_type=FinancialTransaction.TransactionType.EXPENSE,
+        transaction_date__gte=month_start,
+        is_completed=True
+    ).aggregate(total=Sum('amount'))['total'] or 0
+
+    # Catégories de dépenses
+    expense_categories = FinancialTransaction.objects.filter(
+        carrier=carrier,
+        transaction_type=FinancialTransaction.TransactionType.EXPENSE,
+        transaction_date__year=today.year
+    ).values('expense_category').annotate(
+        total=Sum('amount'),
+        count=Count('id')
+    ).order_by('-total')
+
+    # Missions non payées
+    unpaid_missions = Mission.objects.filter(
+        carrier=carrier,
+        status=Mission.MissionStatus.DELIVERED
+    ).exclude(
+        pk__in=FinancialTransaction.objects.filter(
+            transaction_type=FinancialTransaction.TransactionType.PAYMENT
+        ).values_list('mission', flat=True)
+    )
+
+    if request.method == 'POST':
+        form = FinancialTransactionForm(request.POST, request.FILES)
+        if form.is_valid():
+            transaction = form.save(commit=False)
+            transaction.carrier = carrier
+            transaction.save()
+
+            messages.success(request, _("Transaction enregistrée !"))
+            return redirect('carriers:financial_dashboard')
+    else:
+        form = FinancialTransactionForm(carrier=carrier)
+
+    context = {
+        'recent_transactions': recent_transactions,
+        'monthly_income': monthly_income,
+        'weekly_income': weekly_income,
+        'monthly_expenses': monthly_expenses,
+        'expense_categories': expense_categories,
+        'unpaid_missions': unpaid_missions,
+        'form': form,
+        'today': today,
+    }
+
+    return render(request, 'carriers/financial/dashboard.html', context)
+
+
+@login_required
+@user_passes_test(is_carrier)
+def expense_reports(request):
+    """Rapports de dépenses"""
+    carrier = request.user.carrier_profile
+
+    reports = ExpenseReport.objects.filter(carrier=carrier).order_by('-period_end')
+
+    if request.method == 'POST':
+        # Générer un nouveau rapport
+        period_start = request.POST.get('period_start')
+        period_end = request.POST.get('period_end')
+
+        if period_start and period_end:
+            report = ExpenseReport.objects.create(
+                carrier=carrier,
+                period_start=period_start,
+                period_end=period_end
+            )
+            report.calculate_totals()
+
+            messages.success(request, _("Rapport généré avec succès !"))
+            return redirect('carriers:expense_report_detail', pk=report.pk)
+
+    context = {
+        'reports': reports,
+    }
+
+    return render(request, 'carriers/financial/reports.html', context)
+
+
+@login_required
+@user_passes_test(is_carrier)
+def expense_report_detail(request, pk):
+    """Détail d'un rapport de dépenses"""
+    report = get_object_or_404(ExpenseReport, pk=pk)
+    carrier = request.user.carrier_profile
+
+    if report.carrier != carrier:
+        return HttpResponseForbidden(_("Vous n'avez pas accès à ce rapport."))
+
+    # Générer le rapport détaillé
+    detailed_report = report.generate_report()
+
+    context = {
+        'report': report,
+        'detailed_report': detailed_report,
+    }
+
+    return render(request, 'carriers/financial/report_detail.html', context)
+
+
+@login_required
+@user_passes_test(is_carrier)
+def marketplace_offers(request):
+    """Gérer les offres sur la marketplace"""
+    carrier = request.user.carrier_profile
+
+    # Offres actives
+    active_offers = CarrierOffer.objects.filter(
+        carrier=carrier,
+        is_active=True
+    ).order_by('-created_at')
+
+    # Offres expirées
+    expired_offers = CarrierOffer.objects.filter(
+        carrier=carrier,
+        available_until__lt=timezone.now()
+    ).order_by('-available_until')[:10]
+
+    if request.method == 'POST':
+        form = CarrierOfferForm(request.POST)
+        if form.is_valid():
+            offer = form.save(commit=False)
+            offer.carrier = carrier
+            offer.save()
+
+            messages.success(request, _("Offre créée avec succès !"))
+            return redirect('carriers:marketplace_offers')
+    else:
+        form = CarrierOfferForm()
+
+    context = {
+        'active_offers': active_offers,
+        'expired_offers': expired_offers,
+        'form': form,
+    }
+
+    return render(request, 'carriers/marketplace/offers.html', context)
+
+@login_required
+def marketplace_search(request):
+    """Rechercher des transporteurs"""
+    form = CarrierSearchForm(request.GET or None)
+    results = []
+
+    if form.is_valid():
+        # Construire la requête de recherche
+        query = Q(status=Carrier.Status.APPROVED, is_available=True)  # CORRIGÉ: utiliser is_available
+
+        start_country = form.cleaned_data.get('start_country')
+        if start_country:
+            query &= Q(routes__start_country=start_country)
+
+        start_city = form.cleaned_data.get('start_city')
+        if start_city:
+            query &= Q(routes__start_city__icontains=start_city)
+
+        end_country = form.cleaned_data.get('end_country')
+        if end_country:
+            query &= Q(routes__end_country=end_country)
+
+        end_city = form.cleaned_data.get('end_city')
+        if end_city:
+            query &= Q(routes__end_city__icontains=end_city)
+
+        departure_date = form.cleaned_data.get('departure_date')
+        if departure_date:
+            query &= Q(routes__departure_date=departure_date)
+
+        max_weight = form.cleaned_data.get('max_weight')
+        if max_weight:
+            query &= Q(max_weight__gte=max_weight)
+
+        max_volume = form.cleaned_data.get('max_volume')
+        if max_volume:
+            query &= Q(max_volume__gte=max_volume)
+
+        vehicle_types = form.cleaned_data.get('vehicle_types')
+        if vehicle_types:
+            query &= Q(vehicle_type__in=vehicle_types)
+
+        min_rating = form.cleaned_data.get('min_rating')
+        if min_rating:
+            # Utiliser le champ correct pour la note moyenne
+            query &= Q(average_rating__gte=min_rating)  # CORRIGÉ: utiliser average_rating
+
+        results = Carrier.objects.filter(query).distinct().order_by('-average_rating')  # CORRIGÉ
+
+    context = {
+        'form': form,
+        'results': results,
+    }
+
+    return render(request, 'carriers/marketplace/search.html', context)
+
+def carrier_public_profile(request, username):
+    """Profil public d'un transporteur"""
+    carrier = get_object_or_404(Carrier, user__username=username)
+
+    # Vérifier que le transporteur est approuvé
+    if carrier.status != Carrier.Status.APPROVED:
+        return HttpResponseForbidden(_("Ce profil n'est pas disponible."))
+
+    # Avis vérifiés
+    reviews = CarrierReview.objects.filter(
+        carrier=carrier,
+        is_approved=True,
+        is_visible=True
+    ).order_by('-created_at')[:10]
+
+    # Routes actives
+    routes = CarrierRoute.objects.filter(
+        carrier=carrier,
+        is_active=True,
+        departure_date__gte=timezone.now().date()
+    ).order_by('departure_date')
+
+    # Offres actives
+    offers = CarrierOffer.objects.filter(
+        carrier=carrier,
+        is_active=True,
+        is_booked=False,
+        available_until__gte=timezone.now()
+    ).order_by('available_from')
+
+    context = {
+        'carrier': carrier,
+        'reviews': reviews,
+        'routes': routes,
+        'offers': offers,
+    }
+
+    return render(request, 'carriers/public/profile.html', context)
+
+
+@login_required
+def leave_review(request, username):
+    """Laisser un avis sur un transporteur"""
+    carrier = get_object_or_404(Carrier, user__username=username)
+
+    # Vérifier que l'utilisateur peut laisser un avis
+    # (doit avoir eu une mission avec ce transporteur)
+    has_mission = Mission.objects.filter(
+        sender=request.user,
+        carrier=carrier,
+        status=Mission.MissionStatus.DELIVERED
+    ).exists()
+
+    if not has_mission:
+        messages.error(request,
+            _("Vous devez avoir eu une mission livrée avec ce transporteur pour laisser un avis."))
+        return redirect('carriers:public_profile', username=username)
+
+    # Vérifier s'il y a déjà un avis
+    existing_review = CarrierReview.objects.filter(
+        carrier=carrier,
+        reviewer=request.user
+    ).first()
+
+    if request.method == 'POST':
+        if existing_review:
+            form = CarrierReviewForm(request.POST, instance=existing_review)
+        else:
+            form = CarrierReviewForm(request.POST)
+
+        if form.is_valid():
+            review = form.save(commit=False)
+            review.carrier = carrier
+            review.reviewer = request.user
+
+            # L'avis doit être approuvé par un admin
+            review.is_approved = False
+
+            review.save()
+
+            messages.success(request,
+                _("Votre avis a été soumis et sera publié après validation."))
+            return redirect('carriers:public_profile', username=username)
+    else:
+        if existing_review:
+            form = CarrierReviewForm(instance=existing_review)
+        else:
+            form = CarrierReviewForm()
+
+    context = {
+        'carrier': carrier,
+        'form': form,
+        'existing_review': existing_review,
+    }
+
+    return render(request, 'carriers/public/review.html', context)
+
+
+@login_required
+@user_passes_test(is_carrier)
+def notifications(request):
+    """Gestion des notifications"""
+    carrier = request.user.carrier_profile
+
+    # Marquer toutes comme lues
+    if request.method == 'POST' and request.POST.get('mark_all_read'):
+        CarrierNotification.objects.filter(
+            carrier=carrier,
+            is_read=False
+        ).update(is_read=True)
+
+        messages.success(request, _("Toutes les notifications marquées comme lues."))
+        return redirect('carriers:notifications')
+
+    # Notifications non lues
+    unread_notifications = CarrierNotification.objects.filter(
+        carrier=carrier,
+        is_read=False
+    ).order_by('-created_at')
+
+    # Notifications lues (récentes)
+    read_notifications = CarrierNotification.objects.filter(
+        carrier=carrier,
+        is_read=True
+    ).order_by('-created_at')[:50]
+
+    context = {
+        'unread_notifications': unread_notifications,
+        'read_notifications': read_notifications,
+    }
+
+    return render(request, 'carriers/notifications/list.html', context)
+
+
+@login_required
+@user_passes_test(is_carrier)
+def mark_notification_read(request, pk):
+    """Marquer une notification comme lue"""
+    notification = get_object_or_404(CarrierNotification, pk=pk)
+    carrier = request.user.carrier_profile
+
+    if notification.carrier != carrier:
+        return HttpResponseForbidden(_("Vous n'avez pas accès à cette notification."))
+
+    notification.mark_as_read()
+
+    if request.headers.get('HTTP_REFERER'):
+        return redirect(request.headers.get('HTTP_REFERER'))
+
+    return redirect('carriers:notifications')
+
+
+@login_required
+@user_passes_test(is_carrier)
+def documents_management(request):
+    """Gestion des documents"""
+    carrier = request.user.carrier_profile
+
+    documents = CarrierDocument.objects.filter(carrier=carrier).order_by('-created_at')
+
+    # Documents expirés ou à renouveler
+    expired_documents = []
+    renewal_documents = []
+
+    for doc in documents:
+        if doc.is_expired():
+            expired_documents.append(doc)
+        elif doc.needs_renewal():
+            renewal_documents.append(doc)
+
+    if request.method == 'POST':
+        form = DocumentUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            document = form.save(commit=False)
+            document.carrier = carrier
+            document.save()
+
+            messages.success(request, _("Document uploadé avec succès !"))
+            return redirect('carriers:documents')
+    else:
+        form = DocumentUploadForm()
+
+    context = {
+        'documents': documents,
+        'expired_documents': expired_documents,
+        'renewal_documents': renewal_documents,
+        'form': form,
+    }
+
+    return render(request, 'carriers/documents/list.html', context)
+
+
+@login_required
+@user_passes_test(is_carrier)
+def generate_customs_form(request, document_id):
+    """Générer un formulaire douanier"""
+    document = get_object_or_404(CarrierDocument, pk=document_id)
+    carrier = request.user.carrier_profile
+
+    if document.carrier != carrier:
+        return HttpResponseForbidden(_("Vous n'avez pas accès à ce document."))
+
+    if not document.is_customs_document:
+        messages.error(request, _("Ce document n'est pas un document douanier."))
+        return redirect('carriers:documents')
+
+    # Générer le formulaire
+    customs_form = document.generate_customs_form()
+
+    if not customs_form:
+        messages.error(request, _("Impossible de générer le formulaire."))
+        return redirect('carriers:documents')
+
+    context = {
+        'document': document,
+        'customs_form': customs_form,
+    }
+
+    return render(request, 'carriers/documents/customs_form.html', context)
+
+
+# API Views pour AJAX
+@login_required
+@user_passes_test(is_carrier)
+def api_carrier_stats(request):
+    """API pour les statistiques du transporteur"""
+    carrier = request.user.carrier_profile
+
+    # Statistiques en temps réel
+    stats = {
+        'pending_missions': Mission.objects.filter(
+            carrier=carrier,
+            status=Mission.MissionStatus.PENDING
+        ).count(),
+
+        'active_missions': Mission.objects.filter(
+            carrier=carrier,
+            status__in=[
+                Mission.MissionStatus.ACCEPTED,
+                Mission.MissionStatus.COLLECTING,
+                Mission.MissionStatus.IN_TRANSIT,
+                Mission.MissionStatus.DELIVERING
+            ]
+        ).count(),
+
+        'unread_notifications': CarrierNotification.objects.filter(
+            carrier=carrier,
+            is_read=False
+        ).count(),
+
+        'today_missions': Mission.objects.filter(
+            carrier=carrier,
+            preferred_pickup_date=timezone.now().date()
+        ).count(),
+    }
+
+    return JsonResponse(stats)
+
+
+@login_required
+@user_passes_test(is_carrier)
+def api_collection_planning(request, day_id):
+    """API pour la planification de collecte"""
+    collection_day = get_object_or_404(CollectionDay, pk=day_id)
+    carrier = request.user.carrier_profile
+
+    if collection_day.carrier != carrier:
+        return JsonResponse({'error': 'Accès interdit'}, status=403)
+
+    planning = collection_day.calculate_planning()
+    collection_list = collection_day.generate_collection_list()
+
+    return JsonResponse({
+        'planning': planning,
+        'collection_list': collection_list,
+    })
+
+
+@login_required
+@user_passes_test(is_carrier)
+def api_mission_update_location(request, mission_id):
+    """API pour mettre à jour la localisation d'une mission"""
+    mission = get_object_or_404(Mission, pk=mission_id)
+    carrier = request.user.carrier_profile
+
+    if mission.carrier != carrier:
+        return JsonResponse({'error': 'Accès interdit'}, status=403)
+
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            lat = data.get('lat')
+            lng = data.get('lng')
+
+            if lat and lng:
+                from django.contrib.gis.geos import Point
+                mission.current_location = Point(float(lng), float(lat))
+                mission.last_location_update = timezone.now()
+                mission.save()
+
+                return JsonResponse({'success': True})
+        except (ValueError, TypeError) as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+    return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+
 
 
 class CarrierListView(ListView):
-    """Liste des transporteurs"""
+    """Vue pour afficher la liste des transporteurs"""
     model = Carrier
-    template_name = 'carriers/carrier_list.html'
+    template_name = 'carriers/list.html'
     context_object_name = 'carriers'
     paginate_by = 12
 
     def get_queryset(self):
         queryset = Carrier.objects.filter(
-            status=Carrier.Status.APPROVED,
-            is_available=True
-        ).select_related('user').prefetch_related('routes')
+            status='APPROVED',  # Seulement les transporteurs approuvés
+            user__is_active=True  # Seulement les utilisateurs actifs
+        ).select_related('user')
 
-        # Appliquer les filtres
-        form = CarrierSearchForm(self.request.GET)
-        if form.is_valid():
-            if form.cleaned_data.get('carrier_type'):
-                queryset = queryset.filter(carrier_type=form.cleaned_data['carrier_type'])
+        # Filtres
+        country = self.request.GET.get('country')
+        if country:
+            queryset = queryset.filter(coverage_countries__icontains=country)
 
-            if form.cleaned_data.get('vehicle_type'):
-                queryset = queryset.filter(vehicle_type=form.cleaned_data['vehicle_type'])
+        vehicle_type = self.request.GET.get('vehicle_type')
+        if vehicle_type:
+            queryset = queryset.filter(vehicle_type=vehicle_type)
 
-            if form.cleaned_data.get('start_country') and form.cleaned_data.get('end_country'):
-                queryset = queryset.filter(
-                    routes__start_country=form.cleaned_data['start_country'],
-                    routes__end_country=form.cleaned_data['end_country'],
-                    routes__is_active=True,
-                    routes__is_full=False
-                ).distinct()
+        min_rating = self.request.GET.get('min_rating')
+        if min_rating:
+            queryset = queryset.filter(transport_average_rating__gte=float(min_rating))
 
-            if form.cleaned_data.get('start_city'):
-                queryset = queryset.filter(
-                    routes__start_city__icontains=form.cleaned_data['start_city']
-                )
+        min_weight = self.request.GET.get('min_weight')
+        if min_weight:
+            queryset = queryset.filter(max_weight__gte=float(min_weight))
 
-            if form.cleaned_data.get('end_city'):
-                queryset = queryset.filter(
-                    routes__end_city__icontains=form.cleaned_data['end_city']
-                )
+        min_volume = self.request.GET.get('min_volume')
+        if min_volume:
+            queryset = queryset.filter(max_volume__gte=float(min_volume))
 
-            if form.cleaned_data.get('departure_date'):
-                queryset = queryset.filter(
-                    routes__departure_date=form.cleaned_data['departure_date'],
-                    routes__is_active=True
-                )
+        verified_only = self.request.GET.get('verified_only')
+        if verified_only:
+            queryset = queryset.filter(verification_level__gte=3)
 
-            if form.cleaned_data.get('max_weight'):
-                queryset = queryset.filter(max_weight__gte=form.cleaned_data['max_weight'])
+        available_now = self.request.GET.get('available_now')
+        if available_now:
+            queryset = queryset.filter(transport_is_available=True)
 
-            if form.cleaned_data.get('min_rating'):
-                queryset = queryset.filter(average_rating__gte=form.cleaned_data['min_rating'])
+        provides_insurance = self.request.GET.get('provides_insurance')
+        if provides_insurance:
+            queryset = queryset.filter(provides_insurance=True)
 
-            if form.cleaned_data.get('provides_insurance'):
-                queryset = queryset.filter(provides_insurance=True)
-
-            if form.cleaned_data.get('provides_packaging'):
-                queryset = queryset.filter(provides_packaging=True)
-
-        # Tri
-        sort_by = form.cleaned_data.get('sort_by', 'rating') if form.is_valid() else 'rating'
-
-        if sort_by == 'rating':
-            queryset = queryset.order_by('-average_rating')
-        elif sort_by == 'price':
-            queryset = queryset.order_by('base_price_per_km')
-        elif sort_by == 'experience':
-            queryset = queryset.order_by('-completed_missions')
-        elif sort_by == 'newest':
-            queryset = queryset.order_by('-created_at')
+        # Trier par note (par défaut)
+        queryset = queryset.order_by('-transport_average_rating', '-created_at')
 
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        # Initialiser le formulaire de recherche
-        search_form = CarrierSearchForm(self.request.GET)
-        context['search_form'] = search_form
-
         # Statistiques
-        all_carriers = Carrier.objects.filter(status=Carrier.Status.APPROVED)
-        context['total_carriers'] = all_carriers.count()
-        context['professional_count'] = all_carriers.filter(carrier_type='PROFESSIONAL').count()
-        context['personal_count'] = all_carriers.filter(carrier_type='PERSONAL').count()
+        context['total_carriers'] = self.get_queryset().count()
 
-        # Pagination
-        if context['page_obj']:
-            context['page_range'] = list(context['page_obj'].paginator.page_range)[:5]
+        # Filtres disponibles
+        # Vérifier comment les choix sont définis dans votre modèle
+        from django_countries import countries
+        context['countries'] = [country.name for country in countries]
+
+        # Obtenir les choix de vehicle_type depuis le modèle
+        # Vérifier comment votre modèle définit les choix
+        try:
+            # Essayer différentes façons d'obtenir les choix
+            if hasattr(Carrier, '_meta'):
+                vehicle_field = Carrier._meta.get_field('vehicle_type')
+                context['vehicle_types'] = vehicle_field.choices
+            elif hasattr(Carrier, 'VEHICLE_CHOICES'):
+                context['vehicle_types'] = Carrier.VEHICLE_CHOICES
+            elif hasattr(Carrier, 'VEHICLE_TYPES'):
+                context['vehicle_types'] = Carrier.VEHICLE_TYPES
+            else:
+                # Valeurs par défaut
+                context['vehicle_types'] = [
+                    ('VAN', 'Camionnette'),
+                    ('TRUCK', 'Camion'),
+                    ('CAR', 'Voiture'),
+                    ('MOTORBIKE', 'Moto'),
+                    ('BICYCLE', 'Vélo'),
+                ]
+        except:
+            context['vehicle_types'] = [
+                ('VAN', 'Camionnette'),
+                ('TRUCK', 'Camion'),
+                ('CAR', 'Voiture'),
+                ('MOTORBIKE', 'Moto'),
+                ('BICYCLE', 'Vélo'),
+            ]
+
+        # Types de marchandises
+        try:
+            if hasattr(Carrier, '_meta'):
+                merch_field = Carrier._meta.get_field('accepted_merchandise_types')
+                context['merchandise_types'] = merch_field.choices
+            elif hasattr(Carrier, 'MERCHANDISE_CHOICES'):
+                context['merchandise_types'] = Carrier.MERCHANDISE_CHOICES
+            else:
+                context['merchandise_types'] = [
+                    ('GENERAL', 'Général'),
+                    ('FRAGILE', 'Fragile'),
+                    ('PERISHABLE', 'Périssable'),
+                    ('DANGEROUS', 'Dangereux'),
+                    ('ELECTRONICS', 'Électronique'),
+                    ('FURNITURE', 'Meuble'),
+                ]
+        except:
+            context['merchandise_types'] = [
+                ('GENERAL', 'Général'),
+                ('FRAGILE', 'Fragile'),
+                ('PERISHABLE', 'Périssable'),
+                ('DANGEROUS', 'Dangereux'),
+                ('ELECTRONICS', 'Électronique'),
+                ('FURNITURE', 'Meuble'),
+            ]
 
         return context
-
-
-def carrier_list(request):
-    """
-    Vue pour afficher la liste des transporteurs
-    """
-    # Récupérer tous les transporteurs APPROUVÉS et ACTIFS
-    carriers = Carrier.objects.filter(
-        status=Carrier.Status.APPROVED,
-        is_available=True
-    ).select_related('user')
-
-    # Initialiser le formulaire de recherche
-    search_form = CarrierSearchForm(request.GET or None)
-
-    # Appliquer les filtres si le formulaire est valide
-    if search_form.is_valid():
-        carrier_type = search_form.cleaned_data.get('carrier_type')
-        vehicle_type = search_form.cleaned_data.get('vehicle_type')
-        min_rating = search_form.cleaned_data.get('min_rating')
-        provides_insurance = search_form.cleaned_data.get('provides_insurance')
-        provides_packaging = search_form.cleaned_data.get('provides_packaging')
-        sort_by = search_form.cleaned_data.get('sort_by', 'rating')
-
-        # Filtres
-        if carrier_type:
-            carriers = carriers.filter(carrier_type=carrier_type)
-
-        if vehicle_type:
-            carriers = carriers.filter(vehicle_type=vehicle_type)
-
-        if min_rating:
-            carriers = carriers.filter(average_rating__gte=min_rating)
-
-        if provides_insurance:
-            carriers = carriers.filter(provides_insurance=True)
-
-        if provides_packaging:
-            carriers = carriers.filter(provides_packaging=True)
-
-        # Tri
-        if sort_by == 'rating':
-            carriers = carriers.order_by('-average_rating')
-        elif sort_by == 'price':
-            carriers = carriers.order_by('base_price_per_km')
-        elif sort_by == 'experience':
-            carriers = carriers.order_by('-total_missions')
-        elif sort_by == 'newest':
-            carriers = carriers.order_by('-created_at')
-
-    # Compter les types de transporteurs
-    professional_count = carriers.filter(carrier_type=Carrier.CarrierType.PROFESSIONAL).count()
-    personal_count = carriers.filter(carrier_type=Carrier.CarrierType.PERSONAL).count()
-
-    # Pagination
-    paginator = Paginator(carriers, 12)  # 12 transporteurs par page
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-
-    context = {
-        'carriers': page_obj,  # Pour compatibilité avec le template existant
-        'page_obj': page_obj,
-        'search_form': search_form,
-        'total_carriers': carriers.count(),
-        'professional_count': professional_count,
-        'personal_count': personal_count,
-    }
-
-    return render(request, 'carriers/carrier_list.html', context)
-
-
-def carrier_search(request):
-    """
-    Vue de recherche avancée des transporteurs
-    """
-    carriers = Carrier.objects.filter(
-        status=Carrier.Status.APPROVED,
-        is_available=True
-    ).select_related('user')
-
-    search_form = CarrierSearchForm(request.GET or None)
-
-    if search_form.is_valid():
-        # Récupérer tous les paramètres
-        carrier_type = search_form.cleaned_data.get('carrier_type')
-        vehicle_type = search_form.cleaned_data.get('vehicle_type')
-        start_country = search_form.cleaned_data.get('start_country')
-        end_country = search_form.cleaned_data.get('end_country')
-        start_city = search_form.cleaned_data.get('start_city')
-        end_city = search_form.cleaned_data.get('end_city')
-        departure_date = search_form.cleaned_data.get('departure_date')
-        max_weight = search_form.cleaned_data.get('max_weight')
-        min_rating = search_form.cleaned_data.get('min_rating')
-        provides_insurance = search_form.cleaned_data.get('provides_insurance')
-        provides_packaging = search_form.cleaned_data.get('provides_packaging')
-        sort_by = search_form.cleaned_data.get('sort_by', 'rating')
-
-        # Filtres de base
-        if carrier_type:
-            carriers = carriers.filter(carrier_type=carrier_type)
-
-        if vehicle_type:
-            carriers = carriers.filter(vehicle_type=vehicle_type)
-
-        if min_rating:
-            carriers = carriers.filter(average_rating__gte=min_rating)
-
-        if provides_insurance:
-            carriers = carriers.filter(provides_insurance=True)
-
-        if provides_packaging:
-            carriers = carriers.filter(provides_packaging=True)
-
-        # Filtre par poids
-        if max_weight:
-            carriers = carriers.filter(max_weight__gte=max_weight)
-
-        # Filtre par routes
-        if start_country or end_country or start_city or end_city:
-            routes_filter = Q()
-
-            if start_country:
-                routes_filter &= Q(routes__start_country=start_country)
-            if end_country:
-                routes_filter &= Q(routes__end_country=end_country)
-            if start_city:
-                routes_filter &= Q(routes__start_city__icontains=start_city)
-            if end_city:
-                routes_filter &= Q(routes__end_city__icontains=end_city)
-            if departure_date:
-                routes_filter &= Q(
-                    routes__departure_date__lte=departure_date,
-                    routes__arrival_date__gte=departure_date
-                )
-
-            carriers = carriers.filter(routes_filter).distinct()
-
-        # Tri
-        if sort_by == 'rating':
-            carriers = carriers.order_by('-average_rating')
-        elif sort_by == 'price':
-            carriers = carriers.order_by('base_price_per_km')
-        elif sort_by == 'experience':
-            carriers = carriers.order_by('-total_missions')
-        elif sort_by == 'newest':
-            carriers = carriers.order_by('-created_at')
-
-    # Pagination
-    paginator = Paginator(carriers, 12)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-
-    context = {
-        'carriers': page_obj,
-        'page_obj': page_obj,
-        'search_form': search_form,
-        'total_carriers': carriers.count(),
-    }
-
-    return render(request, 'carriers/carrier_search.html', context)
-
-
-
-def carrier_detail(request, username):
-    """
-    Vue pour afficher le détail d'un transporteur
-    """
-    carrier = get_object_or_404(
-        Carrier.objects.select_related('user'),
-        user__username=username,
-        status=Carrier.Status.APPROVED
-    )
-
-    # CORRECTION ICI : Utiliser 'is_active' au lieu de 'status'
-    routes = carrier.carrier_routes.filter(is_active=True).order_by('departure_date')
-
-    # Récupérer les avis approuvés
-    reviews = carrier.reviews.filter(
-        is_approved=True,
-        is_visible=True
-    ).select_related('reviewer').order_by('-created_at')[:10]
-
-    # Calculer les statistiques d'avis
-    review_stats = carrier.reviews.filter(
-        is_approved=True,
-        is_visible=True
-    ).aggregate(
-        total=Count('id'),
-        avg_rating=Avg('rating'),
-        avg_communication=Avg('communication'),
-        avg_punctuality=Avg('punctuality'),
-        avg_handling=Avg('handling'),
-        avg_professionalism=Avg('professionalism')
-    )
-
-    context = {
-        'carrier': carrier,
-        'routes': routes,
-        'reviews': reviews,
-        'review_stats': review_stats,
-    }
-
-    return render(request, 'carriers/carrier_detail.html', context)
-
-
-@login_required
-def carrier_apply(request):
-    """
-    Vue pour postuler comme transporteur
-    """
-    # Vérifier si l'utilisateur a déjà un profil transporteur
-    if hasattr(request.user, 'carrier_profile'):
-        messages.warning(request, _("Vous avez déjà un profil transporteur."))
-        return redirect('carriers:carrier_dashboard')
-
-    if request.method == 'POST':
-        form = CarrierApplicationForm(request.POST, user=request.user)
-        if form.is_valid():
-            carrier = form.save(commit=False)
-            carrier.user = request.user
-            carrier.status = Carrier.Status.PENDING
-            carrier.save()
-
-            messages.success(request, _(
-                "Votre candidature a été soumise avec succès. "
-                "Elle sera examinée par notre équipe dans les plus brefs délais."
-            ))
-            return redirect('carriers:apply_success')
-    else:
-        form = CarrierApplicationForm(user=request.user)
-
-    context = {
-        'form': form,
-    }
-
-    return render(request, 'carriers/apply.html', context)
-
-
-def apply_success(request):
-    """
-    Vue de succès après candidature
-    """
-    return render(request, 'carriers/apply_success.html')
-
-
-@login_required
-def carrier_dashboard(request):
-    """
-    Tableau de bord du transporteur
-    """
-    try:
-        carrier = request.user.carrier_profile
-    except Carrier.DoesNotExist:
-        messages.warning(request, _("Vous n'avez pas de profil transporteur."))
-        return redirect('carriers:apply')
-
-    # Récupérer les statistiques
-    routes = carrier.routes.filter(is_active=True).order_by('-departure_date')[:5]
-    recent_reviews = carrier.reviews.filter(
-        is_approved=True,
-        is_visible=True
-    ).order_by('-created_at')[:5]
-
-    # Récupérer les missions en cours (selon votre modèle de missions)
-    # active_missions = carrier.missions.filter(status__in=['PENDING', 'ACCEPTED', 'IN_PROGRESS'])
-    # completed_missions = carrier.missions.filter(status='COMPLETED')
-
-    context = {
-        'carrier': carrier,
-        'routes': routes,
-        'reviews': recent_reviews,
-        # 'active_missions': active_missions,
-        # 'completed_missions': completed_missions,
-    }
-
-    return render(request, 'carriers/carrier_dashboard.html', context)
-
-
-@login_required
-def carrier_update(request):
-    """
-    Mise à jour du profil transporteur
-    """
-    try:
-        carrier = request.user.carrier_profile
-    except Carrier.DoesNotExist:
-        messages.warning(request, _("Vous n'avez pas de profil transporteur."))
-        return redirect('carriers:apply')
-
-    if request.method == 'POST':
-        form = CarrierUpdateForm(request.POST, instance=carrier)
-        if form.is_valid():
-            form.save()
-            messages.success(request, _("Votre profil a été mis à jour avec succès."))
-            return redirect('carriers:carrier_dashboard')
-    else:
-        form = CarrierUpdateForm(instance=carrier)
-
-    context = {
-        'form': form,
-        'carrier': carrier,
-    }
-
-    return render(request, 'carriers/carrier_update.html', context)
-
-
-@login_required
-def carrier_review_create(request, username):
-    """
-    Créer un avis sur un transporteur
-    """
-    carrier = get_object_or_404(Carrier, user__username=username)
-
-    # Vérifier si l'utilisateur peut laisser un avis
-    # (doit avoir eu une mission avec ce transporteur)
-    # Pour l'instant, on autorise tous les utilisateurs connectés
-
-    if request.method == 'POST':
-        form = CarrierReviewForm(request.POST)
-        if form.is_valid():
-            review = form.save(commit=False)
-            review.carrier = carrier
-            review.reviewer = request.user
-            review.is_approved = False  # Nécessite modération
-            review.save()
-
-            # Mettre à jour la note moyenne du transporteur
-            carrier.update_average_rating()
-
-            messages.success(request, _(
-                "Votre avis a été soumis. "
-                "Il sera publié après modération par notre équipe."
-            ))
-            return redirect('carriers:carrier_detail', username=username)
-    else:
-        form = CarrierReviewForm()
-
-    context = {
-        'form': form,
-        'carrier': carrier,
-    }
-
-    return render(request, 'carriers/carrier_review_create.html', context)
-
-class CarrierSearchView(FormView):
-    """Vue de recherche avancée des transporteurs"""
-    template_name = 'carriers/search_results.html'
-    form_class = CarrierSearchForm
-
-    def get(self, request, *args, **kwargs):
-        form = self.get_form()
-        carriers = Carrier.objects.filter(status=Carrier.Status.APPROVED)
-
-        if form.is_valid():
-            # Appliquer les filtres (même logique que CarrierListView)
-            if form.cleaned_data.get('carrier_type'):
-                carriers = carriers.filter(carrier_type=form.cleaned_data['carrier_type'])
-
-            if form.cleaned_data.get('vehicle_type'):
-                carriers = carriers.filter(vehicle_type=form.cleaned_data['vehicle_type'])
-
-            if form.cleaned_data.get('start_country'):
-                carriers = carriers.filter(routes__start_country=form.cleaned_data['start_country'])
-
-            if form.cleaned_data.get('end_country'):
-                carriers = carriers.filter(routes__end_country=form.cleaned_data['end_country'])
-
-            if form.cleaned_data.get('min_rating'):
-                carriers = carriers.filter(average_rating__gte=form.cleaned_data['min_rating'])
-
-            if form.cleaned_data.get('provides_insurance'):
-                carriers = carriers.filter(provides_insurance=True)
-
-            if form.cleaned_data.get('provides_packaging'):
-                carriers = carriers.filter(provides_packaging=True)
-
-        # Pagination
-        paginator = Paginator(carriers, 12)
-        page = request.GET.get('page')
-        carriers_page = paginator.get_page(page)
-
-        context = self.get_context_data(
-            form=form,
-            carriers=carriers_page,
-            total_carriers=carriers.count()
-        )
-
-        return render(request, self.template_name, context)
-
-
-# Si vous utilisez une vue basée sur une classe
-from django.views.generic import DetailView
-
-class CarrierDetailView(DetailView):
-    model = Carrier
-    template_name = 'carriers/carrier_detail.html'
-    context_object_name = 'carrier'
-    slug_field = 'user__username'
-    slug_url_kwarg = 'username'
-
-    def get_queryset(self):
-        return Carrier.objects.filter(
-            status=Carrier.Status.APPROVED
-        ).select_related('user')
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-
-        # CORRECTION ICI : Utiliser le bon nom de relation
-        carrier = self.object
-
-        # Routes actives
-        routes = carrier.carrier_routes.filter(is_active=True).order_by('departure_date')
-
-        # Avis approuvés
-        reviews = carrier.reviews.filter(
-            is_approved=True,
-            is_visible=True
-        ).select_related('reviewer').order_by('-created_at')[:10]
-
-        # Statistiques d'avis
-        from django.db.models import Count, Avg
-        review_stats = carrier.reviews.filter(
-            is_approved=True,
-            is_visible=True
-        ).aggregate(
-            total=Count('id'),
-            avg_rating=Avg('rating'),
-            avg_communication=Avg('communication'),
-            avg_punctuality=Avg('punctuality'),
-            avg_handling=Avg('handling'),
-            avg_professionalism=Avg('professionalism')
-        )
-
-        context.update({
-            'routes': routes,
-            'reviews': reviews,
-            'review_stats': review_stats,
-        })
-
-        return context
-
-class CarrierApplyView(LoginRequiredMixin, CreateView):
-    """Devenir transporteur"""
-    model = Carrier
-    form_class = CarrierApplicationForm
-    template_name = 'carriers/apply.html'
-
-    def dispatch(self, request, *args, **kwargs):
-        # Vérifier si l'utilisateur a déjà un profil transporteur
-        if hasattr(request.user, 'carrier_profile'):
-            messages.warning(request, _("Vous avez déjà un profil transporteur."))
-            return redirect('carriers:carrier_detail', username=request.user.username)
-
-        return super().dispatch(request, *args, **kwargs)
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs['user'] = self.request.user
-        return kwargs
-
-    def form_valid(self, form):
-        form.instance.user = self.request.user
-        form.instance.status = Carrier.Status.PENDING
-
-        response = super().form_valid(form)
-        messages.success(
-            self.request,
-            _("Votre candidature a été soumise avec succès. "
-              "Nous la traiterons dans les plus brefs délais.")
-        )
-
-        return response
-
-    def get_success_url(self):
-        return reverse_lazy('carriers:apply_success')
-
-
-class CarrierDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
-    """Tableau de bord du transporteur"""
-    template_name = 'carriers/dashboard.html'
-
-    def test_func(self):
-        return hasattr(self.request.user, 'carrier_profile')
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        carrier = self.request.user.carrier_profile
-
-        # Statistiques
-        context['carrier'] = carrier
-        context['active_routes'] = carrier.routes.filter(is_active=True).count()
-        context['pending_reviews'] = carrier.reviews.filter(is_approved=False).count()
-        context['unread_notifications'] = carrier.notifications.filter(is_read=False).count()
-
-        # Missions récentes (à implémenter avec l'app logistics)
-        context['recent_missions'] = []  # Placeholder
-
-        # Revenus (à implémenter)
-        context['total_earnings'] = 0  # Placeholder
-        context['pending_payments'] = 0  # Placeholder
-
-        return context
-
-
-class CarrierProfileUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
-    """Mettre à jour le profil transporteur"""
-    model = Carrier
-    form_class = CarrierUpdateForm
-    template_name = 'carriers/profile_update.html'
-
-    def test_func(self):
-        carrier = self.get_object()
-        return self.request.user == carrier.user
-
-    def get_object(self):
-        return self.request.user.carrier_profile
-
-    def get_success_url(self):
-        return reverse_lazy('carriers:carrier_dashboard')
-
-
-class DocumentUploadView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
-    """Télécharger un document"""
-    model = CarrierDocument
-    form_class = CarrierDocumentForm
-    template_name = 'carriers/document_upload.html'
-
-    def test_func(self):
-        return hasattr(self.request.user, 'carrier_profile')
-
-    def form_valid(self, form):
-        form.instance.carrier = self.request.user.carrier_profile
-        messages.success(self.request, _("Document téléchargé avec succès."))
-        return super().form_valid(form)
-
-    def get_success_url(self):
-        return reverse_lazy('carriers:verification_status')
-
-
-class ReviewCreateView(LoginRequiredMixin, CreateView):
-    """Laisser un avis sur un transporteur"""
-    model = CarrierReview
-    form_class = CarrierReviewForm
-    template_name = 'carriers/review_create.html'
-
-    def dispatch(self, request, *args, **kwargs):
-        self.carrier = get_object_or_404(Carrier, user__username=kwargs['username'])
-
-        # Vérifications
-        if request.user == self.carrier.user:
-            messages.error(request, _("Vous ne pouvez pas laisser un avis sur votre propre profil."))
-            return redirect('carriers:carrier_detail', username=self.carrier.user.username)
-
-        if CarrierReview.objects.filter(carrier=self.carrier, reviewer=request.user).exists():
-            messages.warning(request, _("Vous avez déjà laissé un avis pour ce transporteur."))
-            return redirect('carriers:carrier_detail', username=self.carrier.user.username)
-
-        return super().dispatch(request, *args, **kwargs)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['carrier'] = self.carrier
-        return context
-
-    def form_valid(self, form):
-        form.instance.carrier = self.carrier
-        form.instance.reviewer = self.request.user
-        form.instance.is_approved = False  # Nécessite approbation admin
-
-        messages.success(
-            self.request,
-            _("Votre avis a été soumis. Il sera visible après modération.")
-        )
-        return super().form_valid(form)
-
-    def get_success_url(self):
-        return reverse_lazy('carriers:carrier_detail', username=self.carrier.user.username)
-
-
-# Vues simples pour les URLs manquantes
-
-class CarrierReviewsView(DetailView):
-    """Tous les avis d'un transporteur"""
-    model = Carrier
-    template_name = 'carriers/carrier_reviews.html'
-    slug_field = 'user__username'
-    slug_url_kwarg = 'username'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['all_reviews'] = self.object.reviews.filter(
-            is_approved=True,
-            is_visible=True
-        ).select_related('reviewer').order_by('-created_at')
-        return context
-
-
-class ReviewUpdateView(LoginRequiredMixin, UpdateView):
-    """Modifier un avis"""
-    model = CarrierReview
-    form_class = CarrierReviewForm
-    template_name = 'carriers/review_update.html'
-
-    def dispatch(self, request, *args, **kwargs):
-        review = self.get_object()
-        if review.reviewer != request.user:
-            return HttpResponseForbidden()
-        return super().dispatch(request, *args, **kwargs)
-
-    def get_success_url(self):
-        return reverse_lazy('carriers:carrier_detail', username=self.object.carrier.user.username)
-
-
-class ReviewDeleteView(LoginRequiredMixin, DeleteView):
-    """Supprimer un avis"""
-    model = CarrierReview
-    template_name = 'carriers/review_delete.html'
-
-    def dispatch(self, request, *args, **kwargs):
-        review = self.get_object()
-        if review.reviewer != request.user:
-            return HttpResponseForbidden()
-        return super().dispatch(request, *args, **kwargs)
-
-    def get_success_url(self):
-        return reverse_lazy('carriers:carrier_detail', username=self.object.carrier.user.username)
-
-
-class VerificationStatusView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
-    """Statut de vérification"""
-    template_name = 'carriers/verification_status.html'
-
-    def test_func(self):
-        return hasattr(self.request.user, 'carrier_profile')
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        carrier = self.request.user.carrier_profile
-        context['carrier'] = carrier
-        context['documents'] = carrier.documents.all().order_by('-created_at')
-        return context
-
-
-class DocumentDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
-    """Supprimer un document"""
-    model = CarrierDocument
-    template_name = 'carriers/document_delete.html'
-
-    def test_func(self):
-        document = self.get_object()
-        return self.request.user == document.carrier.user
-
-    def get_success_url(self):
-        return reverse_lazy('carriers:verification_status')
-
-
-# Vues pour la nouvelle intégration avec logistics (simplifiées)
-
-class CarrierMissionsView(ListView):
-    """Missions d'un transporteur (vue publique)"""
-    template_name = 'carriers/carrier_missions.html'
-    context_object_name = 'missions'
-
-    def get_queryset(self):
-        self.carrier = get_object_or_404(Carrier, user__username=self.kwargs['username'])
-        # À implémenter avec l'app logistics
-        return []
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['carrier'] = self.carrier
-        return context
-
-
-class CarrierRoutesView(ListView):
-    """Routes d'un transporteur (vue publique)"""
-    template_name = 'carriers/carrier_routes.html'
-    context_object_name = 'routes'
-
-    def get_queryset(self):
-        self.carrier = get_object_or_404(Carrier, user__username=self.kwargs['username'])
-        return self.carrier.routes.filter(is_active=True).order_by('departure_date')
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['carrier'] = self.carrier
-        return context
-
-
-class CarrierProposalsView(ListView):
-    """Propositions d'un transporteur (vue publique)"""
-    template_name = 'carriers/carrier_proposals.html'
-    context_object_name = 'proposals'
-
-    def get_queryset(self):
-        self.carrier = get_object_or_404(Carrier, user__username=self.kwargs['username'])
-        # À implémenter avec l'app logistics
-        return []
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['carrier'] = self.carrier
-        return context
-
-
-# Vues de dashboard (authentifiées)
-
-class CarrierMissionsDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
-    template_name = 'carriers/dashboard/missions.html'
-
-    def test_func(self):
-        return hasattr(self.request.user, 'carrier_profile')
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['carrier'] = self.request.user.carrier_profile
-        # À implémenter avec l'app logistics
-        return context
-
-
-class CarrierRoutesDashboardView(LoginRequiredMixin, UserPassesTestMixin, ListView):
-    template_name = 'carriers/dashboard/routes.html'
-    context_object_name = 'routes'
-
-    def test_func(self):
-        return hasattr(self.request.user, 'carrier_profile')
-
-    def get_queryset(self):
-        return self.request.user.carrier_profile.routes.all().order_by('-departure_date')
-
-
-class CarrierProposalsDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
-    template_name = 'carriers/dashboard/proposals.html'
-
-    def test_func(self):
-        return hasattr(self.request.user, 'carrier_profile')
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['carrier'] = self.request.user.carrier_profile
-        # À implémenter avec l'app logistics
-        return context
-
-
-# Vues utilitaires
-
-@login_required
-@require_POST
-def toggle_availability(request, username):
-    """Basculer la disponibilité"""
-    carrier = get_object_or_404(Carrier, user__username=username)
-
-    if request.user != carrier.user:
-        return HttpResponseForbidden()
-
-    carrier.is_available = not carrier.is_available
-    carrier.save()
-
-    message = _("Vous êtes maintenant disponible.") if carrier.is_available else _("Vous êtes maintenant indisponible.")
-    messages.success(request, message)
-
-    return redirect('carriers:carrier_detail', username=username)
-
-
-@login_required
-def mark_all_notifications_read(request):
-    """Marquer toutes les notifications comme lues"""
-    if hasattr(request.user, 'carrier_profile'):
-        request.user.carrier_profile.notifications.filter(is_read=False).update(is_read=True)
-        messages.success(request, _("Toutes les notifications ont été marquées comme lues."))
-
-    return redirect('carriers:carrier_dashboard')
-
-
-# Gestionnaires d'erreurs
-def handler404(request, exception):
-    return render(request, 'carriers/404.html', status=404)
-
-def handler500(request):
-    return render(request, 'carriers/500.html', status=500)
-
-
-# Placeholders pour les autres URLs
-class AvailabilityUpdateView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/availability.html'
-
-class ProfileCompletionView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/profile_completion.html'
-
-class ActiveMissionsView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/active_missions.html'
-
-class CompletedMissionsView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/completed_missions.html'
-
-class MissionDetailView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/mission_detail.html'
-
-class RouteCreateView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/route_create.html'
-
-class RouteUpdateView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/route_update.html'
-
-class RouteDeleteView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/route_delete.html'
-
-@require_POST
-def toggle_route_status(request, pk):
-    return redirect('carriers:routes_dashboard')
-
-class ActiveProposalsView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/active_proposals.html'
-
-class AcceptedProposalsView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/accepted_proposals.html'
-
-class ExpiredProposalsView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/expired_proposals.html'
-
-class CarrierLogisticsDashboardView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/logistics_dashboard.html'
-
-class CarrierStatisticsView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/statistics.html'
-
-class CarrierReportsView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/reports.html'
-
-class EarningsView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/earnings.html'
-
-class CapacitiesUpdateView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/capacities.html'
-
-class ServicesUpdateView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/services.html'
-
-class VehiclesListView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/vehicles.html'
-
-class VehicleCreateView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/vehicle_create.html'
-
-class VehicleUpdateView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/vehicle_update.html'
-
-class VehicleDeleteView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/vehicle_delete.html'
-
-class DocumentsListView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/documents.html'
-
-class DocumentCreateView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/document_create.html'
-
-class InsuranceInfoView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/insurance.html'
-
-class InsuranceUpdateView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/insurance_update.html'
-
-class CarrierMessagesView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/messages.html'
-
-class UnreadMessagesView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/unread_messages.html'
-
-class CarrierNotificationsView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/notifications.html'
-
-class CarrierSettingsView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/settings.html'
-
-class NotificationSettingsView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/notification_settings.html'
-
-class PrivacySettingsView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/privacy_settings.html'
-
-class SecuritySettingsView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/dashboard/security_settings.html'
-
-class CarrierProfileAPIView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/api/profile.html'
-
-class MissionsAPIView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/api/missions.html'
-
-class MissionDetailAPIView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/api/mission_detail.html'
-
-class RoutesAPIView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/api/routes.html'
-
-class EarningsAPIView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/api/earnings.html'
-
-class UpdateLocationAPIView(LoginRequiredMixin, TemplateView):
-    template_name = 'carriers/api/update_location.html'
-
-class StripeWebhookView(TemplateView):
-    template_name = 'carriers/webhooks/stripe.html'
-
-class TrackingWebhookView(TemplateView):
-    template_name = 'carriers/webhooks/tracking.html'
-
-class CarrierHelpView(TemplateView):
-    template_name = 'carriers/help.html'
-
-class CarrierFAQView(TemplateView):
-    template_name = 'carriers/faq.html'
-
-class CarrierGuideView(TemplateView):
-    template_name = 'carriers/guide.html'
-
-class ContactSupportView(TemplateView):
-    template_name = 'carriers/contact_support.html'
-
-class CarrierTermsView(TemplateView):
-    template_name = 'carriers/terms.html'
-
-class CarrierPrivacyView(TemplateView):
-    template_name = 'carriers/privacy.html'
-
-def profile_redirect(request):
-    if hasattr(request.user, 'carrier_profile'):
-        return redirect('carriers:carrier_detail', username=request.user.username)
-    return redirect('carriers:carrier_list')
-
-def dashboard_redirect(request):
-    if hasattr(request.user, 'carrier_profile'):
-        return redirect('carriers:carrier_dashboard')
-    return redirect('carriers:carrier_list')
-
-class SuccessStoriesView(TemplateView):
-    template_name = 'carriers/success_stories.html'
-
-class TestimonialsView(TemplateView):
-    template_name = 'carriers/testimonials.html'
-
-# Vues de test et développement
-class TestDashboardView(TemplateView):
-    template_name = 'carriers/test/dashboard.html'
-
-class TestMissionsView(TemplateView):
-    template_name = 'carriers/test/missions.html'
-
-class TestRoutesView(TemplateView):
-    template_name = 'carriers/test/routes.html'
-
-class DebugStatisticsView(TemplateView):
-    template_name = 'carriers/debug/statistics.html'

@@ -1,0 +1,418 @@
+{% extends "carriers/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Rapports de dépenses" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'carriers:dashboard' %}">{% trans "Tableau de bord" %}</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'carriers:financial_dashboard' %}">{% trans "Finances" %}</a></li>
+                    <li class="breadcrumb-item active">{% trans "Rapports" %}</li>
+                </ol>
+            </nav>
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>
+                    <i class="fas fa-chart-bar"></i> {% trans "Rapports de dépenses" %}
+                </h1>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#generateReportModal">
+                    <i class="fas fa-plus"></i> {% trans "Nouveau rapport" %}
+                </button>
+            </div>
+
+            <!-- Statistiques des rapports -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-light">
+                        <div class="card-body text-center">
+                            <h5 class="card-title text-muted">{% trans "Total rapports" %}</h5>
+                            <h2 class="card-text">{{ reports.count }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info bg-opacity-25">
+                        <div class="card-body text-center">
+                            <h5 class="card-title text-muted">{% trans "Revenus totaux" %}</h5>
+                            <h2 class="card-text">
+                                {% with total_income=reports.aggregate.total_income__sum %}
+                                    {{ total_income.total_income__sum|default:0|floatformat:2 }} €
+                                {% endwith %}
+                            </h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-danger bg-opacity-25">
+                        <div class="card-body text-center">
+                            <h5 class="card-title text-muted">{% trans "Dépenses totales" %}</h5>
+                            <h2 class="card-text">
+                                {% with total_expenses=reports.aggregate.total_expenses__sum %}
+                                    {{ total_expenses.total_expenses__sum|default:0|floatformat:2 }} €
+                                {% endwith %}
+                            </h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success bg-opacity-25">
+                        <div class="card-body text-center">
+                            <h5 class="card-title text-muted">{% trans "Bénéfice total" %}</h5>
+                            <h2 class="card-text">
+                                {% with total_profit=reports.aggregate.net_profit__sum %}
+                                    {{ total_profit.net_profit__sum|default:0|floatformat:2 }} €
+                                {% endwith %}
+                            </h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Liste des rapports -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{% trans "Mes rapports" %}</h5>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary" onclick="exportAllReports()">
+                            <i class="fas fa-download"></i> {% trans "Exporter tout" %}
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if reports %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>{% trans "Période" %}</th>
+                                        <th>{% trans "Revenus" %}</th>
+                                        <th>{% trans "Dépenses" %}</th>
+                                        <th>{% trans "Bénéfice" %}</th>
+                                        <th>{% trans "Statut" %}</th>
+                                        <th>{% trans "Créé le" %}</th>
+                                        <th>{% trans "Actions" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for report in reports %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ report.period_start|date:"d/m/Y" }} - {{ report.period_end|date:"d/m/Y" }}</strong>
+                                            </td>
+                                            <td class="text-success">
+                                                <strong>{{ report.total_income|floatformat:2 }} €</strong>
+                                            </td>
+                                            <td class="text-danger">
+                                                {{ report.total_expenses|floatformat:2 }} €
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-{% if report.net_profit > 0 %}success{% else %}danger{% endif %}">
+                                                    {{ report.net_profit|floatformat:2 }} €
+                                                </span>
+                                            </td>
+                                            <td>
+                                                {% if report.is_approved %}
+                                                    <span class="badge bg-success">{% trans "Approuvé" %}</span>
+                                                {% else %}
+                                                    <span class="badge bg-warning">{% trans "En attente" %}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {{ report.created_at|date:"d/m/Y" }}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm">
+                                                    <a href="{% url 'carriers:expense_report_detail' report.pk %}"
+                                                       class="btn btn-outline-primary">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                    {% if report.report_file %}
+                                                        <a href="{{ report.report_file.url }}"
+                                                           class="btn btn-outline-success"
+                                                           target="_blank">
+                                                            <i class="fas fa-download"></i>
+                                                        </a>
+                                                    {% endif %}
+                                                    <button type="button"
+                                                            class="btn btn-outline-info"
+                                                            onclick="regenerateReport({{ report.pk }})">
+                                                        <i class="fas fa-sync-alt"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-file-alt fa-4x text-muted mb-3"></i>
+                            <h4>{% trans "Aucun rapport" %}</h4>
+                            <p class="text-muted">{% trans "Créez votre premier rapport pour suivre vos finances." %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Graphique d'évolution -->
+            {% if reports|length > 1 %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-line"></i> {% trans "Évolution des bénéfices" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="profitChart" height="100"></canvas>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal génération rapport -->
+<div class="modal fade" id="generateReportModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'carriers:expense_reports' %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Générer un rapport" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Type de rapport" %}</label>
+                        <select class="form-select" id="reportType">
+                            <option value="monthly">{% trans "Mensuel" %}</option>
+                            <option value="quarterly">{% trans "Trimestriel" %}</option>
+                            <option value="yearly">{% trans "Annuel" %}</option>
+                            <option value="custom">{% trans "Personnalisé" %}</option>
+                        </select>
+                    </div>
+
+                    <div id="customDates" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="period_start" class="form-label">
+                                        {% trans "Date de début" %}
+                                    </label>
+                                    <input type="date"
+                                           name="period_start"
+                                           id="period_start"
+                                           class="form-control"
+                                           required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="period_end" class="form-label">
+                                        {% trans "Date de fin" %}
+                                    </label>
+                                    <input type="date"
+                                           name="period_end"
+                                           id="period_end"
+                                           class="form-control"
+                                           required>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="predefinedDates">
+                        <div class="mb-3">
+                            <label for="selectedMonth" class="form-label">
+                                {% trans "Sélectionnez le mois" %}
+                            </label>
+                            <input type="month"
+                                   id="selectedMonth"
+                                   class="form-control"
+                                   value="{{ today|date:'Y-m' }}">
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        {% trans "Le rapport inclura toutes les transactions de la période sélectionnée." %}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "Annuler" %}
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-chart-bar"></i> {% trans "Générer le rapport" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Gestion du type de rapport
+$(document).ready(function() {
+    $('#reportType').change(function() {
+        const type = $(this).val();
+        if (type === 'custom') {
+            $('#customDates').show();
+            $('#predefinedDates').hide();
+        } else {
+            $('#customDates').hide();
+            $('#predefinedDates').show();
+
+            // Mettre à jour les dates prédéfinies
+            if (type === 'monthly') {
+                $('#selectedMonth').show();
+                $('#selectedMonth').prop('type', 'month');
+            } else if (type === 'quarterly') {
+                $('#selectedMonth').hide();
+                // Ajouter la logique pour les trimestres
+            } else if (type === 'yearly') {
+                $('#selectedMonth').prop('type', 'year');
+            }
+        }
+    });
+
+    // Pré-remplir les dates personnalisées
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+    $('#period_start').val(formatDate(firstDay));
+    $('#period_end').val(formatDate(lastDay));
+
+    // Gérer la soumission du formulaire
+    $('form').submit(function(e) {
+        const type = $('#reportType').val();
+
+        if (type !== 'custom') {
+            // Pour les types prédéfinis, on calcule les dates
+            let startDate, endDate;
+            const selected = $('#selectedMonth').val();
+
+            if (type === 'monthly') {
+                startDate = selected + '-01';
+                endDate = getLastDayOfMonth(selected);
+            } else if (type === 'yearly') {
+                startDate = selected + '-01-01';
+                endDate = selected + '-12-31';
+            }
+
+            // Ajouter les dates cachées au formulaire
+            $(this).append(`<input type="hidden" name="period_start" value="${startDate}">`);
+            $(this).append(`<input type="hidden" name="period_end" value="${endDate}">`);
+        }
+    });
+
+    // Graphique d'évolution des bénéfices
+    {% if reports|length > 1 %}
+    const profitData = [
+        {% for report in reports|slice:":10" %}
+            {
+                label: "{{ report.period_start|date:'M Y' }}",
+                profit: {{ report.net_profit|floatformat:2 }}
+            },
+        {% endfor %}
+    ].reverse(); // Du plus ancien au plus récent
+
+    const ctx = document.getElementById('profitChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: profitData.map(d => d.label),
+            datasets: [{
+                label: 'Bénéfice (€)',
+                data: profitData.map(d => d.profit),
+                borderColor: profitData.map(d => d.profit >= 0 ? '#28a745' : '#dc3545'),
+                backgroundColor: profitData.map(d => d.profit >= 0 ? 'rgba(40, 167, 69, 0.1)' : 'rgba(220, 53, 69, 0.1)'),
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Bénéfice (€)'
+                    }
+                }
+            }
+        }
+    });
+    {% endif %}
+});
+
+// Fonctions utilitaires
+function formatDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function getLastDayOfMonth(dateStr) {
+    const [year, month] = dateStr.split('-');
+    const date = new Date(year, month, 0);
+    return formatDate(date);
+}
+
+// Régénérer un rapport
+function regenerateReport(reportId) {
+    if (confirm('Voulez-vous régénérer ce rapport ?')) {
+        fetch(`/carriers/financial/reports/${reportId}/regenerate/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Rapport régénéré avec succès !');
+                location.reload();
+            }
+        });
+    }
+}
+
+// Exporter tous les rapports
+function exportAllReports() {
+    fetch(`/carriers/financial/reports/export/`, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.blob())
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `rapports_${new Date().toISOString().split('T')[0]}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    });
+}
+</script>
+{% endblock %}

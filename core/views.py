@@ -84,7 +84,7 @@ class HomeView(TemplateView):
         # Transporteurs récents
         context['recent_carriers'] = Carrier.objects.filter(
             status='APPROVED',
-            is_available=True
+            transport_is_available=True
         ).select_related('user').order_by('-created_at')[:4]
 
         # Annonces en vedette

@@ -821,7 +821,7 @@ class MobileMoneyForm(forms.Form):
         label=_("Opérateur")
     )
 
-    phone_number = forms.CharField(
+    phone = forms.CharField(
         max_length=20,
         validators=[PhoneNumberValidator()],
         widget=forms.TextInput(attrs={

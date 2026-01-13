@@ -1,0 +1,341 @@
+{% load i18n %}
+
+{% comment %}
+Usage : {% include "carriers/partials/collection_item.html" with mission=mission index=forloop.counter %}
+Options supplémentaires :
+- show_actions=true/false (default: true)
+- draggable=true/false (default: false)
+- show_position=true/false (default: false)
+- editable=true/false (default: false)
+{% endcomment %}
+
+<div class="collection-item card mb-3 {% if draggable %}draggable{% endif %}"
+     data-mission-id="{{ mission.pk }}"
+     {% if draggable %}draggable="true"{% endif %}>
+    <div class="card-body">
+        <div class="d-flex align-items-start">
+            <!-- Numéro d'ordre -->
+            <div class="flex-shrink-0 me-3">
+                <div class="collection-order">
+                    {% if index %}
+                        <span class="badge bg-primary rounded-circle d-flex align-items-center justify-content-center"
+                              style="width: 30px; height: 30px;">
+                            {{ index }}
+                        </span>
+                    {% else %}
+                        <span class="badge bg-secondary rounded-circle d-flex align-items-center justify-content-center"
+                              style="width: 30px; height: 30px;">
+                            <i class="fas fa-sort"></i>
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Informations de la mission -->
+            <div class="flex-grow-1">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <h6 class="card-title mb-1">
+                            {{ mission.mission_number }}
+                            {% if mission.is_fragile %}
+                                <i class="fas fa-exclamation-triangle text-warning"
+                                   title="{% trans 'Fragile' %}"></i>
+                            {% endif %}
+                            {% if mission.requires_special_handling %}
+                                <i class="fas fa-hands-helping text-info"
+                                   title="{% trans 'Manipulation spéciale' %}"></i>
+                            {% endif %}
+                        </h6>
+                        <p class="card-text text-muted small mb-1">
+                            <i class="fas fa-user"></i>
+                            {{ mission.sender.get_full_name }}
+                        </p>
+                    </div>
+
+                    <!-- Statut -->
+                    <div>
+                        {% include "carriers/partials/mission_status_badge.html" with status=mission.status %}
+                    </div>
+                </div>
+
+                <!-- Adresse -->
+                <div class="mb-2">
+                    <small class="text-muted d-block">
+                        <i class="fas fa-map-marker-alt"></i>
+                        {% trans "Adresse" %}
+                    </small>
+                    <small class="d-block">{{ mission.sender_address|truncatechars:60 }}</small>
+                </div>
+
+                <!-- Informations techniques -->
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-2">
+                            <small class="text-muted d-block">
+                                <i class="fas fa-weight-hanging"></i>
+                                {% trans "Poids" %}
+                            </small>
+                            <small>{{ mission.weight }} kg</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-2">
+                            <small class="text-muted d-block">
+                                <i class="fas fa-archive"></i>
+                                {% trans "Dimensions" %}
+                            </small>
+                            <small>{{ mission.length }}×{{ mission.width }}×{{ mission.height }} m</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Position dans le véhicule (optionnel) -->
+                {% if show_position and mission.position_in_vehicle %}
+                <div class="mt-2">
+                    <small class="text-muted d-block">
+                        <i class="fas fa-car"></i>
+                        {% trans "Position" %}
+                    </small>
+                    <span class="badge bg-info">
+                        {{ mission.get_position_display|default:mission.position_in_vehicle }}
+                    </span>
+                </div>
+                {% endif %}
+
+                <!-- Champs éditables (optionnel) -->
+                {% if editable %}
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label small">
+                                <i class="fas fa-sort-numeric-up"></i>
+                                {% trans "Ordre" %}
+                            </label>
+                            <input type="number"
+                                   class="form-control form-control-sm order-input"
+                                   value="{{ mission.collection_order|default:index }}"
+                                   min="1"
+                                   data-mission-id="{{ mission.pk }}">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label small">
+                                <i class="fas fa-car"></i>
+                                {% trans "Position" %}
+                            </label>
+                            <select class="form-control form-control-sm position-select"
+                                    data-mission-id="{{ mission.pk }}">
+                                <option value="">{% trans "Choisir..." %}</option>
+                                <option value="avant-gauche" {% if mission.position_in_vehicle == 'avant-gauche' %}selected{% endif %}>
+                                    {% trans "Avant gauche" %}
+                                </option>
+                                <option value="avant-droit" {% if mission.position_in_vehicle == 'avant-droit' %}selected{% endif %}>
+                                    {% trans "Avant droit" %}
+                                </option>
+                                <option value="arriere-gauche" {% if mission.position_in_vehicle == 'arriere-gauche' %}selected{% endif %}>
+                                    {% trans "Arrière gauche" %}
+                                </option>
+                                <option value="arriere-droit" {% if mission.position_in_vehicle == 'arriere-droit' %}selected{% endif %}>
+                                    {% trans "Arrière droit" %}
+                                </option>
+                                <option value="dessus" {% if mission.position_in_vehicle == 'dessus' %}selected{% endif %}>
+                                    {% trans "Dessus" %}
+                                </option>
+                                <option value="dessous" {% if mission.position_in_vehicle == 'dessous' %}selected{% endif %}>
+                                    {% trans "Dessous" %}
+                                </option>
+                                <option value="central" {% if mission.position_in_vehicle == 'central' %}selected{% endif %}>
+                                    {% trans "Central" %}
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Actions (optionnel) -->
+            {% if show_actions %}
+            <div class="flex-shrink-0 ms-3">
+                <div class="btn-group-vertical btn-group-sm">
+                    <a href="{% url 'carriers:mission_detail' mission.pk %}"
+                       class="btn btn-outline-primary"
+                       title="{% trans 'Détails' %}">
+                        <i class="fas fa-eye"></i>
+                    </a>
+
+                    {% if editable %}
+                    <button type="button"
+                            class="btn btn-outline-danger remove-mission"
+                            data-mission-id="{{ mission.pk }}"
+                            title="{% trans 'Retirer' %}">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    {% endif %}
+
+                    {% if draggable %}
+                    <button type="button"
+                            class="btn btn-outline-secondary handle"
+                            title="{% trans 'Déplacer' %}">
+                        <i class="fas fa-arrows-alt"></i>
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.collection-item {
+    cursor: move;
+    transition: all 0.3s ease;
+}
+
+.collection-item.draggable {
+    cursor: grab;
+}
+
+.collection-item.draggable:active {
+    cursor: grabbing;
+}
+
+.collection-item.dragging {
+    opacity: 0.5;
+    transform: scale(0.98);
+}
+
+.collection-item:hover {
+    background-color: #f8f9fa;
+}
+
+.handle {
+    cursor: grab;
+}
+
+.handle:active {
+    cursor: grabbing;
+}
+</style>
+
+<script>
+// Initialiser le glisser-déposer
+$(document).ready(function() {
+    {% if draggable %}
+    $('.collection-item.draggable').on('dragstart', function(e) {
+        e.originalEvent.dataTransfer.setData('text/plain', $(this).data('mission-id'));
+        $(this).addClass('dragging');
+    });
+
+    $('.collection-item.draggable').on('dragend', function() {
+        $(this).removeClass('dragging');
+        updateCollectionOrder();
+    });
+    {% endif %}
+
+    // Mettre à jour l'ordre
+    $('.order-input').on('change', function() {
+        updateCollectionOrder();
+    });
+
+    // Mettre à jour la position
+    $('.position-select').on('change', function() {
+        const missionId = $(this).data('mission-id');
+        const position = $(this).val();
+        // Ici, vous pouvez envoyer une requête AJAX pour mettre à jour la position
+        console.log('Mettre à jour position pour mission', missionId, ':', position);
+    });
+
+    // Retirer une mission
+    $('.remove-mission').on('click', function() {
+        const missionId = $(this).data('mission-id');
+        if (confirm('{% trans "Retirer cette mission de la collecte ?" %}')) {
+            // Ici, vous pouvez envoyer une requête AJAX pour retirer la mission
+            $(this).closest('.collection-item').fadeOut(function() {
+                $(this).remove();
+                updateCollectionOrder();
+            });
+        }
+    });
+});
+
+// Mettre à jour l'ordre de collecte
+function updateCollectionOrder() {
+    const orderData = [];
+    $('.collection-item').each(function(index) {
+        const missionId = $(this).data('mission-id');
+        const orderInput = $(this).find('.order-input');
+        const order = orderInput.length ? orderInput.val() : (index + 1);
+        orderData.push({
+            mission_id: missionId,
+            order: order
+        });
+    });
+
+    // Ici, vous pouvez envoyer les données mises à jour au serveur
+    console.log('Données d\'ordre mises à jour:', orderData);
+    return orderData;
+}
+
+// Obtenir les données de collecte
+function getCollectionData() {
+    const collectionData = [];
+
+    $('.collection-item').each(function(index) {
+        const missionId = $(this).data('mission-id');
+        const missionNumber = $(this).find('.card-title').text().trim();
+        const sender = $(this).find('.card-text small').text().trim();
+        const address = $(this).find('small.d-block').first().text().trim();
+        const weight = $(this).find('small:contains("kg")').first().text().trim();
+        const dimensions = $(this).find('small:contains("×")').first().text().trim();
+        const positionSelect = $(this).find('.position-select');
+        const position = positionSelect.length ? positionSelect.val() : '';
+
+        collectionData.push({
+            mission_id: missionId,
+            mission_number: missionNumber,
+            sender: sender,
+            address: address,
+            weight: weight,
+            dimensions: dimensions,
+            position: position,
+            order: index + 1
+        });
+    });
+
+    return collectionData;
+}
+
+// Exporter la liste de collecte
+function exportCollectionList() {
+    const collectionData = getCollectionData();
+    const csv = convertToCSV(collectionData);
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'liste_collecte.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+// Convertir en CSV
+function convertToCSV(data) {
+    const headers = ['Ordre', 'Mission', 'Expéditeur', 'Adresse', 'Poids', 'Dimensions', 'Position'];
+    const rows = data.map(item => [
+        item.order,
+        item.mission_number,
+        `"${item.sender}"`,
+        `"${item.address}"`,
+        item.weight,
+        item.dimensions,
+        item.position || ''
+    ]);
+
+    return [headers, ...rows].map(row => row.join(',')).join('\n');
+}
+</script>
