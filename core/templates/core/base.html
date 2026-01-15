@@ -250,7 +250,7 @@
                             {% endif %}
                         {% else %}
                             <!-- Si non connecté, lien vers connexion avec redirection vers l'inscription transporteur -->
-                            <a href="{% url 'users:login' %}?next={% url 'carriers:register' %}" class="btn btn-warning btn-sm">
+                            <a href="{% url 'users:login' %}?next={% url 'users:carrier_register' %}" class="btn btn-warning btn-sm">
                                 <i class="fas fa-truck"></i> {% trans "Devenir transporteur" %}
                             </a>
                         {% endif %}
@@ -505,7 +505,7 @@
             console.log('=== DEBUG TRANSPORTEUR ===');
             console.log('User authenticated:', {{ user.is_authenticated|yesno:"true,false" }});
             console.log('Has carrier profile:', {% if user.is_authenticated %}{{ user.carrier_profile|yesno:"true,false" }}{% else %}false{% endif %});
-            console.log('Register URL:', "{% url 'carriers:register' %}");
+            console.log('Register URL:', "{% url 'users:carrier_register' %}");
             console.log('Dashboard URL:', "{% url 'carriers:dashboard' %}");
             console.log('=== FIN DEBUG ===');
         });

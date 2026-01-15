@@ -1,5 +1,4 @@
-.
-├── README.md
+
 ├── ads
 │   ├── 5555.txt
 │   ├── __init__.py
@@ -94,7 +93,6 @@
 │   │       │   └── review.html
 │   │       └── registration
 │   │           ├── login.html
-│   │           ├── register1.html
 │   │           └── success.html
 │   ├── tests.py
 │   ├── urls.py
@@ -258,12 +256,14 @@
 │   │   │   └── 2026
 │   │   │       └── 01
 │   │   │           ├── 10
-│   │   │           └── 11
+│   │   │           ├── 11
+│   │   │           └── 13
 │   │   └── profile_photos
 │   │       └── 2026
 │   │           └── 01
 │   │               ├── 10
-│   │               └── 11
+│   │               ├── 11
+│   │               └── 13
 │   └── colis
 │       └── fathi
 │           ├── buggy-enfant-50-cc-1
@@ -506,6 +506,3 @@
 │   ├── tests.py
 │   ├── urls.py
 │   └── views.py
-└── uuuu.txt
-
-160 directories, 348 files

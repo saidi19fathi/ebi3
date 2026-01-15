@@ -1,0 +1,4135 @@
+========== users/templates/users/register.html ==========
+{# ~/ebi3/users/templates/users/register.html #}
+{% extends 'users/base_auth.html' %}
+{% load i18n crispy_forms_tags %}
+
+{% block title %}{% trans "Inscription - Ebi3" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .account-type-selector {
+        margin-bottom: 30px;
+    }
+
+    .type-card {
+        border: 2px solid #dee2e6;
+        border-radius: 10px;
+        padding: 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .type-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+
+    .type-card.active {
+        border-color: #0d6efd;
+        background-color: rgba(13, 110, 253, 0.05);
+    }
+
+    .type-icon {
+        font-size: 3rem;
+        margin-bottom: 15px;
+        color: #6c757d;
+    }
+
+    .type-card.active .type-icon {
+        color: #0d6efd;
+    }
+
+    .type-title {
+        font-weight: bold;
+        margin-bottom: 10px;
+        color: #495057;
+    }
+
+    .type-card.active .type-title {
+        color: #0d6efd;
+    }
+
+    .type-description {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-bottom: 15px;
+    }
+
+    .type-features {
+        text-align: left;
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-bottom: 0;
+    }
+
+    .type-features li {
+        margin-bottom: 5px;
+    }
+
+    .carrier-highlight {
+        background: linear-gradient(45deg, #198754, #20c997);
+        color: white;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        margin-left: 10px;
+    }
+
+    .form-tabs {
+        display: none;
+    }
+
+    .form-tabs.active {
+        display: block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h2 class="text-center mb-4">{% trans "Créer un compte" %}</h2>
+
+<!-- Sélecteur de type de compte -->
+<div class="account-type-selector">
+    <p class="text-center mb-4">{% trans "Choisissez votre type de compte" %}</p>
+
+    <div class="row">
+        <!-- Compte utilisateur standard -->
+        <div class="col-md-6 mb-3">
+            <div class="type-card" data-type="user" id="userCard">
+                <div class="type-icon">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="type-title">
+                    {% trans "Utilisateur standard" %}
+                </div>
+                <div class="type-description">
+                    {% trans "Pour les particuliers et entreprises qui cherchent des transporteurs" %}
+                </div>
+                <ul class="type-features">
+                    <li><i class="fas fa-check text-success me-1"></i> {% trans "Rechercher des transporteurs" %}</li>
+                    <li><i class="fas fa-check text-success me-1"></i> {% trans "Créer des missions de livraison" %}</li>
+                    <li><i class="fas fa-check text-success me-1"></i> {% trans "Suivre vos livraisons" %}</li>
+                    <li><i class="fas fa-check text-success me-1"></i> {% trans "Gérer vos paiements" %}</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Compte transporteur -->
+        <div class="col-md-6 mb-3">
+            <div class="type-card active" data-type="carrier" id="carrierCard">
+                <div class="type-icon">
+                    <i class="fas fa-truck"></i>
+                </div>
+                <div class="type-title">
+                    {% trans "Transporteur" %}
+                    <span class="carrier-highlight">{% trans "POPULAIRE" %}</span>
+                </div>
+                <div class="type-description">
+                    {% trans "Pour les particuliers et entreprises qui proposent des services de transport" %}
+                </div>
+                <ul class="type-features">
+                    <li><i class="fas fa-check text-success me-1"></i> {% trans "Trouver des missions" %}</li>
+                    <li><i class="fas fa-check text-success me-1"></i> {% trans "Gérer votre activité" %}</li>
+                    <li><i class="fas fa-check text-success me-1"></i> {% trans "Recevoir des paiements" %}</li>
+                    <li><i class="fas fa-check text-success me-1"></i> {% trans "Bénéficier de l'assurance" %}</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Indicateur visuel -->
+<div class="alert alert-info mb-4">
+    <div class="d-flex align-items-center">
+        <i class="fas fa-info-circle fa-lg me-3"></i>
+        <div>
+            <strong id="currentSelectionText">{% trans "Vous créez un compte transporteur" %}</strong>
+            <p class="mb-0" id="currentDescriptionText">
+                {% trans "Vous pourrez accepter des missions de livraison et gagner de l'argent avec votre véhicule." %}
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Formulaire utilisateur standard (masqué par défaut) -->
+<div class="form-tabs" id="userForm">
+    <form method="post" action="{% url 'users:register' %}" novalidate id="standardRegisterForm">
+        {% csrf_token %}
+        <input type="hidden" name="account_type" value="user">
+
+        {{ form|crispy }}
+
+        <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="terms" required>
+            <label class="form-check-label" for="terms">
+                {% trans "J'accepte les" %}
+                <a href="{% url 'core:terms' %}">{% trans "conditions d'utilisation" %}</a>
+                {% trans "et la" %}
+                <a href="{% url 'core:privacy' %}">{% trans "politique de confidentialité" %}</a>
+            </label>
+        </div>
+
+        <div class="d-grid gap-2">
+            <button type="submit" class="btn btn-primary btn-lg">
+                {% trans "S'inscrire" %}
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Bouton pour transporteur (affiché par défaut) -->
+<div class="form-tabs active" id="carrierForm">
+    <div class="card">
+        <div class="card-body text-center">
+            <i class="fas fa-truck fa-4x text-primary mb-3"></i>
+            <h4>{% trans "Inscription transporteur" %}</h4>
+            <p class="text-muted mb-4">
+                {% trans "Pour devenir transporteur, nous avons besoin de plus d'informations sur vous et votre véhicule." %}
+            </p>
+
+            <div class="d-grid gap-2">
+                <a href="/users/register/carrier/" class="btn btn-success btn-lg">
+                    <i class="fas fa-arrow-right"></i> {% trans "Continuer vers l'inscription transporteur" %}
+                </a>
+                <button type="button" class="btn btn-outline-secondary" onclick="switchToUserAccount()">
+                    <i class="fas fa-arrow-left"></i> {% trans "Retourner à l'inscription standard" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Séparateur -->
+<div class="text-center my-4" id="divider" style="display: none;">
+    <span class="text-muted">{% trans "ou" %}</span>
+</div>
+
+<!-- Connexion sociale -->
+<div class="row mt-4" id="socialLogin">
+    <div class="col-md-6">
+        <div class="d-grid">
+            <a href="#" class="btn btn-outline-dark">
+                <i class="fab fa-google"></i> {% trans "Google" %}
+            </a>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="d-grid">
+            <a href="#" class="btn btn-outline-primary">
+                <i class="fab fa-facebook"></i> {% trans "Facebook" %}
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Lien connexion -->
+<hr class="my-4">
+<div class="text-center">
+    <p class="mb-0">
+        {% trans "Déjà un compte ?" %}
+        <a href="{% url 'users:login' %}" class="text-decoration-none">
+            {% trans "Connectez-vous" %}
+        </a>
+    </p>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let selectedAccountType = 'carrier';
+
+// Fonction pour changer le type de compte
+function switchAccountType(type) {
+    selectedAccountType = type;
+
+    // Mettre à jour les cartes
+    $('.type-card').removeClass('active');
+    $(`#${type}Card`).addClass('active');
+
+    // Mettre à jour les formulaires
+    $('.form-tabs').removeClass('active');
+    $(`#${type}Form`).addClass('active');
+
+    // Mettre à jour le texte d'information
+    updateInfoText();
+
+    // Afficher/masquer le séparateur et la connexion sociale
+    if (type === 'user') {
+        $('#divider').show();
+        $('#socialLogin').show();
+    } else {
+        $('#divider').hide();
+        $('#socialLogin').hide();
+    }
+}
+
+// Fonction pour mettre à jour le texte d'information
+function updateInfoText() {
+    if (selectedAccountType === 'user') {
+        $('#currentSelectionText').text("{% trans 'Vous créez un compte utilisateur standard' %}");
+        $('#currentDescriptionText').text("{% trans 'Vous pourrez rechercher des transporteurs, créer des missions et suivre vos livraisons.' %}");
+    } else {
+        $('#currentSelectionText').text("{% trans 'Vous créez un compte transporteur' %}");
+        $('#currentDescriptionText').text("{% trans 'Vous pourrez accepter des missions de livraison et gagner de l\'argent avec votre véhicule.' %}");
+    }
+}
+
+// Fonction pour revenir au compte utilisateur standard
+function switchToUserAccount() {
+    switchAccountType('user');
+}
+
+// Initialisation
+$(document).ready(function() {
+    // Gérer le clic sur les cartes
+    $('.type-card').click(function() {
+        const type = $(this).data('type');
+        switchAccountType(type);
+    });
+
+    // Validation du formulaire standard
+    $('#standardRegisterForm').submit(function(e) {
+        if (!$('#terms').is(':checked')) {
+            e.preventDefault();
+            alert("{% trans 'Vous devez accepter les conditions d\'utilisation et la politique de confidentialité.' %}");
+            $('#terms').focus();
+        }
+    });
+
+    // Afficher les informations initiales
+    updateInfoText();
+
+    // Initialiser l'affichage
+    if (selectedAccountType === 'user') {
+        $('#divider').show();
+        $('#socialLogin').show();
+    } else {
+        $('#divider').hide();
+        $('#socialLogin').hide();
+    }
+
+    // Animation au survol
+    $('.type-card').hover(
+        function() {
+            if (!$(this).hasClass('active')) {
+                $(this).css('border-color', '#adb5bd');
+            }
+        },
+        function() {
+            if (!$(this).hasClass('active')) {
+                $(this).css('border-color', '#dee2e6');
+            }
+        }
+    );
+});
+</script>
+{% endblock %}
+
+
+========== users/templates/users/profile_update.html ==========
+{# ~/ebi3/users/templates/users/profile_update.html - Version corrigée #}
+{% extends 'core/base.html' %}
+{% load i18n crispy_forms_tags %}
+
+{% block title %}{% trans "Modifier le profil" %} - Ebi3{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">
+                        <i class="fas fa-user-edit"></i> {% trans "Modifier le profil" %}
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        <!-- Afficher tous les champs automatiquement -->
+                        {{ form|crispy }}
+
+                        <div class="mt-4 d-flex justify-content-between">
+                            <!-- Utiliser request.user au lieu de user_profile -->
+                            <a href="{% url 'users:profile' request.user.username %}"
+                               class="btn btn-outline-secondary">
+                                <i class="fas fa-times"></i> {% trans "Annuler" %}
+                            </a>
+
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> {% trans "Enregistrer les modifications" %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+========== users/templates/users/login.html ==========
+{# ~/ebi3/users/templates/users/login.html #}
+{% extends 'users/base_auth.html' %}
+{% load i18n crispy_forms_tags %}
+
+{% block title %}{% trans "Connexion - Ebi3" %}{% endblock %}
+
+{% block content %}
+<h2 class="text-center mb-4">{% trans "Connexion" %}</h2>
+
+<form method="post" novalidate>
+    {% csrf_token %}
+
+    {{ form|crispy }}
+
+    <div class="d-grid gap-2 mb-3">
+        <button type="submit" class="btn btn-primary btn-lg">
+            {% trans "Se connecter" %}
+        </button>
+    </div>
+
+    <div class="text-center">
+        <a href="{% url 'users:password_reset' %}" class="text-decoration-none">
+            {% trans "Mot de passe oublié ?" %}
+        </a>
+    </div>
+</form>
+
+<hr class="my-4">
+
+<div class="text-center">
+    <p class="mb-0">
+        {% trans "Pas encore de compte ?" %}
+        <a href="{% url 'users:register' %}" class="text-decoration-none">
+            {% trans "Inscrivez-vous" %}
+        </a>
+    </p>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="d-grid">
+            <a href="#" class="btn btn-outline-dark">
+                <i class="fab fa-google"></i> {% trans "Google" %}
+            </a>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="d-grid">
+            <a href="#" class="btn btn-outline-primary">
+                <i class="fab fa-facebook"></i> {% trans "Facebook" %}
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+========== users/templates/users/register_carrier.html ==========
+{# ~/ebi3/users/templates/users/register_carrier.html #}
+{% extends 'users/base_auth.html' %}
+{% load i18n crispy_forms_tags %}
+
+{% block title %}{% trans "Devenez transporteur - Ebi3" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .carrier-registration {
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+
+    .registration-step {
+        background: #fff;
+        border-radius: 10px;
+        padding: 25px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .step-header {
+        border-bottom: 2px solid #0d6efd;
+        padding-bottom: 15px;
+        margin-bottom: 25px;
+    }
+
+    .step-badge {
+        display: inline-block;
+        width: 30px;
+        height: 30px;
+        line-height: 30px;
+        text-align: center;
+        background: #0d6efd;
+        color: white;
+        border-radius: 50%;
+        margin-right: 10px;
+    }
+
+    .company-fields {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 15px 0;
+        border-left: 4px solid #0d6efd;
+    }
+
+    .vehicle-capacity-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+
+    .capacity-card {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+    }
+
+    .capacity-card label {
+        font-weight: bold;
+        color: #495057;
+        margin-bottom: 10px;
+        display: block;
+    }
+
+    .service-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 15px 0;
+    }
+
+    .service-badge {
+        padding: 8px 15px;
+        background: #e9ecef;
+        border-radius: 20px;
+        font-size: 0.9em;
+    }
+
+    .service-badge.active {
+        background: #0d6efd;
+        color: white;
+    }
+
+    .merchandise-types {
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 15px;
+    }
+
+    .form-check.merchandise-check {
+        margin-bottom: 8px;
+        padding-left: 30px;
+    }
+
+    .price-input-group {
+        max-width: 300px;
+    }
+
+    .progress-container {
+        margin: 30px 0;
+    }
+
+    .progress {
+        height: 8px;
+        border-radius: 4px;
+    }
+
+    .progress-bar {
+        transition: width 0.5s ease;
+    }
+
+    .form-section {
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .form-section:last-child {
+        border-bottom: none;
+    }
+
+    .required-field::after {
+        content: " *";
+        color: #dc3545;
+    }
+
+    .photo-upload {
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .photo-upload:hover {
+        border-color: #0d6efd;
+        background: #f8f9fa;
+    }
+
+    .photo-preview {
+        width: 100px;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 50%;
+        border: 3px solid #dee2e6;
+        margin: 10px auto;
+        display: none;
+    }
+
+    @media (max-width: 768px) {
+        .registration-step {
+            padding: 15px;
+        }
+
+        .vehicle-capacity-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="carrier-registration">
+    <!-- En-tête -->
+    <div class="text-center mb-5">
+        <h1 class="display-5 fw-bold text-primary">
+            <i class="fas fa-truck"></i> {% trans "Devenez transporteur Ebi3" %}
+        </h1>
+        <p class="lead text-muted">
+            {% trans "Rejoignez notre réseau de transporteurs et commencez à gagner de l'argent dès aujourd'hui" %}
+        </p>
+
+        <div class="row mt-4">
+            <div class="col-md-3">
+                <div class="text-center">
+                    <i class="fas fa-user-check fa-2x text-primary mb-2"></i>
+                    <h6>{% trans "Profil vérifié" %}</h6>
+                    <small class="text-muted">{% trans "Confiance garantie" %}</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <i class="fas fa-euro-sign fa-2x text-success mb-2"></i>
+                    <h6>{% trans "Rémunération rapide" %}</h6>
+                    <small class="text-muted">{% trans "Paiements sécurisés" %}</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <i class="fas fa-headset fa-2x text-info mb-2"></i>
+                    <h6>{% trans "Support 7j/7" %}</h6>
+                    <small class="text-muted">{% trans "Assistance permanente" %}</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <i class="fas fa-shield-alt fa-2x text-warning mb-2"></i>
+                    <h6>{% trans "Assurance incluse" %}</h6>
+                    <small class="text-muted">{% trans "Protection complète" %}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barre de progression -->
+    <div class="progress-container">
+        <div class="d-flex justify-content-between mb-2">
+            <small class="text-muted">{% trans "Informations personnelles" %}</small>
+            <small class="text-muted">{% trans "Véhicule & Capacités" %}</small>
+            <small class="text-muted">{% trans "Services & Tarifs" %}</small>
+            <small class="text-muted">{% trans "Finalisation" %}</small>
+        </div>
+        <div class="progress">
+            <div class="progress-bar" id="registrationProgress" role="progressbar" style="width: 25%"></div>
+        </div>
+    </div>
+
+    <!-- Formulaire -->
+    <form method="post" enctype="multipart/form-data" id="carrierRegistrationForm">
+        {% csrf_token %}
+
+        <!-- Étape 1 : Informations personnelles -->
+        <div class="registration-step" id="step1">
+            <div class="step-header">
+                <h3>
+                    <span class="step-badge">1</span>
+                    {% trans "Informations personnelles" %}
+                </h3>
+                <p class="text-muted mb-0">
+                    {% trans "Remplissez vos informations de base pour créer votre compte" %}
+                </p>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Identité" %}</h5>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.first_name.id_for_label }}" class="form-label required-field">
+                            {% trans "Prénom" %}
+                        </label>
+                        {{ form.first_name }}
+                        {% if form.first_name.errors %}
+                            <div class="invalid-feedback d-block">{{ form.first_name.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.last_name.id_for_label }}" class="form-label required-field">
+                            {% trans "Nom" %}
+                        </label>
+                        {{ form.last_name }}
+                        {% if form.last_name.errors %}
+                            <div class="invalid-feedback d-block">{{ form.last_name.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.email.id_for_label }}" class="form-label required-field">
+                            {% trans "Email" %}
+                        </label>
+                        {{ form.email }}
+                        {% if form.email.errors %}
+                            <div class="invalid-feedback d-block">{{ form.email.errors|striptags }}</div>
+                        {% endif %}
+                        <small class="text-muted">{% trans "Ce sera votre identifiant de connexion" %}</small>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.phone.id_for_label }}" class="form-label required-field">
+                            {% trans "Téléphone" %}
+                        </label>
+                        {{ form.phone }}
+                        {% if form.phone.errors %}
+                            <div class="invalid-feedback d-block">{{ form.phone.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Compte" %}</h5>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.username.id_for_label }}" class="form-label required-field">
+                            {% trans "Nom d'utilisateur" %}
+                        </label>
+                        {{ form.username }}
+                        {% if form.username.errors %}
+                            <div class="invalid-feedback d-block">{{ form.username.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.password1.id_for_label }}" class="form-label required-field">
+                            {% trans "Mot de passe" %}
+                        </label>
+                        {{ form.password1 }}
+                        {% if form.password1.errors %}
+                            <div class="invalid-feedback d-block">{{ form.password1.errors|striptags }}</div>
+                        {% endif %}
+                        <small class="text-muted">
+                            {% trans "Minimum 8 caractères, avec majuscules, minuscules et chiffres" %}
+                        </small>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.password2.id_for_label }}" class="form-label required-field">
+                            {% trans "Confirmer le mot de passe" %}
+                        </label>
+                        {{ form.password2 }}
+                        {% if form.password2.errors %}
+                            <div class="invalid-feedback d-block">{{ form.password2.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.preferred_language.id_for_label }}" class="form-label">
+                            {% trans "Langue préférée" %}
+                        </label>
+                        {{ form.preferred_language }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Localisation" %}</h5>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.country.id_for_label }}" class="form-label required-field">
+                            {% trans "Pays" %}
+                        </label>
+                        {{ form.country }}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.city.id_for_label }}" class="form-label">
+                            {% trans "Ville" %}
+                        </label>
+                        {{ form.city }}
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.address.id_for_label }}" class="form-label">
+                        {% trans "Adresse" %}
+                    </label>
+                    {{ form.address }}
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between mt-4">
+                <button type="button" class="btn btn-outline-secondary" disabled>
+                    <i class="fas fa-arrow-left"></i> {% trans "Précédent" %}
+                </button>
+                <button type="button" class="btn btn-primary" onclick="nextStep(2)">
+                    {% trans "Suivant" %} <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Étape 2 : Informations professionnelles -->
+        <div class="registration-step" id="step2" style="display: none;">
+            <div class="step-header">
+                <h3>
+                    <span class="step-badge">2</span>
+                    {% trans "Informations professionnelles" %}
+                </h3>
+                <p class="text-muted mb-0">
+                    {% trans "Décrivez votre activité de transport" %}
+                </p>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Type de transporteur" %}</h5>
+                <div class="mb-4">
+                    <label for="{{ form.carrier_type.id_for_label }}" class="form-label required-field">
+                        {% trans "Vous êtes" %}
+                    </label>
+                    {{ form.carrier_type }}
+                    <small class="text-muted">
+                        {% trans "Choisissez le type qui correspond à votre situation" %}
+                    </small>
+                </div>
+
+                <!-- Champs entreprise (uniquement pour professionnels) -->
+                <div id="companyFields" class="company-fields" style="display: none;">
+                    <h6 class="mb-3">{% trans "Informations de l'entreprise" %}</h6>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.transport_company_name.id_for_label }}" class="form-label">
+                                {% trans "Nom de l'entreprise" %}
+                            </label>
+                            {{ form.transport_company_name }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.transport_company_registration.id_for_label }}" class="form-label">
+                                {% trans "Numéro d'immatriculation" %}
+                            </label>
+                            {{ form.transport_company_registration }}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.transport_tax_id.id_for_label }}" class="form-label">
+                                {% trans "Numéro fiscal/TVA" %}
+                            </label>
+                            {{ form.transport_tax_id }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.transport_company_address.id_for_label }}" class="form-label">
+                                {% trans "Adresse de l'entreprise" %}
+                            </label>
+                            {{ form.transport_company_address }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Véhicule" %}</h5>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.vehicle_type.id_for_label }}" class="form-label required-field">
+                            {% trans "Type de véhicule" %}
+                        </label>
+                        {{ form.vehicle_type }}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.vehicle_registration.id_for_label }}" class="form-label">
+                            {% trans "Plaque d'immatriculation" %}
+                        </label>
+                        {{ form.vehicle_registration }}
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.vehicle_make.id_for_label }}" class="form-label">
+                            {% trans "Marque" %}
+                        </label>
+                        {{ form.vehicle_make }}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.vehicle_model.id_for_label }}" class="form-label">
+                            {% trans "Modèle" %}
+                        </label>
+                        {{ form.vehicle_model }}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.vehicle_year.id_for_label }}" class="form-label">
+                            {% trans "Année" %}
+                        </label>
+                        {{ form.vehicle_year }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Capacités de chargement" %}</h5>
+                <div class="vehicle-capacity-grid">
+                    <div class="capacity-card">
+                        <label for="{{ form.max_weight.id_for_label }}" class="required-field">
+                            {% trans "Poids max (kg)" %}
+                        </label>
+                        {{ form.max_weight }}
+                        {% if form.max_weight.errors %}
+                            <div class="invalid-feedback d-block">{{ form.max_weight.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="capacity-card">
+                        <label for="{{ form.max_volume.id_for_label }}" class="required-field">
+                            {% trans "Volume max (m³)" %}
+                        </label>
+                        {{ form.max_volume }}
+                        {% if form.max_volume.errors %}
+                            <div class="invalid-feedback d-block">{{ form.max_volume.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="capacity-card">
+                        <label for="{{ form.max_length.id_for_label }}">
+                            {% trans "Longueur max (m)" %}
+                        </label>
+                        {{ form.max_length }}
+                    </div>
+
+                    <div class="capacity-card">
+                        <label for="{{ form.max_width.id_for_label }}">
+                            {% trans "Largeur max (m)" %}
+                        </label>
+                        {{ form.max_width }}
+                    </div>
+
+                    <div class="capacity-card">
+                        <label for="{{ form.max_height.id_for_label }}">
+                            {% trans "Hauteur max (m)" %}
+                        </label>
+                        {{ form.max_height }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Zones de couverture" %}</h5>
+                <div class="mb-3">
+                    <label for="{{ form.coverage_cities.id_for_label }}" class="form-label">
+                        {% trans "Villes desservies" %}
+                    </label>
+                    {{ form.coverage_cities }}
+                    <small class="text-muted">
+                        {% trans "Séparez les noms de villes par des virgules" %}
+                    </small>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between mt-4">
+                <button type="button" class="btn btn-outline-secondary" onclick="prevStep(1)">
+                    <i class="fas fa-arrow-left"></i> {% trans "Précédent" %}
+                </button>
+                <button type="button" class="btn btn-primary" onclick="nextStep(3)">
+                    {% trans "Suivant" %} <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Étape 3 : Services et tarifs -->
+        <div class="registration-step" id="step3" style="display: none;">
+            <div class="step-header">
+                <h3>
+                    <span class="step-badge">3</span>
+                    {% trans "Services et tarification" %}
+                </h3>
+                <p class="text-muted mb-0">
+                    {% trans "Définissez vos services et vos tarifs" %}
+                </p>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Services proposés" %}</h5>
+                <div class="service-badges">
+                    <div class="form-check form-check-inline">
+                        {{ form.provides_packaging }}
+                        <label class="form-check-label service-badge" for="{{ form.provides_packaging.id_for_label }}">
+                            <i class="fas fa-box"></i> {% trans "Emballage" %}
+                        </label>
+                    </div>
+
+                    <div class="form-check form-check-inline">
+                        {{ form.provides_insurance }}
+                        <label class="form-check-label service-badge" for="{{ form.provides_insurance.id_for_label }}">
+                            <i class="fas fa-shield-alt"></i> {% trans "Assurance" %}
+                        </label>
+                    </div>
+
+                    <div class="form-check form-check-inline">
+                        {{ form.provides_loading }}
+                        <label class="form-check-label service-badge" for="{{ form.provides_loading.id_for_label }}">
+                            <i class="fas fa-dolly"></i> {% trans "Chargement" %}
+                        </label>
+                    </div>
+
+                    <div class="form-check form-check-inline">
+                        {{ form.provides_unloading }}
+                        <label class="form-check-label service-badge" for="{{ form.provides_unloading.id_for_label }}">
+                            <i class="fas fa-dolly-flatbed"></i> {% trans "Déchargement" %}
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Types de marchandises acceptées" %}</h5>
+                <div class="merchandise-types">
+                    {% for checkbox in form.accepted_merchandise_types %}
+                        <div class="form-check merchandise-check">
+                            {{ checkbox.tag }}
+                            <label class="form-check-label" for="{{ checkbox.id_for_label }}">
+                                {{ checkbox.choice_label }}
+                            </label>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="mt-3" id="customMerchandiseField" style="display: none;">
+                    <label for="{{ form.custom_merchandise_types.id_for_label }}" class="form-label">
+                        {% trans "Autres types de marchandises" %}
+                    </label>
+                    {{ form.custom_merchandise_types }}
+                    <small class="text-muted">{% trans "Séparez par des virgules" %}</small>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Tarification" %}</h5>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.base_price_per_km.id_for_label }}" class="form-label required-field">
+                            {% trans "Prix de base par km (€)" %}
+                        </label>
+                        <div class="input-group price-input-group">
+                            {{ form.base_price_per_km }}
+                            <span class="input-group-text">€/km</span>
+                        </div>
+                        {% if form.base_price_per_km.errors %}
+                            <div class="invalid-feedback d-block">{{ form.base_price_per_km.errors|striptags }}</div>
+                        {% endif %}
+                        <small class="text-muted">
+                            {% trans "Ce prix sera utilisé comme base pour calculer vos tarifs" %}
+                        </small>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.min_price.id_for_label }}" class="form-label required-field">
+                            {% trans "Prix minimum par mission (€)" %}
+                        </label>
+                        <div class="input-group price-input-group">
+                            {{ form.min_price }}
+                            <span class="input-group-text">€</span>
+                        </div>
+                        {% if form.min_price.errors %}
+                            <div class="invalid-feedback d-block">{{ form.min_price.errors|striptags }}</div>
+                        {% endif %}
+                        <small class="text-muted">
+                            {% trans "Le montant minimum que vous facturez pour une mission" %}
+                        </small>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.currency.id_for_label }}" class="form-label required-field">
+                            {% trans "Devise" %}
+                        </label>
+                        {{ form.currency }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Photos et documents" %}</h5>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <div class="photo-upload" onclick="document.getElementById('{{ form.profile_photo.id_for_label }}').click()">
+                            <i class="fas fa-camera fa-3x text-muted mb-3"></i>
+                            <h6>{% trans "Photo de profil" %}</h6>
+                            <small class="text-muted">{% trans "Cliquez pour uploader" %}</small>
+                            {{ form.profile_photo }}
+                            <img id="profilePhotoPreview" class="photo-preview" src="" alt="">
+                        </div>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <div class="photo-upload" onclick="document.getElementById('{{ form.id_front.id_for_label }}').click()">
+                            <i class="fas fa-id-card fa-3x text-muted mb-3"></i>
+                            <h6>{% trans "Recto pièce d'identité" %} *</h6>
+                            <small class="text-muted">{% trans "Cliquez pour uploader" %}</small>
+                            {{ form.id_front }}
+                            <img id="idFrontPreview" class="photo-preview" src="" alt="">
+                        </div>
+                        {% if form.id_front.errors %}
+                            <div class="invalid-feedback d-block">{{ form.id_front.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <div class="photo-upload" onclick="document.getElementById('{{ form.id_back.id_for_label }}').click()">
+                            <i class="fas fa-id-card fa-3x text-muted mb-3"></i>
+                            <h6>{% trans "Verso pièce d'identité" %}</h6>
+                            <small class="text-muted">{% trans "Cliquez pour uploader" %}</small>
+                            {{ form.id_back }}
+                            <img id="idBackPreview" class="photo-preview" src="" alt="">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    {% trans "Formats acceptés : JPG, PNG, PDF. Taille max : 5MB par fichier." %}
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between mt-4">
+                <button type="button" class="btn btn-outline-secondary" onclick="prevStep(2)">
+                    <i class="fas fa-arrow-left"></i> {% trans "Précédent" %}
+                </button>
+                <button type="button" class="btn btn-primary" onclick="nextStep(4)">
+                    {% trans "Suivant" %} <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Étape 4 : Conditions et finalisation -->
+        <div class="registration-step" id="step4" style="display: none;">
+            <div class="step-header">
+                <h3>
+                    <span class="step-badge">4</span>
+                    {% trans "Conditions et finalisation" %}
+                </h3>
+                <p class="text-muted mb-0">
+                    {% trans "Vérifiez vos informations et acceptez les conditions" %}
+                </p>
+            </div>
+
+            <div class="alert alert-warning">
+                <div class="d-flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-exclamation-triangle fa-2x"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h5 class="alert-heading">{% trans "Important" %}</h5>
+                        <p class="mb-0">
+                            {% trans "Votre compte sera soumis à validation par notre équipe. " %}
+                            {% trans "Vous recevrez une confirmation par email dans les 24-48 heures. " %}
+                            {% trans "Une fois approuvé, vous pourrez commencer à accepter des missions." %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Récapitulatif" %}</h5>
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>{% trans "Informations personnelles" %}</h6>
+                                <div class="mb-2">
+                                    <small class="text-muted">{% trans "Nom complet" %}:</small>
+                                    <div id="summaryName"></div>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted">{% trans "Email" %}:</small>
+                                    <div id="summaryEmail"></div>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted">{% trans "Téléphone" %}:</small>
+                                    <div id="summaryPhone"></div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <h6>{% trans "Activité" %}</h6>
+                                <div class="mb-2">
+                                    <small class="text-muted">{% trans "Type" %}:</small>
+                                    <div id="summaryType"></div>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted">{% trans "Véhicule" %}:</small>
+                                    <div id="summaryVehicle"></div>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted">{% trans "Capacité" %}:</small>
+                                    <div id="summaryCapacity"></div>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted">{% trans "Tarif" %}:</small>
+                                    <div id="summaryPrice"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h5 class="mb-3">{% trans "Conditions d'utilisation" %}</h5>
+                <div class="mb-3">
+                    <div class="form-check">
+                        {{ form.rgpd_consent }}
+                        <label class="form-check-label" for="{{ form.rgpd_consent.id_for_label }}">
+                            {% trans "J'accepte la" %}
+                            <a href="{% url 'core:privacy' %}" target="_blank">{% trans "politique de confidentialité" %}</a>
+                            *
+                        </label>
+                    </div>
+                    {% if form.rgpd_consent.errors %}
+                        <div class="invalid-feedback d-block">{{ form.rgpd_consent.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check">
+                        {{ form.terms_accepted }}
+                        <label class="form-check-label" for="{{ form.terms_accepted.id_for_label }}">
+                            {% trans "J'accepte les" %}
+                            <a href="{% url 'core:terms' %}" target="_blank">{% trans "conditions générales d'utilisation" %}</a>
+                            *
+                        </label>
+                    </div>
+                    {% if form.terms_accepted.errors %}
+                        <div class="invalid-feedback d-block">{{ form.terms_accepted.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between mt-4">
+                <button type="button" class="btn btn-outline-secondary" onclick="prevStep(3)">
+                    <i class="fas fa-arrow-left"></i> {% trans "Précédent" %}
+                </button>
+                <button type="submit" class="btn btn-success btn-lg">
+                    <i class="fas fa-check"></i> {% trans "Terminer l'inscription" %}
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <div class="text-center mt-5">
+        <p class="text-muted">
+            {% trans "Déjà un compte ?" %}
+            <a href="{% url 'users:login' %}" class="text-decoration-none fw-bold">
+                {% trans "Connectez-vous" %}
+            </a>
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+// Remplacer tout le bloc JavaScript par ceci :
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let currentStep = 1;
+
+    // Afficher/masquer les étapes
+    function showStep(step) {
+        // Cacher toutes les étapes
+        document.querySelectorAll('.registration-step').forEach(el => {
+            el.style.display = 'none';
+        });
+
+        // Afficher l'étape actuelle
+        const currentStepElement = document.getElementById(`step${step}`);
+        if (currentStepElement) {
+            currentStepElement.style.display = 'block';
+        }
+
+        // Mettre à jour la barre de progression
+        const progress = (step / 4) * 100;
+        const progressBar = document.getElementById('registrationProgress');
+        if (progressBar) {
+            progressBar.style.width = `${progress}%`;
+        }
+
+        currentStep = step;
+
+        // Pré-remplir le récapitulatif à l'étape 4
+        if (step === 4) {
+            updateSummary();
+        }
+
+        // Scroll vers le haut de l'étape
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Valider l'étape actuelle
+    function validateStep(step) {
+        let isValid = true;
+        const stepElement = document.getElementById(`step${step}`);
+
+        if (!stepElement) return false;
+
+        // Valider tous les champs requis de cette étape
+        const requiredFields = stepElement.querySelectorAll('[required]');
+        requiredFields.forEach(field => {
+            const isCheckbox = field.type === 'checkbox';
+            const isFile = field.type === 'file';
+            let fieldValid = true;
+
+            if (isCheckbox) {
+                if (!field.checked) {
+                    fieldValid = false;
+                }
+            } else if (isFile) {
+                // Pour les fichiers, vérifier si le champ id_front a un fichier
+                if (field.id.includes('id_front') && !field.files.length) {
+                    fieldValid = false;
+                }
+            } else {
+                if (!field.value || field.value.trim() === '') {
+                    fieldValid = false;
+                }
+            }
+
+            if (!fieldValid) {
+                isValid = false;
+                field.classList.add('is-invalid');
+
+                // Ajouter un message d'erreur
+                let errorMsg = field.parentElement.querySelector('.field-error');
+                if (!errorMsg) {
+                    errorMsg = document.createElement('div');
+                    errorMsg.className = 'text-danger field-error small mt-1';
+                    errorMsg.textContent = 'Ce champ est requis';
+                    field.parentElement.appendChild(errorMsg);
+                }
+            } else {
+                field.classList.remove('is-invalid');
+
+                // Supprimer le message d'erreur
+                const errorMsg = field.parentElement.querySelector('.field-error');
+                if (errorMsg) {
+                    errorMsg.remove();
+                }
+            }
+        });
+
+        return isValid;
+    }
+
+    // Aller à l'étape suivante
+    window.nextStep = function(next) {
+        if (validateStep(currentStep)) {
+            showStep(next);
+        } else {
+            // Afficher une alerte
+            const alertHtml = `
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <strong>Erreur :</strong> Veuillez remplir tous les champs obligatoires.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+
+            const stepElement = document.getElementById(`step${currentStep}`);
+            const existingAlert = stepElement.querySelector('.alert');
+            if (existingAlert) {
+                existingAlert.remove();
+            }
+
+            stepElement.insertAdjacentHTML('afterbegin', alertHtml);
+
+            // Trouver le premier champ invalide et y scroller
+            const firstInvalid = stepElement.querySelector('.is-invalid');
+            if (firstInvalid) {
+                firstInvalid.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+            }
+        }
+    };
+
+    // Retour à l'étape précédente
+    window.prevStep = function(prev) {
+        showStep(prev);
+    };
+
+    // Mettre à jour le récapitulatif
+    function updateSummary() {
+        // Informations personnelles
+        const firstName = document.getElementById('{{ form.first_name.id_for_label }}')?.value || '';
+        const lastName = document.getElementById('{{ form.last_name.id_for_label }}')?.value || '';
+        const summaryName = document.getElementById('summaryName');
+        if (summaryName) summaryName.textContent = `${firstName} ${lastName}`;
+
+        const email = document.getElementById('{{ form.email.id_for_label }}')?.value || '';
+        const summaryEmail = document.getElementById('summaryEmail');
+        if (summaryEmail) summaryEmail.textContent = email;
+
+        const phone = document.getElementById('{{ form.phone.id_for_label }}')?.value || '';
+        const summaryPhone = document.getElementById('summaryPhone');
+        if (summaryPhone) summaryPhone.textContent = phone;
+
+        // Activité
+        const carrierTypeSelect = document.getElementById('{{ form.carrier_type.id_for_label }}');
+        const carrierType = carrierTypeSelect?.options[carrierTypeSelect.selectedIndex]?.text || '';
+        const summaryType = document.getElementById('summaryType');
+        if (summaryType) summaryType.textContent = carrierType;
+
+        const vehicleTypeSelect = document.getElementById('{{ form.vehicle_type.id_for_label }}');
+        const vehicleType = vehicleTypeSelect?.options[vehicleTypeSelect.selectedIndex]?.text || '';
+        const vehicleMake = document.getElementById('{{ form.vehicle_make.id_for_label }}')?.value || '';
+        const vehicleModel = document.getElementById('{{ form.vehicle_model.id_for_label }}')?.value || '';
+        const summaryVehicle = document.getElementById('summaryVehicle');
+        if (summaryVehicle) summaryVehicle.textContent = `${vehicleType} ${vehicleMake} ${vehicleModel}`.trim();
+
+        const maxWeight = document.getElementById('{{ form.max_weight.id_for_label }}')?.value || '';
+        const maxVolume = document.getElementById('{{ form.max_volume.id_for_label }}')?.value || '';
+        const summaryCapacity = document.getElementById('summaryCapacity');
+        if (summaryCapacity) summaryCapacity.textContent = `${maxWeight} kg / ${maxVolume} m³`;
+
+        const basePrice = document.getElementById('{{ form.base_price_per_km.id_for_label }}')?.value || '';
+        const currencySelect = document.getElementById('{{ form.currency.id_for_label }}');
+        const currency = currencySelect?.options[currencySelect.selectedIndex]?.text || '';
+        const summaryPrice = document.getElementById('summaryPrice');
+        if (summaryPrice) summaryPrice.textContent = `${basePrice} ${currency} / km`;
+    }
+
+    // Gérer l'affichage des champs entreprise
+    const carrierTypeSelect = document.getElementById('{{ form.carrier_type.id_for_label }}');
+    if (carrierTypeSelect) {
+        carrierTypeSelect.addEventListener('change', function() {
+            const companyFields = document.getElementById('companyFields');
+            if (companyFields) {
+                if (this.value === 'PROFESSIONAL') {
+                    companyFields.style.display = 'block';
+                } else {
+                    companyFields.style.display = 'none';
+                }
+            }
+        });
+    }
+
+    // Afficher l'aperçu des photos
+    function setupImagePreview(inputId, previewId) {
+        const input = document.getElementById(inputId);
+        const preview = document.getElementById(previewId);
+
+        if (input && preview) {
+            input.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        preview.src = e.target.result;
+                        preview.style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+    }
+
+    // Configurer les prévisualisations d'images
+    setupImagePreview('{{ form.profile_photo.id_for_label }}', 'profilePhotoPreview');
+    setupImagePreview('{{ form.id_front.id_for_label }}', 'idFrontPreview');
+    setupImagePreview('{{ form.id_back.id_for_label }}', 'idBackPreview');
+
+    // Gérer le champ "Autres" pour les marchandises
+    const acceptedMerchandiseDiv = document.getElementById('{{ form.accepted_merchandise_types.id_for_label }}');
+    if (acceptedMerchandiseDiv) {
+        acceptedMerchandiseDiv.addEventListener('change', function(e) {
+            if (e.target.type === 'checkbox' && e.target.value === 'OTHER') {
+                const customField = document.getElementById('customMerchandiseField');
+                if (customField) {
+                    if (e.target.checked) {
+                        customField.style.display = 'block';
+                    } else {
+                        customField.style.display = 'none';
+                    }
+                }
+            }
+        });
+    }
+
+    // Initialiser la première étape
+    showStep(1);
+
+    // Ajouter un style pour les champs invalides
+    const style = document.createElement('style');
+    style.textContent = `
+        .is-invalid {
+            border-color: #dc3545 !important;
+        }
+        .is-invalid:focus {
+            box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25) !important;
+        }
+        .field-error {
+            font-size: 0.875em;
+            margin-top: 0.25rem;
+        }
+    `;
+    document.head.appendChild(style);
+});
+</script>
+{% endblock %}
+
+
+========== users/templates/users/profile.html ==========
+{# ~/ebi3/users/templates/users/profile.html #}
+{% extends 'core/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Profil de" %} {{ user_profile.username }} - Ebi3{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <!-- En-tête du profil -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card shadow">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-2 text-center">
+                            <div class="avatar-circle bg-primary mb-3" style="width: 100px; height: 100px;">
+                                <span class="avatar-text" style="font-size: 2.5rem;">
+                                    {{ user_profile.username|first|upper }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-md-10">
+                            <h1 class="mb-0">{{ user_profile.get_full_name|default:user_profile.username }}</h1>
+                            <p class="text-muted">
+                                <i class="fas fa-user-tag"></i>
+                                {{ user_profile.get_role_display }}
+                            </p>
+
+                            {% if user_profile.is_verified %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check-circle"></i> {% trans "Vérifié" %}
+                                </span>
+                            {% endif %}
+
+                            {% if user_profile.kyc_verified %}
+                                <span class="badge bg-info">
+                                    <i class="fas fa-id-card"></i> {% trans "KYC Vérifié" %}
+                                </span>
+                            {% endif %}
+
+                            {% if user_profile.rating > 0 %}
+                                <div class="mt-2">
+                                    <span class="text-warning">
+                                        {% for i in "12345" %}
+                                            {% if forloop.counter <= user_profile.rating %}
+                                                <i class="fas fa-star"></i>
+                                            {% else %}
+                                                <i class="far fa-star"></i>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </span>
+                                    <span class="text-muted">({{ user_profile.total_reviews }} {% trans "avis" %})</span>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Informations personnelles -->
+        <div class="col-md-8">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user"></i> {% trans "Informations personnelles" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>{% trans "Email :" %}</strong> {{ user_profile.email }}</p>
+                            <p><strong>{% trans "Téléphone :" %}</strong> {{ user_profile.phone_number|default:"-" }}</p>
+                            <p><strong>{% trans "Pays :" %}</strong> {{ user_profile.country.name|default:"-" }}</p>
+                            <p><strong>{% trans "Ville :" %}</strong> {{ user_profile.city|default:"-" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>{% trans "Membre depuis :" %}</strong> {{ user_profile.date_joined|date:"d/m/Y" }}</p>
+                            <p><strong>{% trans "Langue préférée :" %}</strong> {{ user_profile.get_preferred_language_display }}</p>
+
+                            {% if user_profile.profile %}
+                                <p><strong>{% trans "Pays d'origine :" %}</strong>
+                                    {{ user_profile.profile.country_of_origin.name|default:"-" }}
+                                </p>
+                                <p><strong>{% trans "Pays de résidence :" %}</strong>
+                                    {{ user_profile.profile.country_of_residence.name|default:"-" }}
+                                </p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if request.user == user_profile %}
+                        <div class="mt-3">
+                            <a href="{% url 'users:profile_edit' request.user.username %}"
+                               class="btn btn-outline-primary">
+                                <i class="fas fa-edit"></i> {% trans "Modifier le profil" %}
+                            </a>
+
+                            <a href="{% url 'users:profile_edit_extended' request.user.username %}"
+                               class="btn btn-outline-secondary">
+                                <i class="fas fa-info-circle"></i> {% trans "Informations supplémentaires" %}
+                            </a>
+
+                            <a href="{% url 'users:change_password' %}"
+                               class="btn btn-outline-warning">
+                                <i class="fas fa-key"></i> {% trans "Changer le mot de passe" %}
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Pour les transporteurs -->
+            {% if user_profile.is_carrier %}
+                <div class="card shadow mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-truck"></i> {% trans "Informations Transporteur" %}
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% if user_profile.profile.company_name %}
+                            <p><strong>{% trans "Entreprise :" %}</strong> {{ user_profile.profile.company_name }}</p>
+                        {% endif %}
+
+                        {% if user_profile.is_available %}
+                            <span class="badge bg-success">
+                                <i class="fas fa-check"></i> {% trans "Disponible pour des missions" %}
+                            </span>
+                        {% else %}
+                            <span class="badge bg-secondary">
+                                <i class="fas fa-times"></i> {% trans "Indisponible" %}
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-md-4">
+            <!-- Vérifications -->
+            <div class="card shadow mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-shield-alt"></i> {% trans "Vérifications" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {% trans "Email" %}
+                            {% if user_profile.email_verified %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check-circle"></i>
+                                </span>
+                            {% else %}
+                                <span class="badge bg-warning">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                </span>
+                            {% endif %}
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {% trans "Téléphone" %}
+                            {% if user_profile.phone_verified %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check-circle"></i>
+                                </span>
+                            {% else %}
+                                <span class="badge bg-warning">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                </span>
+                            {% endif %}
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {% trans "KYC" %}
+                            {% if user_profile.kyc_verified %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check-circle"></i>
+                                </span>
+                            {% else %}
+                                <span class="badge bg-danger">
+                                    <i class="fas fa-times-circle"></i>
+                                </span>
+                            {% endif %}
+                        </li>
+                    </ul>
+
+                    {% if request.user == user_profile and not user_profile.kyc_verified %}
+                        <div class="mt-3">
+                            <a href="{% url 'users:kyc_verification' %}"
+                               class="btn btn-primary btn-sm w-100">
+                                <i class="fas fa-id-card"></i> {% trans "Vérifier mon identité" %}
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Statistiques -->
+            <div class="card shadow">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar"></i> {% trans "Statistiques" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if user_profile.profile %}
+                        <div class="text-center">
+                            <h3>{{ user_profile.profile.successful_transactions }}</h3>
+                            <p class="text-muted">{% trans "Transactions réussies" %}</p>
+
+                            <h3>{{ user_profile.profile.total_ads }}</h3>
+                            <p class="text-muted">{% trans "Annonces publiées" %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.avatar-circle {
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+}
+
+.avatar-text {
+    line-height: 1;
+}
+</style>
+{% endblock %}
+
+
+========== users/templates/users/base_auth.html ==========
+<!DOCTYPE html>
+{% load static i18n crispy_forms_tags %}
+{% get_current_language as LANGUAGE_CODE %}
+{% get_current_language_bidi as LANGUAGE_BIDI %}
+
+<html lang="{{ LANGUAGE_CODE }}" dir="{% if LANGUAGE_BIDI %}rtl{% else %}ltr{% endif %}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{% trans "Ebi3 Platform" %}{% endblock %}</title>
+
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- RTL support for Bootstrap if Arabic -->
+    {% if LANGUAGE_CODE == 'ar' %}
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap-rtl@3.4.0/dist/css/bootstrap-rtl.min.css" rel="stylesheet">
+    {% endif %}
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Custom CSS -->
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+        }
+
+        .auth-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .auth-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .auth-logo {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
+
+        .auth-body {
+            padding: 2rem;
+        }
+
+        .language-switcher {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+
+        .auth-footer {
+            padding: 1rem;
+            text-align: center;
+            border-top: 1px solid #dee2e6;
+            background-color: #f8f9fa;
+        }
+
+        /* Style pour le lien du logo */
+        .logo-link {
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            text-decoration: none !important;
+        }
+
+        .logo-link:hover {
+            transform: scale(1.05);
+            opacity: 0.9;
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Language Switcher -->
+    <div class="language-switcher">
+        <form action="{% url 'set_language' %}" method="post">
+            {% csrf_token %}
+            <select name="language" class="form-select form-select-sm" onchange="this.form.submit()">
+                {% get_available_languages as LANGUAGES %}
+                {% for lang_code, lang_name in LANGUAGES %}
+                    <option value="{{ lang_code }}"
+                            {% if lang_code == LANGUAGE_CODE %}selected{% endif %}>
+                        {{ lang_name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                <div class="auth-container">
+                    <div class="auth-header">
+                        <!-- LOGO MODIFIÉ ICI - MAINTENANT CLICABLE -->
+                        <div class="auth-logo">
+                            <a href="{% url 'core:home' %}" class="text-white logo-link">
+                                EBI3
+                            </a>
+                        </div>
+                        <p class="mb-0">{% trans "Plateforme Logistique Transfrontalière" %}</p>
+                    </div>
+
+                    <div class="auth-body">
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+
+                        {% block content %}{% endblock %}
+                    </div>
+
+                    <div class="auth-footer">
+                        <p class="mb-0">
+                            {% trans "© 2024 Ebi3 Platform. Tous droits réservés." %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
+
+
+========== users/migrations/0002_rename_phone_number_user_phone.py ==========
+# Generated by Django 6.0 on 2026-01-11 08:48
+
+from django.db import migrations
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ("users", "0001_initial"),
+    ]
+
+    operations = [
+        migrations.RenameField(
+            model_name="user",
+            old_name="phone",
+            new_name="phone",
+        ),
+    ]
+
+
+
+========== users/migrations/0001_initial.py ==========
+# Generated by Django 6.0 on 2025-12-31 08:04
+
+import django.contrib.auth.models
+import django.contrib.auth.validators
+import django.db.models.deletion
+import django.utils.timezone
+import django_countries.fields
+import phonenumber_field.modelfields
+from django.conf import settings
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    initial = True
+
+    dependencies = [
+        ("auth", "0012_alter_user_first_name_max_length"),
+    ]
+
+    operations = [
+        migrations.CreateModel(
+            name="User",
+            fields=[
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("password", models.CharField(max_length=128, verbose_name="password")),
+                (
+                    "last_login",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="last login"
+                    ),
+                ),
+                (
+                    "is_superuser",
+                    models.BooleanField(
+                        default=False,
+                        help_text="Designates that this user has all permissions without explicitly assigning them.",
+                        verbose_name="superuser status",
+                    ),
+                ),
+                (
+                    "username",
+                    models.CharField(
+                        error_messages={
+                            "unique": "A user with that username already exists."
+                        },
+                        help_text="Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only.",
+                        max_length=150,
+                        unique=True,
+                        validators=[
+                            django.contrib.auth.validators.UnicodeUsernameValidator()
+                        ],
+                        verbose_name="username",
+                    ),
+                ),
+                (
+                    "first_name",
+                    models.CharField(
+                        blank=True, max_length=150, verbose_name="first name"
+                    ),
+                ),
+                (
+                    "last_name",
+                    models.CharField(
+                        blank=True, max_length=150, verbose_name="last name"
+                    ),
+                ),
+                (
+                    "email",
+                    models.EmailField(
+                        blank=True, max_length=254, verbose_name="email address"
+                    ),
+                ),
+                (
+                    "is_staff",
+                    models.BooleanField(
+                        default=False,
+                        help_text="Designates whether the user can log into this admin site.",
+                        verbose_name="staff status",
+                    ),
+                ),
+                (
+                    "is_active",
+                    models.BooleanField(
+                        default=True,
+                        help_text="Designates whether this user should be treated as active. Unselect this instead of deleting accounts.",
+                        verbose_name="active",
+                    ),
+                ),
+                (
+                    "date_joined",
+                    models.DateTimeField(
+                        default=django.utils.timezone.now, verbose_name="date joined"
+                    ),
+                ),
+                (
+                    "role",
+                    models.CharField(
+                        choices=[
+                            ("BUYER", "Acheteur"),
+                            ("SELLER", "Vendeur"),
+                            ("CARRIER", "Transporteur Professionnel"),
+                            ("CARRIER_PERSONAL", "Transporteur Particulier"),
+                            ("ADMIN", "Administrateur"),
+                            ("MODERATOR", "Modérateur"),
+                        ],
+                        default="BUYER",
+                        max_length=20,
+                        verbose_name="Rôle",
+                    ),
+                ),
+                (
+                    "phone",
+                    phonenumber_field.modelfields.PhoneNumberField(
+                        blank=True,
+                        max_length=128,
+                        null=True,
+                        region=None,
+                        verbose_name="Numéro de téléphone",
+                    ),
+                ),
+                (
+                    "country",
+                    django_countries.fields.CountryField(
+                        blank=True, max_length=2, null=True, verbose_name="Pays"
+                    ),
+                ),
+                (
+                    "city",
+                    models.CharField(blank=True, max_length=100, verbose_name="Ville"),
+                ),
+                ("address", models.TextField(blank=True, verbose_name="Adresse")),
+                (
+                    "is_verified",
+                    models.BooleanField(default=False, verbose_name="Compte vérifié"),
+                ),
+                (
+                    "kyc_verified",
+                    models.BooleanField(default=False, verbose_name="KYC vérifié"),
+                ),
+                (
+                    "email_verified",
+                    models.BooleanField(default=False, verbose_name="Email vérifié"),
+                ),
+                (
+                    "phone_verified",
+                    models.BooleanField(
+                        default=False, verbose_name="Téléphone vérifié"
+                    ),
+                ),
+                (
+                    "kyc_submitted",
+                    models.BooleanField(default=False, verbose_name="KYC soumis"),
+                ),
+                (
+                    "created_at",
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="Date de création"
+                    ),
+                ),
+                (
+                    "updated_at",
+                    models.DateTimeField(
+                        auto_now=True, verbose_name="Date de mise à jour"
+                    ),
+                ),
+                (
+                    "preferred_language",
+                    models.CharField(
+                        choices=[
+                            ("ar", "العربية"),
+                            ("fr", "Français"),
+                            ("en", "English"),
+                            ("de", "Deutsch"),
+                            ("it", "Italiano"),
+                            ("es", "Español"),
+                            ("pt", "Português"),
+                            ("pl", "Polski"),
+                        ],
+                        default="fr",
+                        max_length=10,
+                        verbose_name="Langue préférée",
+                    ),
+                ),
+                (
+                    "is_available",
+                    models.BooleanField(
+                        default=True, verbose_name="Disponible pour des missions"
+                    ),
+                ),
+                (
+                    "rating",
+                    models.DecimalField(
+                        decimal_places=2,
+                        default=0.0,
+                        max_digits=3,
+                        verbose_name="Note moyenne",
+                    ),
+                ),
+                (
+                    "total_reviews",
+                    models.PositiveIntegerField(
+                        default=0, verbose_name="Nombre total d'avis"
+                    ),
+                ),
+                (
+                    "groups",
+                    models.ManyToManyField(
+                        blank=True,
+                        help_text="The groups this user belongs to. A user will get all permissions granted to each of their groups.",
+                        related_name="user_set",
+                        related_query_name="user",
+                        to="auth.group",
+                        verbose_name="groups",
+                    ),
+                ),
+                (
+                    "user_permissions",
+                    models.ManyToManyField(
+                        blank=True,
+                        help_text="Specific permissions for this user.",
+                        related_name="user_set",
+                        related_query_name="user",
+                        to="auth.permission",
+                        verbose_name="user permissions",
+                    ),
+                ),
+            ],
+            options={
+                "verbose_name": "Utilisateur",
+                "verbose_name_plural": "Utilisateurs",
+                "ordering": ["-date_joined"],
+            },
+            managers=[
+                ("objects", django.contrib.auth.models.UserManager()),
+            ],
+        ),
+        migrations.CreateModel(
+            name="UserProfile",
+            fields=[
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "date_of_birth",
+                    models.DateField(
+                        blank=True, null=True, verbose_name="Date de naissance"
+                    ),
+                ),
+                (
+                    "gender",
+                    models.CharField(
+                        blank=True,
+                        choices=[("M", "Masculin"), ("F", "Féminin"), ("O", "Autre")],
+                        max_length=10,
+                        verbose_name="Genre",
+                    ),
+                ),
+                (
+                    "company_name",
+                    models.CharField(
+                        blank=True, max_length=200, verbose_name="Nom de l'entreprise"
+                    ),
+                ),
+                (
+                    "company_registration",
+                    models.CharField(
+                        blank=True,
+                        max_length=100,
+                        verbose_name="Numéro d'immatriculation",
+                    ),
+                ),
+                (
+                    "tax_id",
+                    models.CharField(
+                        blank=True, max_length=100, verbose_name="Numéro fiscal"
+                    ),
+                ),
+                (
+                    "id_document",
+                    models.FileField(
+                        blank=True,
+                        null=True,
+                        upload_to="documents/id/",
+                        verbose_name="Document d'identité",
+                    ),
+                ),
+                (
+                    "proof_of_address",
+                    models.FileField(
+                        blank=True,
+                        null=True,
+                        upload_to="documents/address/",
+                        verbose_name="Justificatif de domicile",
+                    ),
+                ),
+                (
+                    "company_registration_doc",
+                    models.FileField(
+                        blank=True,
+                        null=True,
+                        upload_to="documents/company/",
+                        verbose_name="Document d'immatriculation",
+                    ),
+                ),
+                (
+                    "country_of_origin",
+                    django_countries.fields.CountryField(
+                        blank=True,
+                        max_length=2,
+                        null=True,
+                        verbose_name="Pays d'origine",
+                    ),
+                ),
+                (
+                    "country_of_residence",
+                    django_countries.fields.CountryField(
+                        blank=True,
+                        max_length=2,
+                        null=True,
+                        verbose_name="Pays de résidence",
+                    ),
+                ),
+                (
+                    "is_expatriate",
+                    models.BooleanField(default=False, verbose_name="Est un expatrié"),
+                ),
+                (
+                    "total_ads",
+                    models.PositiveIntegerField(
+                        default=0, verbose_name="Nombre total d'annonces"
+                    ),
+                ),
+                (
+                    "successful_transactions",
+                    models.PositiveIntegerField(
+                        default=0, verbose_name="Transactions réussies"
+                    ),
+                ),
+                (
+                    "created_at",
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="Date de création"
+                    ),
+                ),
+                (
+                    "updated_at",
+                    models.DateTimeField(
+                        auto_now=True, verbose_name="Date de mise à jour"
+                    ),
+                ),
+                (
+                    "user",
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="profile",
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="Utilisateur",
+                    ),
+                ),
+            ],
+            options={
+                "verbose_name": "Profil utilisateur",
+                "verbose_name_plural": "Profils utilisateurs",
+            },
+        ),
+    ]
+
+
+
+========== users/migrations/__init__.py ==========
+
+
+
+========== users/tests.py ==========
+# ~/ebi3/users/tests.py
+from django.test import TestCase
+from django.urls import reverse
+from .models import User
+
+class UserModelTests(TestCase):
+    def test_user_creation(self):
+        """Test la création d'un utilisateur"""
+        user = User.objects.create_user(
+            username='testuser',
+            email='test@example.com',
+            password='testpass123',
+            role=User.Role.SELLER,
+            country='FR',
+            city='Paris'
+        )
+        self.assertEqual(user.username, 'testuser')
+        self.assertEqual(user.role, User.Role.SELLER)
+        self.assertTrue(user.check_password('testpass123'))
+
+    def test_is_carrier_method(self):
+        """Test la méthode is_carrier"""
+        carrier = User.objects.create_user(
+            username='carrier',
+            password='testpass123',
+            role=User.Role.CARRIER
+        )
+        self.assertTrue(carrier.is_carrier())
+
+class UserViewsTests(TestCase):
+    def test_register_view(self):
+        """Test la vue d'inscription"""
+        response = self.client.get(reverse('users:register'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'users/register.html')
+
+
+========== users/signals.py ==========
+# ~/ebi3/users/signals.py
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from .models import User, UserProfile
+
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    """Crée automatiquement un profil lorsqu'un utilisateur est créé"""
+    if created:
+        UserProfile.objects.create(user=instance)
+
+@receiver(post_save, sender=User)
+def save_user_profile(sender, instance, **kwargs):
+    """Sauvegarde automatiquement le profil"""
+    if hasattr(instance, 'profile'):
+        instance.profile.save()
+
+
+========== users/admin.py ==========
+# ~/ebi3/users/admin.py
+from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.utils.translation import gettext_lazy as _
+from .models import User, UserProfile
+
+class UserProfileInline(admin.StackedInline):
+    model = UserProfile
+    can_delete = False
+    verbose_name_plural = _('Profil')
+    fk_name = 'user'
+    fieldsets = (
+        (_('Informations personnelles'), {
+            'fields': ('date_of_birth', 'gender', 'country_of_origin',
+                      'country_of_residence', 'is_expatriate')
+        }),
+        (_('Informations professionnelles'), {
+            'fields': ('company_name', 'company_registration', 'tax_id')
+        }),
+        (_('Documents'), {
+            'fields': ('id_document', 'proof_of_address', 'company_registration_doc'),
+            'classes': ('collapse',)
+        }),
+        (_('Statistiques'), {
+            'fields': ('total_ads', 'successful_transactions'),
+            'classes': ('collapse',)
+        }),
+    )
+
+@admin.register(User)
+class UserAdmin(BaseUserAdmin):
+    list_display = ('username', 'email', 'role', 'country', 'is_verified',
+                   'is_active', 'date_joined')
+    list_filter = ('role', 'is_verified', 'is_active', 'country')
+    search_fields = ('username', 'email', 'first_name', 'last_name', 'city')
+
+    fieldsets = (
+        (None, {'fields': ('username', 'password')}),
+        (_('Informations personnelles'), {
+            'fields': ('first_name', 'last_name', 'email', 'phone')
+        }),
+        (_('Localisation'), {
+            'fields': ('country', 'city', 'address')
+        }),
+        (_('Rôles et permissions'), {
+            'fields': ('role', 'is_verified', 'kyc_verified',
+                      'email_verified', 'phone_verified',
+                      'is_staff', 'is_active', 'is_superuser',
+                      'groups', 'user_permissions')
+        }),
+        (_('Préférences'), {
+            'fields': ('preferred_language',)
+        }),
+        (_('Dates importantes'), {
+            'fields': ('last_login', 'date_joined', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    readonly_fields = ('last_login', 'date_joined', 'created_at', 'updated_at')
+    inlines = (UserProfileInline,)
+
+    def get_inline_instances(self, request, obj=None):
+        if not obj:
+            return list()
+        return super().get_inline_instances(request, obj)
+
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'company_name', 'is_expatriate', 'created_at')
+    list_filter = ('is_expatriate', 'gender')
+    search_fields = ('user__username', 'user__email', 'company_name')
+    raw_id_fields = ('user',)
+
+    # ✅ CORRECTION : actions doit être une liste, pas une méthode
+    actions = []
+
+
+========== users/forms.py ==========
+# ~/ebi3/users/forms.py
+from django import forms
+from django.contrib.auth.forms import UserCreationForm, UserChangeForm
+from django.utils.translation import gettext_lazy as _
+from django.core.exceptions import ValidationError
+from django_countries import countries
+from phonenumber_field.formfields import PhoneNumberField
+from datetime import datetime
+import logging
+import os
+
+from .models import User, UserProfile
+from carriers.models import Carrier, MerchandiseTypes
+
+logger = logging.getLogger(__name__)
+
+class CarrierRegistrationForm(UserCreationForm):
+    """
+    FORMULAIRE UNIFIÉ D'INSCRIPTION TRANSPORTEUR
+    Crée à la fois : User + UserProfile + Carrier
+    """
+
+    # ========== CHAMPS UTILISATEUR ==========
+    email = forms.EmailField(
+        label=_("Email *"),
+        required=True,
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control form-control-lg',
+            'placeholder': _('votre@email.com'),
+            'autocomplete': 'email'
+        })
+    )
+
+    phone = PhoneNumberField(
+        label=_("Téléphone *"),
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-lg',
+            'placeholder': _('+212612345678'),
+            'autocomplete': 'tel'
+        })
+    )
+
+    first_name = forms.CharField(
+        label=_("Prénom *"),
+        max_length=30,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-lg',
+            'placeholder': _('Votre prénom'),
+            'autocomplete': 'given-name'
+        })
+    )
+
+    last_name = forms.CharField(
+        label=_("Nom *"),
+        max_length=30,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-lg',
+            'placeholder': _('Votre nom'),
+            'autocomplete': 'family-name'
+        })
+    )
+
+    country = forms.ChoiceField(
+        label=_("Pays *"),
+        required=True,
+        choices=[('', _('Sélectionnez votre pays'))] + list(countries),
+        widget=forms.Select(attrs={
+            'class': 'form-control form-control-lg',
+            'autocomplete': 'country'
+        })
+    )
+
+    city = forms.CharField(
+        label=_("Ville"),
+        max_length=100,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': _('Votre ville'),
+            'autocomplete': 'address-level2'
+        })
+    )
+
+    address = forms.CharField(
+        label=_("Adresse"),
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 2,
+            'placeholder': _('Votre adresse complète'),
+            'autocomplete': 'street-address'
+        })
+    )
+
+    preferred_language = forms.ChoiceField(
+        label=_("Langue préférée"),
+        choices=User._meta.get_field('preferred_language').choices,
+        initial='fr',
+        widget=forms.Select(attrs={
+            'class': 'form-control'
+        })
+    )
+
+    # ========== TYPE DE TRANSPORTEUR ==========
+    carrier_type = forms.ChoiceField(
+        label=_("Type de transporteur *"),
+        choices=Carrier.CarrierType.choices,
+        widget=forms.Select(attrs={
+            'class': 'form-control form-control-lg',
+            'id': 'id_carrier_type'
+        })
+    )
+
+    # ========== CHAMPS ENTREPRISE (PROFESSIONNEL) ==========
+    transport_company_name = forms.CharField(
+        label=_("Nom de l'entreprise"),
+        max_length=200,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': _('Nom de votre entreprise de transport'),
+            'id': 'id_company_name'
+        })
+    )
+
+    transport_company_registration = forms.CharField(
+        label=_("Numéro d'immatriculation"),
+        max_length=100,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': _("Numéro d'immatriculation de l'entreprise")
+        })
+    )
+
+    transport_tax_id = forms.CharField(
+        label=_("Numéro fiscal"),
+        max_length=100,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': _('Numéro fiscal/TVA')
+        })
+    )
+
+    transport_company_address = forms.CharField(
+        label=_("Adresse de l'entreprise"),
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 2,
+            'placeholder': _('Adresse complète de l\'entreprise')
+        })
+    )
+
+    # ========== VÉHICULE ==========
+    vehicle_type = forms.ChoiceField(
+        label=_("Type de véhicule *"),
+        choices=Carrier.VehicleType.choices,
+        widget=forms.Select(attrs={
+            'class': 'form-control',
+            'id': 'id_vehicle_type'
+        })
+    )
+
+    vehicle_make = forms.CharField(
+        label=_("Marque du véhicule"),
+        max_length=100,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': _('Ex: Renault, Mercedes, etc.')
+        })
+    )
+
+    vehicle_model = forms.CharField(
+        label=_("Modèle du véhicule"),
+        max_length=100,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': _('Modèle du véhicule')
+        })
+    )
+
+    vehicle_year = forms.IntegerField(
+        label=_("Année du véhicule"),
+        required=False,
+        min_value=1990,
+        max_value=datetime.now().year + 1,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'placeholder': _('Ex: 2023')
+        })
+    )
+
+    vehicle_registration = forms.CharField(
+        label=_("Plaque d'immatriculation"),
+        max_length=50,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': _('Plaque d\'immatriculation')
+        })
+    )
+
+    # ========== CAPACITÉS ==========
+    max_weight = forms.DecimalField(
+        label=_("Poids maximum (kg) *"),
+        min_value=0.001,
+        max_digits=8,
+        decimal_places=3,
+        initial=1000,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'step': '0.001',
+            'placeholder': _('Ex: 1500 pour 1.5 tonnes')
+        })
+    )
+
+    max_volume = forms.DecimalField(
+        label=_("Volume maximum (m³) *"),
+        min_value=0.001,
+        max_digits=10,
+        decimal_places=3,
+        initial=10,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'step': '0.001',
+            'placeholder': _('Ex: 10 pour 10 mètres cubes')
+        })
+    )
+
+    max_length = forms.DecimalField(
+        label=_("Longueur maximum (m)"),
+        min_value=0.01,
+        max_digits=6,
+        decimal_places=2,
+        required=False,
+        initial=1.5,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'step': '0.01'
+        })
+    )
+
+    max_width = forms.DecimalField(
+        label=_("Largeur maximum (m)"),
+        min_value=0.01,
+        max_digits=6,
+        decimal_places=2,
+        required=False,
+        initial=1.0,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'step': '0.01'
+        })
+    )
+
+    max_height = forms.DecimalField(
+        label=_("Hauteur maximum (m)"),
+        min_value=0.01,
+        max_digits=6,
+        decimal_places=2,
+        required=False,
+        initial=1.0,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'step': '0.01'
+        })
+    )
+
+    # ========== SERVICES PROPOSÉS ==========
+    provides_packaging = forms.BooleanField(
+        label=_("Fournit l'emballage"),
+        required=False,
+        initial=False,
+        widget=forms.CheckboxInput(attrs={
+            'class': 'form-check-input'
+        })
+    )
+
+    provides_insurance = forms.BooleanField(
+        label=_("Fournit l'assurance transport"),
+        required=False,
+        initial=False,
+        widget=forms.CheckboxInput(attrs={
+            'class': 'form-check-input'
+        })
+    )
+
+    provides_loading = forms.BooleanField(
+        label=_("Fournit le chargement"),
+        required=False,
+        initial=False,
+        widget=forms.CheckboxInput(attrs={
+            'class': 'form-check-input'
+        })
+    )
+
+    provides_unloading = forms.BooleanField(
+        label=_("Fournit le déchargement"),
+        required=False,
+        initial=False,
+        widget=forms.CheckboxInput(attrs={
+            'class': 'form-check-input'
+        })
+    )
+
+    # ========== TARIFICATION ==========
+    base_price_per_km = forms.DecimalField(
+        label=_("Prix de base par km (€) *"),
+        min_value=0,
+        max_digits=8,
+        decimal_places=4,
+        initial=1.0,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'step': '0.0001',
+            'placeholder': _('Ex: 1.50 pour 1.50€/km')
+        })
+    )
+
+    min_price = forms.DecimalField(
+        label=_("Prix minimum (€) *"),
+        min_value=0,
+        max_digits=8,
+        decimal_places=2,
+        initial=10.0,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'step': '0.01',
+            'placeholder': _('Ex: 10 pour 10€ minimum')
+        })
+    )
+
+    currency = forms.ChoiceField(
+        label=_("Devise *"),
+        choices=Carrier._meta.get_field('currency').choices,
+        initial='EUR',
+        widget=forms.Select(attrs={
+            'class': 'form-control'
+        })
+    )
+
+    # ========== ZONES DE COUVERTURE ==========
+    coverage_cities = forms.CharField(
+        label=_("Villes de couverture"),
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': _('Paris, Lyon, Marseille... (séparées par des virgules)')
+        })
+    )
+
+    # ========== TYPES DE MARCHANDISES ==========
+    accepted_merchandise_types = forms.MultipleChoiceField(
+        label=_("Types de marchandises acceptées"),
+        choices=MerchandiseTypes.STANDARD,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={
+            'class': 'form-check-input merchandise-checkbox'
+        })
+    )
+
+    custom_merchandise_types = forms.CharField(
+        label=_("Autres types de marchandises"),
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': _('Séparez par des virgules'),
+            'id': 'id_custom_merchandise_types'
+        })
+    )
+
+    # ========== PHOTOS ET DOCUMENTS ==========
+    profile_photo = forms.ImageField(
+        label=_("Photo de profil"),
+        required=False,
+        widget=forms.FileInput(attrs={
+            'class': 'form-control',
+            'accept': 'image/*'
+        })
+    )
+
+    id_front = forms.ImageField(
+        label=_("Recto pièce d'identité *"),
+        required=True,
+        widget=forms.FileInput(attrs={
+            'class': 'form-control',
+            'accept': 'image/*',
+            'id': 'id_id_front'
+        })
+    )
+
+    id_back = forms.ImageField(
+        label=_("Verso pièce d'identité"),
+        required=False,
+        widget=forms.FileInput(attrs={
+            'class': 'form-control',
+            'accept': 'image/*',
+            'id': 'id_id_back'
+        })
+    )
+
+    # ========== CONDITIONS ==========
+    rgpd_consent = forms.BooleanField(
+        label=_("J'accepte la politique de confidentialité *"),
+        required=True,
+        widget=forms.CheckboxInput(attrs={
+            'class': 'form-check-input',
+            'id': 'id_rgpd_consent'
+        })
+    )
+
+    terms_accepted = forms.BooleanField(
+        label=_("J'accepte les conditions générales d'utilisation *"),
+        required=True,
+        widget=forms.CheckboxInput(attrs={
+            'class': 'form-check-input',
+            'id': 'id_terms_accepted'
+        })
+    )
+
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'password1', 'password2']
+        widgets = {
+            'username': forms.TextInput(attrs={
+                'class': 'form-control form-control-lg',
+                'placeholder': _("Nom d'utilisateur"),
+                'autocomplete': 'username'
+            }),
+            'password1': forms.PasswordInput(attrs={
+                'class': 'form-control form-control-lg',
+                'placeholder': _('Mot de passe sécurisé'),
+                'autocomplete': 'new-password'
+            }),
+            'password2': forms.PasswordInput(attrs={
+                'class': 'form-control form-control-lg',
+                'placeholder': _('Confirmez le mot de passe'),
+                'autocomplete': 'new-password'
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Réorganiser l'ordre des champs
+        self.fields['username'].required = True
+        self.fields['username'].label = _("Nom d'utilisateur *")
+
+        # Définir un ordre personnalisé pour les champs
+        self.order_fields([
+            'first_name', 'last_name', 'email', 'username',
+            'password1', 'password2', 'phone', 'country',
+            'city', 'address', 'preferred_language',
+            'carrier_type', 'transport_company_name',
+            'transport_company_registration', 'transport_tax_id',
+            'transport_company_address', 'vehicle_type',
+            'vehicle_make', 'vehicle_model', 'vehicle_year',
+            'vehicle_registration', 'max_weight', 'max_volume',
+            'max_length', 'max_width', 'max_height',
+            'provides_packaging', 'provides_insurance',
+            'provides_loading', 'provides_unloading',
+            'base_price_per_km', 'min_price', 'currency',
+            'coverage_cities', 'accepted_merchandise_types',
+            'custom_merchandise_types', 'profile_photo',
+            'id_front', 'id_back', 'rgpd_consent', 'terms_accepted'
+        ])
+
+        # Masquer certains champs initialement
+        self.fields['custom_merchandise_types'].widget.attrs['style'] = 'display: none;'
+
+        # Ajouter du JavaScript pour gérer l'affichage conditionnel
+        self.fields['carrier_type'].widget.attrs['onchange'] = 'toggleCompanyFields()'
+        self.fields['accepted_merchandise_types'].widget.attrs['onchange'] = 'toggleCustomMerchandise()'
+
+    def clean(self):
+        """Validation croisée des données"""
+        cleaned_data = super().clean()
+
+        # Validation du type de transporteur
+        carrier_type = cleaned_data.get('carrier_type')
+
+        if carrier_type == Carrier.CarrierType.PROFESSIONAL:
+            company_name = cleaned_data.get('transport_company_name', '').strip()
+            if not company_name:
+                self.add_error('transport_company_name',
+                    _("Le nom de l'entreprise est obligatoire pour les transporteurs professionnels"))
+
+        # Validation type de véhicule vs capacités
+        vehicle_type = cleaned_data.get('vehicle_type')
+        max_weight = cleaned_data.get('max_weight', 0)
+        max_volume = cleaned_data.get('max_volume', 0)
+
+        if vehicle_type and max_weight and max_volume:
+            vehicle_limits = {
+                'CAR': {'max_weight': 500, 'max_volume': 2},
+                'VAN': {'max_weight': 1500, 'max_volume': 10},
+                'TRUCK_SMALL': {'max_weight': 3500, 'max_volume': 30},
+                'TRUCK_MEDIUM': {'max_weight': 7500, 'max_volume': 50},
+                'TRUCK_LARGE': {'max_weight': 20000, 'max_volume': 100},
+                'MOTORCYCLE': {'max_weight': 50, 'max_volume': 0.5},
+                'OTHER': {'max_weight': 10000, 'max_volume': 50},
+            }
+
+            if vehicle_type in vehicle_limits:
+                limits = vehicle_limits[vehicle_type]
+                if max_weight > limits['max_weight']:
+                    self.add_error('max_weight',
+                        _("Ce poids dépasse la capacité typique d'un {} (max: {} kg)").format(
+                            dict(Carrier.VehicleType.choices)[vehicle_type],
+                            limits['max_weight']
+                        ))
+                if max_volume > limits['max_volume']:
+                    self.add_error('max_volume',
+                        _("Ce volume dépasse la capacité typique d'un {} (max: {} m³)").format(
+                            dict(Carrier.VehicleType.choices)[vehicle_type],
+                            limits['max_volume']
+                        ))
+
+        # Validation des photos
+        id_front = cleaned_data.get('id_front')
+        if id_front:
+            # Vérifier la taille du fichier (max 5MB)
+            if id_front.size > 5 * 1024 * 1024:
+                self.add_error('id_front', _("La photo est trop volumineuse. Taille max: 5MB"))
+
+            # Vérifier le type de fichier
+            valid_extensions = ['.jpg', '.jpeg', '.png', '.gif']
+            ext = os.path.splitext(id_front.name)[1].lower()
+            if ext not in valid_extensions:
+                self.add_error('id_front', _("Format de fichier non supporté. Formats acceptés: JPG, PNG, GIF"))
+
+        return cleaned_data
+
+    def clean_email(self):
+        """Validation unique de l'email"""
+        email = self.cleaned_data.get('email')
+        if User.objects.filter(email=email).exists():
+            raise ValidationError(_("Un compte avec cet email existe déjà"))
+        return email
+
+    def clean_phone(self):
+        """Validation unique du téléphone"""
+        phone = self.cleaned_data.get('phone')
+        if User.objects.filter(phone=phone).exists():
+            raise ValidationError(_("Un compte avec ce numéro de téléphone existe déjà"))
+        return phone
+
+    def save(self, commit=True):
+        """
+        Crée l'utilisateur, son profil et le profil transporteur
+        """
+        try:
+            # ========== CRÉATION DE L'UTILISATEUR ==========
+            carrier_type = self.cleaned_data['carrier_type']
+
+            # Déterminer le rôle
+            if carrier_type == Carrier.CarrierType.PROFESSIONAL:
+                user_role = User.Role.CARRIER
+            else:
+                user_role = User.Role.CARRIER_PERSONAL
+
+            # Créer l'utilisateur avec UserCreationForm
+            user = super().save(commit=False)
+            user.first_name = self.cleaned_data['first_name']
+            user.last_name = self.cleaned_data['last_name']
+            user.email = self.cleaned_data['email']
+            user.phone = self.cleaned_data['phone']
+            user.country = self.cleaned_data['country']
+            user.city = self.cleaned_data.get('city', '')
+            user.address = self.cleaned_data.get('address', '')
+            user.preferred_language = self.cleaned_data.get('preferred_language', 'fr')
+            user.role = user_role
+            user.is_available = True  # Disponible par défaut
+            user.is_verified = False
+            user.kyc_verified = False
+            user.email_verified = False
+            user.phone_verified = False
+
+            if commit:
+                user.save()
+                logger.info(f"Utilisateur créé: {user.username}")
+
+            # ========== CRÉATION DU PROFIL UTILISATEUR ==========
+            try:
+                profile, created = UserProfile.objects.get_or_create(user=user)
+
+                # Remplir les champs de l'entreprise si professionnel
+                if carrier_type == Carrier.CarrierType.PROFESSIONAL:
+                    profile.company_name = self.cleaned_data.get('transport_company_name', '')
+                    profile.company_registration = self.cleaned_data.get('transport_company_registration', '')
+                    profile.tax_id = self.cleaned_data.get('transport_tax_id', '')
+
+                profile.save()
+                logger.info(f"UserProfile {'créé' if created else 'mis à jour'} pour {user.username}")
+
+            except Exception as e:
+                logger.error(f"Erreur UserProfile pour {user.username}: {e}")
+                # Ne pas arrêter le processus si UserProfile échoue
+
+            # ========== CRÉATION DU PROFIL TRANSPORTEUR ==========
+            try:
+                # Vérifier si un profil transporteur existe déjà
+                if hasattr(user, 'carrier_profile'):
+                    carrier = user.carrier_profile
+                    logger.warning(f"Profil transporteur existant pour {user.username}, mise à jour")
+                else:
+                    carrier = Carrier(user=user)
+
+                # Remplir les champs de base
+                carrier.carrier_type = carrier_type
+                carrier.vehicle_type = self.cleaned_data['vehicle_type']
+                carrier.vehicle_make = self.cleaned_data.get('vehicle_make', '')
+                carrier.vehicle_model = self.cleaned_data.get('vehicle_model', '')
+                carrier.vehicle_year = self.cleaned_data.get('vehicle_year')
+                carrier.vehicle_registration = self.cleaned_data.get('vehicle_registration', '')
+                carrier.max_weight = self.cleaned_data['max_weight']
+                carrier.max_volume = self.cleaned_data['max_volume']
+                carrier.max_length = self.cleaned_data.get('max_length', 1.5)
+                carrier.max_width = self.cleaned_data.get('max_width', 1.0)
+                carrier.max_height = self.cleaned_data.get('max_height', 1.0)
+                carrier.provides_packaging = self.cleaned_data.get('provides_packaging', False)
+                carrier.provides_insurance = self.cleaned_data.get('provides_insurance', False)
+                carrier.provides_loading = self.cleaned_data.get('provides_loading', False)
+                carrier.provides_unloading = self.cleaned_data.get('provides_unloading', False)
+                carrier.base_price_per_km = self.cleaned_data['base_price_per_km']
+                carrier.min_price = self.cleaned_data['min_price']
+                carrier.currency = self.cleaned_data['currency']
+                carrier.coverage_cities = self.cleaned_data.get('coverage_cities', '')
+                carrier.transport_is_available = True
+                carrier.status = Carrier.Status.PENDING
+                carrier.verification_level = 0
+
+                # Champs entreprise pour professionnels
+                if carrier_type == Carrier.CarrierType.PROFESSIONAL:
+                    carrier.transport_company_name = self.cleaned_data.get('transport_company_name', '')
+                    carrier.transport_company_registration = self.cleaned_data.get('transport_company_registration', '')
+                    carrier.transport_tax_id = self.cleaned_data.get('transport_tax_id', '')
+                    carrier.transport_company_address = self.cleaned_data.get('transport_company_address', '')
+
+                # Types de marchandises
+                accepted_types = self.cleaned_data.get('accepted_merchandise_types', [])
+                carrier.accepted_merchandise_types = accepted_types
+
+                custom_types = self.cleaned_data.get('custom_merchandise_types', '')
+                if custom_types:
+                    carrier.custom_merchandise_types = custom_types
+
+                # Photos - IMPORTANT: utiliser FileField.save() avec commit=False
+                if self.cleaned_data.get('profile_photo'):
+                    # Sauvegarder l'image dans le champ
+                    carrier.profile_photo.save(
+                        f"profile_{user.username}{os.path.splitext(self.cleaned_data['profile_photo'].name)[1]}",
+                        self.cleaned_data['profile_photo'],
+                        save=False
+                    )
+
+                if self.cleaned_data.get('id_front'):
+                    carrier.id_front.save(
+                        f"id_front_{user.username}{os.path.splitext(self.cleaned_data['id_front'].name)[1]}",
+                        self.cleaned_data['id_front'],
+                        save=False
+                    )
+
+                if self.cleaned_data.get('id_back'):
+                    carrier.id_back.save(
+                        f"id_back_{user.username}{os.path.splitext(self.cleaned_data['id_back'].name)[1]}",
+                        self.cleaned_data['id_back'],
+                        save=False
+                    )
+
+                if commit:
+                    carrier.save()
+                    logger.info(f"Carrier créé avec succès: {user.username}")
+
+            except Exception as e:
+                logger.error(f"Erreur lors de la création du Carrier pour {user.username}: {e}")
+                # Si le Carrier échoue, on peut quand même garder l'utilisateur
+                # mais on log l'erreur
+                raise ValidationError(_(
+                    f"Erreur lors de la création du profil transporteur: {str(e)}"
+                ))
+
+            return user
+
+        except Exception as e:
+            logger.error(f"Erreur générale lors de la création du transporteur: {e}", exc_info=True)
+            raise ValidationError(_(
+                f"Erreur lors de l'inscription: {str(e)}. "
+                "Veuillez réessayer ou contacter le support."
+            ))
+
+# Les autres formulaires existants restent inchangés
+class CustomUserCreationForm(UserCreationForm):
+    """Formulaire pour créer un nouvel utilisateur avec des champs supplémentaires"""
+
+    phone = forms.CharField(
+        label=_("Numéro de téléphone"),
+        required=True,
+        help_text=_("Format international : +212612345678 (recommandé) ou 00212612345678"),
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': _("+212612345678"),
+            'title': _("Entrez votre numéro au format international")
+        })
+    )
+
+    class Meta:
+        model = User
+        fields = ('username', 'email', 'role', 'phone',
+                 'country', 'city', 'preferred_language')
+        widgets = {
+            'role': forms.Select(attrs={'class': 'form-control'}),
+            'preferred_language': forms.Select(attrs={'class': 'form-control'}),
+        }
+
+    def clean_phone(self):
+        """Valide et formate le numéro de téléphone"""
+        phone = self.cleaned_data.get('phone')
+
+        if phone:
+            try:
+                # Nettoyer le numéro : supprimer les espaces, tirets, etc.
+                phone = phone.strip().replace(' ', '').replace('-', '').replace('.', '')
+
+                # Convertir les formats locaux en format international
+                if phone.startswith('0'):
+                    # L'utilisateur a entré un format local (ex: 0612345678)
+                    country = self.cleaned_data.get('country')
+
+                    if country:
+                        # Mapper les codes pays
+                        country_codes = {
+                            'MA': '212',  # Maroc
+                            'FR': '33',   # France
+                            'BE': '32',   # Belgique
+                            'TN': '216',  # Tunisie
+                            'DZ': '213',  # Algérie
+                            'SN': '221',  # Sénégal
+                            'CI': '225',  # Côte d'Ivoire
+                            'CM': '237',  # Cameroun
+                            'US': '1',    # États-Unis
+                            'GB': '44',   # Royaume-Uni
+                            'DE': '49',   # Allemagne
+                            'ES': '34',   # Espagne
+                            'IT': '39',   # Italie
+                            'PT': '351',  # Portugal
+                        }
+
+                        code = country_codes.get(country, '')
+                        if code:
+                            # Enlever le 0 initial et ajouter le code pays
+                            phone = f"+{code}{phone[1:]}"
+
+                # Convertir 00 en + si présent (format 00212...)
+                elif phone.startswith('00'):
+                    phone = '+' + phone[2:]
+
+                # S'assurer que le numéro commence par +
+                if not phone.startswith('+'):
+                    phone = '+' + phone
+
+                # Validation de la longueur minimale
+                if len(phone) < 10:
+                    raise forms.ValidationError(
+                        _("Numéro de téléphone trop court. Format attendu : +212612345678")
+                    )
+
+                # Validation que le numéro ne contient que des chiffres après le +
+                if not phone[1:].isdigit():
+                    raise forms.ValidationError(
+                        _("Le numéro de téléphone ne doit contenir que des chiffres après le +")
+                    )
+
+                return phone
+
+            except Exception as e:
+                raise forms.ValidationError(
+                    _("Saisissez un numéro de téléphone valide. Format: +212612345678 ou 0612345678")
+                )
+
+        return phone
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Améliorer les champs existants
+        self.fields['username'].widget.attrs.update({
+            'class': 'form-control',
+            'placeholder': _("Choisissez un nom d'utilisateur")
+        })
+        self.fields['email'].widget.attrs.update({
+            'class': 'form-control',
+            'placeholder': _("votre@email.com")
+        })
+        self.fields['country'].widget.attrs.update({
+            'class': 'form-control'
+        })
+        self.fields['city'].widget.attrs.update({
+            'class': 'form-control',
+            'placeholder': _("Votre ville")
+        })
+        self.fields['city'].required = False
+
+        # Rendre le pays obligatoire pour aider à la validation du téléphone
+        self.fields['country'].required = True
+
+        # Ajouter une aide pour le format du téléphone
+        self.fields['phone'].help_text += _(
+            "<br><small class='text-muted'>Exemples: +212612345678 (Maroc), +33612345678 (France), +32456123456 (Belgique)</small>"
+        )
+
+class CustomUserChangeForm(UserChangeForm):
+    """Formulaire pour modifier un utilisateur existant"""
+
+    class Meta:
+        model = User
+        fields = ('username', 'email', 'role', 'phone',
+                 'country', 'city', 'address', 'preferred_language',
+                 'is_verified', 'kyc_verified', 'is_active')
+
+
+class LoginForm(forms.Form):
+    """Formulaire de connexion"""
+    username = forms.CharField(
+        label=_("Nom d'utilisateur ou Email"),
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': _("Entrez votre nom d'utilisateur ou email")
+        })
+    )
+    password = forms.CharField(
+        label=_("Mot de passe"),
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': _("Entrez votre mot de passe")
+        })
+    )
+    remember_me = forms.BooleanField(
+        required=False,
+        label=_("Se souvenir de moi"),
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
+    )
+
+class UserProfileForm(forms.ModelForm):
+    """Formulaire pour le profil utilisateur étendu"""
+    class Meta:
+        model = UserProfile
+        fields = [
+            'date_of_birth', 'gender', 'company_name',
+            'company_registration', 'tax_id', 'country_of_origin',
+            'country_of_residence', 'is_expatriate'
+        ]
+        widgets = {
+            'date_of_birth': forms.DateInput(
+                attrs={'type': 'date', 'class': 'form-control'}
+            ),
+            'gender': forms.Select(attrs={'class': 'form-control'}),
+        }
+
+class PasswordResetRequestForm(forms.Form):
+    """Formulaire pour demander une réinitialisation de mot de passe"""
+    email = forms.EmailField(
+        label=_("Email"),
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control',
+            'placeholder': _("Entrez votre email")
+        })
+    )
+
+class PasswordResetConfirmForm(forms.Form):
+    """Formulaire pour confirmer la réinitialisation du mot de passe"""
+    new_password1 = forms.CharField(
+        label=_("Nouveau mot de passe"),
+        widget=forms.PasswordInput(attrs={'class': 'form-control'})
+    )
+    new_password2 = forms.CharField(
+        label=_("Confirmer le nouveau mot de passe"),
+        widget=forms.PasswordInput(attrs={'class': 'form-control'})
+    )
+
+class KYCVerificationForm(forms.ModelForm):
+    """Formulaire pour la vérification KYC"""
+    id_document = forms.FileField(
+        label=_("Document d'identité"),
+        required=True,
+        widget=forms.FileInput(attrs={'class': 'form-control'})
+    )
+    proof_of_address = forms.FileField(
+        label=_("Justificatif de domicile"),
+        required=True,
+        widget=forms.FileInput(attrs={'class': 'form-control'})
+    )
+    selfie_with_id = forms.FileField(
+        label=_("Selfie avec document d'identité"),
+        required=False,
+        widget=forms.FileInput(attrs={'class': 'form-control'})
+    )
+
+    class Meta:
+        model = User
+        fields = []
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.role == User.Role.CARRIER:
+            self.fields['company_registration_doc'] = forms.FileField(
+                label=_("Document d'immatriculation"),
+                required=True,
+                widget=forms.FileInput(attrs={'class': 'form-control'})
+            )
+
+
+========== users/__init__.py ==========
+# ~/ebi3/users/__init__.py
+default_app_config = 'users.apps.UsersConfig'
+
+
+========== users/apps.py ==========
+# ~/ebi3/users/apps.py
+from django.apps import AppConfig
+
+class UsersConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'users'
+    verbose_name = "Utilisateurs"
+
+    def ready(self):
+        import users.signals
+
+
+========== users/urls.py ==========
+# ~/ebi3/users/urls.py
+from django.urls import path
+from django.contrib.auth import views as auth_views
+from . import views  # Garder cet import
+
+# NE PAS ajouter d'imports de carriers ici
+# from carriers import views as carriers_views  # ← SUPPRIMER SI EXISTE
+
+app_name = 'users'
+
+urlpatterns = [
+    # Inscription
+    path('register/', views.RegisterView.as_view(), name='register'),
+    path('register/carrier/', views.CarrierRegisterView.as_view(), name='carrier_register'),
+    path('register/success/carrier/', views.CarrierRegisterSuccessView.as_view(), name='carrier_register_success'),
+
+    # Connexion/Déconnexion
+    path('login/', views.LoginView.as_view(), name='login'),
+    path('logout/', views.logout_view, name='logout'),
+
+    # Profil
+    path('profile/<str:username>/', views.ProfileView.as_view(), name='profile'),
+    path('profile/update/', views.ProfileUpdateView.as_view(), name='profile_update'),
+    path('profile/extended/update/', views.UserProfileUpdateView.as_view(), name='profile_extended_update'),
+
+    # Sécurité
+    path('password/change/', views.change_password, name='change_password'),
+    path('password/reset/', auth_views.PasswordResetView.as_view(), name='password_reset'),
+    path('password/reset/done/', auth_views.PasswordResetDoneView.as_view(), name='password_reset_done'),
+    path('reset/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
+    path('reset/done/', auth_views.PasswordResetCompleteView.as_view(), name='password_reset_complete'),
+
+    # Vérification
+    path('verify/email/<str:token>/', views.EmailVerificationView.as_view(), name='verify_email'),
+    path('verify/phone/', views.PhoneVerificationView.as_view(), name='verify_phone'),
+    path('verify/kyc/', views.KYCVerificationView.as_view(), name='verify_kyc'),
+
+    # Redirection
+    path('account-type/', views.AccountTypeRedirectView.as_view(), name='account_type'),
+]
+
+
+========== users/models.py ==========
+# ~/ebi3/users/models.py
+from django.contrib.auth.models import AbstractUser
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+from phonenumber_field.modelfields import PhoneNumberField
+from django_countries.fields import CountryField
+
+class User(AbstractUser):
+    """Modèle utilisateur personnalisé pour la plateforme ebi3"""
+
+    # Rôles disponibles
+    class Role(models.TextChoices):
+        BUYER = 'BUYER', _('Acheteur')
+        SELLER = 'SELLER', _('Vendeur')
+        CARRIER = 'CARRIER', _('Transporteur Professionnel')
+        CARRIER_PERSONAL = 'CARRIER_PERSONAL', _('Transporteur Particulier')
+        ADMIN = 'ADMIN', _('Administrateur')
+        MODERATOR = 'MODERATOR', _('Modérateur')
+
+    # Champs supplémentaires
+    role = models.CharField(
+        max_length=20,
+        choices=Role.choices,
+        default=Role.BUYER,
+        verbose_name=_("Rôle")
+    )
+
+    phone = PhoneNumberField(
+        verbose_name=_("Numéro de téléphone"),
+        null=True,
+        blank=True
+    )
+
+    country = CountryField(
+        verbose_name=_("Pays"),
+        blank=True,
+        null=True
+    )
+
+    city = models.CharField(
+        max_length=100,
+        verbose_name=_("Ville"),
+        blank=True
+    )
+
+    address = models.TextField(
+        verbose_name=_("Adresse"),
+        blank=True
+    )
+
+    # Vérification et statuts
+    is_verified = models.BooleanField(
+        default=False,
+        verbose_name=_("Compte vérifié")
+    )
+
+    kyc_verified = models.BooleanField(
+        default=False,
+        verbose_name=_("KYC vérifié")
+    )
+
+    email_verified = models.BooleanField(
+        default=False,
+        verbose_name=_("Email vérifié")
+    )
+
+    phone_verified = models.BooleanField(
+        default=False,
+        verbose_name=_("Téléphone vérifié")
+    )
+
+    kyc_submitted = models.BooleanField(
+        default=False,
+        verbose_name=_("KYC soumis")
+    )
+
+    # Métadonnées
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_("Date de création")
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name=_("Date de mise à jour")
+    )
+
+    # Préférences
+    preferred_language = models.CharField(
+        max_length=10,
+        default='fr',
+        choices=[
+            ('ar', 'العربية'),
+            ('fr', 'Français'),
+            ('en', 'English'),
+            ('de', 'Deutsch'),
+            ('it', 'Italiano'),
+            ('es', 'Español'),
+            ('pt', 'Português'),
+            ('pl', 'Polski'),
+        ],
+        verbose_name=_("Langue préférée")
+    )
+
+    # Pour transporteurs
+    is_available = models.BooleanField(
+        default=True,
+        verbose_name=_("Disponible pour des missions")
+    )
+
+    rating = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        default=0.00,
+        verbose_name=_("Note moyenne")
+    )
+
+    total_reviews = models.PositiveIntegerField(
+        default=0,
+        verbose_name=_("Nombre total d'avis")
+    )
+
+    class Meta:
+        verbose_name = _("Utilisateur")
+        verbose_name_plural = _("Utilisateurs")
+        ordering = ['-date_joined']
+
+    def __str__(self):
+        return f"{self.username} ({self.get_role_display()})"
+
+    def is_carrier(self):
+        """Vérifie si l'utilisateur est un transporteur"""
+        return self.role in [self.Role.CARRIER, self.Role.CARRIER_PERSONAL]
+
+    def is_seller(self):
+        """Vérifie si l'utilisateur est un vendeur"""
+        return self.role == self.Role.SELLER
+
+    def is_buyer(self):
+        """Vérifie si l'utilisateur est un acheteur"""
+        return self.role == self.Role.BUYER
+
+# ~/ebi3/users/models.py (suite)
+class UserProfile(models.Model):
+    """Profil étendu pour les utilisateurs"""
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='profile',
+        verbose_name=_("Utilisateur")
+    )
+
+    # Informations personnelles
+    date_of_birth = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date de naissance")
+    )
+
+    gender = models.CharField(
+        max_length=10,
+        choices=[
+            ('M', _('Masculin')),
+            ('F', _('Féminin')),
+            ('O', _('Autre')),
+        ],
+        blank=True,
+        verbose_name=_("Genre")
+    )
+
+    # Pour transporteurs professionnels
+    company_name = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name=_("Nom de l'entreprise")
+    )
+
+    company_registration = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_("Numéro d'immatriculation")
+    )
+
+    tax_id = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_("Numéro fiscal")
+    )
+
+    # Documents pour vérification
+    id_document = models.FileField(
+        upload_to='documents/id/',
+        null=True,
+        blank=True,
+        verbose_name=_("Document d'identité")
+    )
+
+    proof_of_address = models.FileField(
+        upload_to='documents/address/',
+        null=True,
+        blank=True,
+        verbose_name=_("Justificatif de domicile")
+    )
+
+    company_registration_doc = models.FileField(
+        upload_to='documents/company/',
+        null=True,
+        blank=True,
+        verbose_name=_("Document d'immatriculation")
+    )
+
+    # Pour expatriés
+    country_of_origin = CountryField(
+        verbose_name=_("Pays d'origine"),
+        blank=True,
+        null=True
+    )
+
+    country_of_residence = CountryField(
+        verbose_name=_("Pays de résidence"),
+        blank=True,
+        null=True
+    )
+
+    is_expatriate = models.BooleanField(
+        default=False,
+        verbose_name=_("Est un expatrié")
+    )
+
+    # Statistiques
+    total_ads = models.PositiveIntegerField(
+        default=0,
+        verbose_name=_("Nombre total d'annonces")
+    )
+
+    successful_transactions = models.PositiveIntegerField(
+        default=0,
+        verbose_name=_("Transactions réussies")
+    )
+
+    # Métadonnées
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_("Date de création")
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name=_("Date de mise à jour")
+    )
+
+    class Meta:
+        verbose_name = _("Profil utilisateur")
+        verbose_name_plural = _("Profils utilisateurs")
+
+    def __str__(self):
+        return f"Profil de {self.user.username}"
+
+
+
+
+========== users/views.py ==========
+# ~/ebi3/users/views.py
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth import login, logout, authenticate, update_session_auth_hash
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib import messages
+from django.utils.translation import gettext_lazy as _
+from django.urls import reverse_lazy
+from django.views.generic import CreateView, UpdateView, DetailView, FormView, TemplateView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views import View
+from django.core.exceptions import ValidationError
+import logging
+
+from .forms import (
+    CustomUserCreationForm,
+    CustomUserChangeForm,
+    UserProfileForm,
+    LoginForm,
+    PasswordResetRequestForm,
+    PasswordResetConfirmForm,
+    KYCVerificationForm,
+    CarrierRegistrationForm  # Ceci est dans users/forms.py
+)
+from .models import User, UserProfile
+from carriers.models import Carrier  # Seulement le modèle
+
+logger = logging.getLogger(__name__)
+
+class CarrierRegisterView(CreateView):
+    """
+    VUE UNIFIÉE D'INSCRIPTION TRANSPORTEUR
+    Utilise CarrierRegistrationForm de users/forms.py
+    """
+    model = User
+    form_class = CarrierRegistrationForm  # Ceci vient de users/forms.py
+    template_name = 'users/register_carrier.html'
+    success_url = reverse_lazy('users:register_carrier_success')
+
+    def dispatch(self, request, *args, **kwargs):
+        # Si l'utilisateur est déjà connecté
+        if request.user.is_authenticated:
+            # Vérifier s'il a déjà un profil transporteur
+            if hasattr(request.user, 'carrier_profile'):
+                messages.info(request, _("Vous avez déjà un profil transporteur."))
+                return redirect('carriers:dashboard')
+            else:
+                # S'il est connecté mais pas transporteur, rediriger vers le formulaire d'application
+                return super().dispatch(request, *args, **kwargs)
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['page_title'] = _("Devenez transporteur")
+        context['page_description'] = _("Inscrivez-vous pour commencer à livrer des colis et gagner de l'argent.")
+        return context
+
+    def form_valid(self, form):
+        try:
+            # Créer l'utilisateur, le profil et le transporteur
+            user = form.save()
+
+            # Connecter automatiquement l'utilisateur
+            login(self.request, user)
+
+            # Journaliser la création
+            logger.info(f"Nouveau transporteur inscrit: {user.username} ({user.email})")
+
+            # Message de succès
+            messages.success(
+                self.request,
+                _("Félicitations ! Votre compte transporteur a été créé avec succès. "
+                  "Votre profil est en attente de validation par notre équipe.")
+            )
+
+            return redirect(self.get_success_url())
+
+        except ValidationError as e:
+            messages.error(self.request, str(e))
+            return self.form_invalid(form)
+        except Exception as e:
+            logger.error(f"Erreur lors de l'inscription transporteur: {e}")
+            messages.error(
+                self.request,
+                _("Une erreur est survenue lors de votre inscription. "
+                  "Veuillez réessayer ou contacter le support.")
+            )
+            return self.form_invalid(form)
+
+    def form_invalid(self, form):
+        # Afficher les erreurs spécifiques
+        for field, errors in form.errors.items():
+            for error in errors:
+                messages.error(self.request, f"{form.fields[field].label}: {error}")
+        return super().form_invalid(form)
+
+
+class CarrierRegisterSuccessView(TemplateView):
+    """Page de succès après inscription transporteur"""
+    template_name = 'users/register_carrier_success.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['page_title'] = _("Inscription réussie !")
+        context['next_steps'] = [
+            _("Votre compte est en attente de validation (24-48h)"),
+            _("Vous pouvez déjà compléter votre profil"),
+            _("Explorez le tableau de bord transporteur"),
+            _("Consultez les missions disponibles")
+        ]
+        return context
+
+
+class RegisterView(CreateView):
+    """Vue pour l'inscription des utilisateurs STANDARD (non transporteurs)"""
+    model = User
+    form_class = CustomUserCreationForm
+    template_name = 'users/register.html'
+    success_url = reverse_lazy('users:login')
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            return redirect('core:home')
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['page_title'] = _("Créer un compte")
+        context['user_types'] = [
+            {
+                'title': _("Acheteur"),
+                'description': _("Achetez des produits en toute sécurité"),
+                'value': User.Role.BUYER,
+                'icon': 'fas fa-shopping-cart'
+            },
+            {
+                'title': _("Vendeur"),
+                'description': _("Vendez vos produits en ligne"),
+                'value': User.Role.SELLER,
+                'icon': 'fas fa-store'
+            },
+            {
+                'title': _("Transporteur"),
+                'description': _("Livrez des colis et gagnez de l'argent"),
+                'value': 'CARRIER',  # Changé de 'CARRIER_REDIRECT' à 'CARRIER'
+                'icon': 'fas fa-truck',
+                'is_carrier': True
+            }
+        ]
+        return context
+
+    def form_valid(self, form):
+        # Récupérer le type d'utilisateur sélectionné
+        user_type = form.cleaned_data.get('user_type')
+
+        # Si c'est un transporteur, rediriger vers l'inscription transporteur
+        if user_type == 'CARRIER':
+            # Sauvegarder temporairement les données du formulaire dans la session
+            self.request.session['user_registration_data'] = {
+                'email': form.cleaned_data.get('email'),
+                'password': form.cleaned_data.get('password1'),
+                'first_name': form.cleaned_data.get('first_name'),
+                'last_name': form.cleaned_data.get('last_name'),
+                'phone': form.cleaned_data.get('phone'),
+            }
+            return redirect('carriers:register')
+
+        # Pour les autres types d'utilisateur, procéder normalement
+        user = form.save(commit=False)
+        user.role = user_type
+        user.save()
+
+        # Envoyer email de vérification si nécessaire
+        # ...
+
+        messages.success(
+            self.request,
+            _("Votre compte a été créé avec succès ! Veuillez vérifier votre email.")
+        )
+        return super().form_valid(form)
+
+class LoginView(View):
+    """Vue pour la connexion"""
+    template_name = 'users/login.html'
+
+    def get(self, request):
+        if request.user.is_authenticated:
+            return redirect('core:home')
+        form = LoginForm()
+
+        # Déterminer la redirection après login
+        next_url = request.GET.get('next', '')
+        if not next_url:
+            # Si l'utilisateur a un profil transporteur, aller vers dashboard carriers
+            if hasattr(request.user, 'carrier_profile'):
+                next_url = 'carriers:dashboard'
+            else:
+                next_url = 'core:home'
+
+        return render(request, self.template_name, {
+            'form': form,
+            'next': next_url
+        })
+
+    def post(self, request):
+        form = LoginForm(request.POST)
+        next_url = request.POST.get('next', 'core:home')
+
+        if form.is_valid():
+            username = form.cleaned_data['username']
+            password = form.cleaned_data['password']
+            user = authenticate(username=username, password=password)
+
+            if user is not None:
+                if user.is_active:
+                    login(request, user)
+
+                    # Message de bienvenue personnalisé
+                    welcome_msg = _("Bon retour, {} !").format(user.first_name or user.username)
+                    if hasattr(user, 'carrier_profile'):
+                        if user.carrier_profile.status == Carrier.Status.APPROVED:
+                            welcome_msg += " " + _("Votre profil transporteur est actif.")
+                        elif user.carrier_profile.status == Carrier.Status.PENDING:
+                            welcome_msg += " " + _("Votre profil transporteur est en attente de validation.")
+
+                    messages.success(request, welcome_msg)
+                    return redirect(next_url)
+                else:
+                    messages.error(request, _("Votre compte est désactivé."))
+            else:
+                messages.error(request, _("Nom d'utilisateur ou mot de passe incorrect."))
+
+        return render(request, self.template_name, {
+            'form': form,
+            'next': next_url
+        })
+
+
+@login_required
+def logout_view(request):
+    """Vue pour la déconnexion"""
+    logout(request)
+    messages.success(request, _("Vous avez été déconnecté avec succès."))
+    return redirect('core:home')
+
+
+class ProfileView(LoginRequiredMixin, DetailView):
+    """Vue pour afficher le profil"""
+    model = User
+    template_name = 'users/profile.html'
+    context_object_name = 'user_profile'
+
+    def get_object(self):
+        username = self.kwargs.get('username')
+        if username:
+            return get_object_or_404(User, username=username)
+        return self.request.user
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.object
+
+        # Ajouter des informations supplémentaires
+        context['is_own_profile'] = (user == self.request.user)
+        context['has_carrier_profile'] = hasattr(user, 'carrier_profile')
+
+        if context['has_carrier_profile']:
+            context['carrier_profile'] = user.carrier_profile
+            context['carrier_status'] = user.carrier_profile.get_status_display()
+            context['carrier_type'] = user.carrier_profile.get_carrier_type_display()
+
+        return context
+
+
+class ProfileUpdateView(LoginRequiredMixin, UpdateView):
+    """Vue pour modifier le profil"""
+    model = User
+    form_class = CustomUserChangeForm
+    template_name = 'users/profile_update.html'
+
+    def get_object(self):
+        return self.request.user
+
+    def get_success_url(self):
+        messages.success(self.request, _("Votre profil a été mis à jour avec succès."))
+        return reverse_lazy('users:profile', kwargs={'username': self.request.user.username})
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['has_carrier_profile'] = hasattr(self.request.user, 'carrier_profile')
+        return context
+
+
+class UserProfileUpdateView(LoginRequiredMixin, UpdateView):
+    """Vue pour modifier le profil étendu"""
+    model = UserProfile
+    form_class = UserProfileForm
+    template_name = 'users/profile_extended_update.html'
+
+    def get_object(self):
+        # Créer le profil s'il n'existe pas
+        profile, created = UserProfile.objects.get_or_create(user=self.request.user)
+        if created:
+            logger.info(f"UserProfile créé pour {self.request.user.username}")
+        return profile
+
+    def get_success_url(self):
+        messages.success(self.request, _("Vos informations supplémentaires ont été mises à jour."))
+        return reverse_lazy('users:profile', kwargs={'username': self.request.user.username})
+
+
+@login_required
+def change_password(request):
+    """Vue pour changer le mot de passe"""
+    if request.method == 'POST':
+        form = PasswordChangeForm(request.user, request.POST)
+        if form.is_valid():
+            user = form.save()
+            update_session_auth_hash(request, user)
+            messages.success(request, _("Votre mot de passe a été changé avec succès !"))
+            return redirect('users:profile', username=request.user.username)
+    else:
+        form = PasswordChangeForm(request.user)
+
+    return render(request, 'users/change_password.html', {'form': form})
+
+
+class KYCVerificationView(LoginRequiredMixin, UpdateView):
+    """Vue pour soumettre la vérification KYC"""
+    model = User
+    form_class = KYCVerificationForm
+    template_name = 'users/kyc_verification.html'
+
+    def get_object(self):
+        return self.request.user
+
+    def form_valid(self, form):
+        user = form.save(commit=False)
+        user.kyc_submitted = True
+
+        # Pour les transporteurs, augmenter le niveau de vérification
+        if hasattr(user, 'carrier_profile'):
+            user.carrier_profile.verification_level += 1
+            user.carrier_profile.save()
+
+        user.save()
+
+        messages.success(
+            self.request,
+            _("Votre demande de vérification KYC a été soumise. Nous la traiterons sous 48h.")
+        )
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy('users:profile', kwargs={'username': self.request.user.username})
+
+
+class EmailVerificationView(LoginRequiredMixin, View):
+    """Vue pour vérifier l'email"""
+    template_name = 'users/email_verification.html'
+
+    def get(self, request, token):
+        # À implémenter avec des tokens sécurisés
+        # Pour l'instant, simple confirmation
+        if request.user.email_verified:
+            messages.info(request, _("Votre email est déjà vérifié."))
+        else:
+            request.user.email_verified = True
+            request.user.save()
+            messages.success(request, _("Votre email a été vérifié avec succès !"))
+
+        return render(request, self.template_name)
+
+
+class PhoneVerificationView(LoginRequiredMixin, View):
+    """Vue pour vérifier le numéro de téléphone"""
+    template_name = 'users/phone_verification.html'
+
+    def get(self, request):
+        return render(request, self.template_name)
+
+    def post(self, request):
+        # Logique d'envoi/validation de code SMS
+        # À implémenter avec un service SMS
+        code = request.POST.get('verification_code', '')
+
+        # Simulation de vérification
+        if code == '123456':  # À remplacer par une vraie validation
+            request.user.phone_verified = True
+            request.user.save()
+            messages.success(request, _("Votre numéro de téléphone a été vérifié avec succès !"))
+            return redirect('users:profile', username=request.user.username)
+        else:
+            messages.error(request, _("Code de vérification incorrect."))
+            return render(request, self.template_name)
+
+
+class AccountTypeRedirectView(View):
+    """Vue pour rediriger vers le bon type d'inscription"""
+
+    def get(self, request):
+        if request.user.is_authenticated:
+            return redirect('core:home')
+
+        return render(request, 'users/account_type.html', {
+            'user_types': [
+                {
+                    'title': _("Je veux acheter"),
+                    'description': _("Trouvez et achetez des produits en toute sécurité"),
+                    'url': reverse_lazy('users:register'),
+                    'icon': 'fas fa-shopping-cart',
+                    'color': 'primary'
+                },
+                {
+                    'title': _("Je veux vendre"),
+                    'description': _("Vendez vos produits et gérez vos ventes"),
+                    'url': reverse_lazy('users:register'),
+                    'icon': 'fas fa-store',
+                    'color': 'success'
+                },
+                {
+                    'title': _("Je veux livrer"),
+                    'description': _("Devenez transporteur et gagnez de l'argent en livrant des colis"),
+                    'url': reverse_lazy('users:register_carrier'),
+                    'icon': 'fas fa-truck',
+                    'color': 'warning'
+                }
+            ]
+        })
+
+
+def handler404(request, exception):
+    """Handler 404 personnalisé"""
+    return render(request, 'users/404.html', status=404)
+
+
+def handler500(request):
+    """Handler 500 personnalisé"""
+    return render(request, 'users/500.html', status=500)
+
+
+

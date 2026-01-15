@@ -46,11 +46,7 @@ class MerchandiseTypes:
 class Carrier(models.Model):
     """Extension du modèle User pour les transporteurs (professionnels ou particuliers)"""
 
-    # NOTE: On utilise le modèle User existant, pas besoin de créer un nouveau User
-    # On ne duplique pas les champs qui existent déjà dans User
-
     class CarrierType(models.TextChoices):
-        # Synchroniser avec User.Role
         PROFESSIONAL = 'CARRIER', _('Transporteur Professionnel')
         PERSONAL = 'CARRIER_PERSONAL', _('Transporteur Particulier')
 
@@ -70,7 +66,26 @@ class Carrier(models.Model):
         MOTORCYCLE = 'MOTORCYCLE', _('Moto')
         OTHER = 'OTHER', _('Autre')
 
-    # Relation avec l'utilisateur existant
+    # ========== CHAMPS CRITIQUES MANQUANTS - AJOUTÉS ==========
+    # Champ pour contrôler l'affichage dans le frontend
+    is_active_in_frontend = models.BooleanField(
+        default=False,
+        verbose_name=_("Actif dans le frontend"),
+        help_text=_("Si activé, le transporteur apparaît dans les recherches frontend")
+    )
+
+    # Champ pour suivre qui a approuvé le transporteur
+    approved_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='approved_carriers',
+        verbose_name=_("Approuvé par"),
+        help_text=_("Administrateur qui a approuvé ce transporteur")
+    )
+
+    # ========== RELATIONS EXISTANTES ==========
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
@@ -79,7 +94,6 @@ class Carrier(models.Model):
         help_text=_("L'utilisateur auquel est associé ce profil transporteur")
     )
 
-    # Type de transporteur (redondant avec User.role mais spécifique au transport)
     carrier_type = models.CharField(
         max_length=20,
         choices=CarrierType.choices,
@@ -87,7 +101,6 @@ class Carrier(models.Model):
         help_text=_("Note: doit correspondre au rôle dans le profil utilisateur")
     )
 
-    # Statut spécifique au transporteur (différent de User.is_active)
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
@@ -138,8 +151,6 @@ class Carrier(models.Model):
     )
 
     # === INFORMATIONS PROFESSIONNELLES SPÉCIFIQUES ===
-    # NOTE: Si l'utilisateur a déjà company_name dans UserProfile, on pourrait réutiliser
-    # mais ici on garde une copie spécifique au transport pour plus de flexibilité
     transport_company_name = models.CharField(
         max_length=200,
         blank=True,
@@ -399,8 +410,6 @@ class Carrier(models.Model):
         verbose_name=_("Taux de réussite transport (%)")
     )
 
-    # Note: On utilise la note de l'utilisateur (User.rating) pour la note globale
-    # mais on peut avoir une note spécifique transport si besoin
     transport_average_rating = models.DecimalField(
         max_digits=3,
         decimal_places=2,
@@ -428,11 +437,14 @@ class Carrier(models.Model):
             models.Index(fields=['transport_is_available', 'status']),
             models.Index(fields=['user', 'status']),
             models.Index(fields=['coverage_countries']),
+            # Nouvel index pour le filtrage frontend
+            models.Index(fields=['is_active_in_frontend', 'status', 'transport_is_available']),
         ]
         permissions = [
             ('can_verify_carrier', 'Peut vérifier les transporteurs'),
             ('can_approve_carrier', 'Peut approuver les transporteurs'),
             ('can_view_carrier_stats', 'Peut voir les statistiques des transporteurs'),
+            ('can_activate_carrier_frontend', 'Peut activer/désactiver dans le frontend'),
         ]
 
     def __str__(self):
@@ -480,10 +492,16 @@ class Carrier(models.Model):
                 self.user.is_verified = True
                 self.user.save(update_fields=['is_verified'])
 
+        # IMPORTANT: Si le statut est APPROVED, activer automatiquement dans le frontend
+        if self.status == self.Status.APPROVED and not self.is_active_in_frontend:
+            self.is_active_in_frontend = True
+            logger.info(f"Transporteur {self.user.username} automatiquement activé dans le frontend")
+
         # Sauvegarder l'objet Carrier
         try:
             super().save(*args, **kwargs)
-            logger.info(f"Profil transporteur sauvegardé: id={self.id}, user={self.user.username}")
+            logger.info(f"Profil transporteur sauvegardé: id={self.id}, user={self.user.username}, "
+                       f"status={self.status}, frontend_active={self.is_active_in_frontend}")
         except Exception as e:
             logger.error(f"Erreur lors de la sauvegarde du profil transporteur: {e}")
             raise
@@ -506,9 +524,11 @@ class Carrier(models.Model):
 
     def calculate_success_rate(self):
         """Calcule le taux de réussite"""
-        if self.total_missions > 0:
-            return (self.completed_missions / self.total_missions) * 100
-        return 100.00
+        if self.total_transport_missions > 0:
+            rate = (self.completed_transport_missions / self.total_transport_missions) * 100
+            self.transport_success_rate = min(rate, 100.00)
+            self.save(update_fields=['transport_success_rate'])
+        return self.transport_success_rate
 
     def can_carry_item(self, weight, length, width, height):
         """Vérifie si le transporteur peut transporter un objet"""
@@ -524,10 +544,6 @@ class Carrier(models.Model):
 
         return True
 
-    def get_available_routes(self):
-        """Retourne les routes disponibles"""
-        return self.routes.filter(is_active=True)
-
     def is_fully_verified(self):
         """Vérifie si le transporteur est entièrement vérifié"""
         return self.verification_level >= 3 and self.status == self.Status.APPROVED
@@ -540,45 +556,132 @@ class Carrier(models.Model):
 
         if reviews.exists():
             avg = reviews.aggregate(avg_rating=Avg('rating'))['avg_rating']
-            self.average_rating = avg or 0.00
-            self.total_reviews = reviews.count()
+            self.transport_average_rating = avg or 0.00
+            self.transport_total_reviews = reviews.count()
         else:
-            self.average_rating = 0.00
-            self.total_reviews = 0
+            self.transport_average_rating = 0.00
+            self.transport_total_reviews = 0
 
         try:
             Carrier.objects.filter(pk=self.pk).update(
-                average_rating=self.average_rating,
-                total_reviews=self.total_reviews
+                transport_average_rating=self.transport_average_rating,
+                transport_total_reviews=self.transport_total_reviews
             )
-            logger.debug(f"Note moyenne mise à jour pour {self.user.username}: {self.average_rating}")
+            logger.debug(f"Note moyenne mise à jour pour {self.user.username}: {self.transport_average_rating}")
         except Exception as e:
             logger.error(f"Erreur lors de la mise à jour de la note moyenne "
                         f"pour {self.user.username}: {e}")
 
     def is_available_at(self, date_time):
         """Vérifie la disponibilité à une date/heure donnée"""
-        if not self.is_available:
+        if not self.transport_is_available:
             return False
 
-        if self.available_from and date_time.date() < self.available_from:
+        if self.transport_available_from and date_time.date() < self.transport_available_from:
             return False
 
-        if self.available_until and date_time.date() > self.available_until:
+        if self.transport_available_until and date_time.date() > self.transport_available_until:
             return False
 
         # Vérifier l'emploi du temps hebdomadaire
-        if self.weekly_schedule:
+        if self.transport_weekly_schedule:
             day_name = date_time.strftime('%A').lower()
-            if day_name in self.weekly_schedule:
-                schedule = self.weekly_schedule[day_name]
+            if day_name in self.transport_weekly_schedule:
+                schedule = self.transport_weekly_schedule[day_name]
                 if schedule.get('start') and schedule.get('end'):
-                    from datetime import datetime
                     current_time = date_time.strftime('%H:%M')
                     if current_time < schedule['start'] or current_time > schedule['end']:
                         return False
 
         return True
+
+    # ========== MÉTHODES AJOUTÉES POUR LA GESTION FRONTEND ==========
+    def approve_and_activate(self, approved_by_user):
+        """Approuve et active le transporteur dans le frontend"""
+        self.status = self.Status.APPROVED
+        self.is_active_in_frontend = True
+        self.approved_at = timezone.now()
+        self.approved_by = approved_by_user
+        self.verification_level = max(self.verification_level, 3)
+
+        # Mettre à jour l'utilisateur associé
+        self.user.is_verified = True
+        self.user.save(update_fields=['is_verified'])
+
+        self.save()
+
+        logger.info(f"Transporteur {self.user.username} approuvé et activé par {approved_by_user.username}")
+        return True
+
+    def deactivate_from_frontend(self):
+        """Désactive le transporteur du frontend"""
+        self.is_active_in_frontend = False
+        self.save(update_fields=['is_active_in_frontend'])
+        logger.info(f"Transporteur {self.user.username} désactivé du frontend")
+        return True
+
+    def reactivate_to_frontend(self):
+        """Réactive le transporteur dans le frontend"""
+        if self.status == self.Status.APPROVED:
+            self.is_active_in_frontend = True
+            self.save(update_fields=['is_active_in_frontend'])
+            logger.info(f"Transporteur {self.user.username} réactivé dans le frontend")
+            return True
+        return False
+
+    def can_appear_in_frontend(self):
+        """Vérifie si le transporteur peut apparaître dans le frontend"""
+        return (
+            self.status == self.Status.APPROVED and
+            self.is_active_in_frontend and
+            self.transport_is_available and
+            self.verification_level >= 1
+        )
+
+    def get_frontend_status(self):
+        """Retourne le statut pour le frontend"""
+        if not self.status == self.Status.APPROVED:
+            return "pending"
+        elif not self.is_active_in_frontend:
+            return "inactive"
+        elif not self.transport_is_available:
+            return "unavailable"
+        else:
+            return "active"
+
+
+    def get_rating_for_display(self):
+        """Retourne la note pour l'affichage, garantie d'être un float"""
+        try:
+            return float(self.transport_average_rating or 0)
+        except (ValueError, TypeError):
+            return 0.0
+
+
+    @property
+    def transport_average_rating_display(self):
+        """Retourne la note moyenne formatée pour l'affichage"""
+        if self.transport_average_rating:
+            return f"{self.transport_average_rating:.1f}/5"
+        return "Non noté"
+
+    # OU si le problème est dans format_html, corrigez-le :
+    def get_stars_display(self):
+        """Retourne les étoiles pour l'affichage"""
+        from django.utils.html import format_html
+        rating = float(self.transport_average_rating or 0)
+        stars = '★' * int(rating)
+        half_star = '½' if rating % 1 >= 0.5 else ''
+        empty_stars = '☆' * (5 - int(rating) - (1 if half_star else 0))
+
+        # Correction : utiliser des nombres, pas des SafeString
+        return format_html(
+            '<span style="color: gold;">{}</span>'
+            '<span style="color: gold;">{}</span>'
+            '<span style="color: lightgray;">{}</span>'
+            '<span> ({:.1f}/5)</span>',
+            stars, half_star, empty_stars, rating
+        )
 
 
 class CarrierRoute(gis_models.Model):
@@ -1109,8 +1212,9 @@ class Mission(models.Model):
             self.completed_at = timezone.now()
 
             # Mettre à jour les statistiques du transporteur
-            self.carrier.completed_missions += 1
-            self.carrier.save(update_fields=['completed_missions'])
+            self.carrier.completed_transport_missions += 1
+            self.carrier.total_transport_missions += 1
+            self.carrier.save(update_fields=['completed_transport_missions', 'total_transport_missions'])
 
         super().save(*args, **kwargs)
 

@@ -20,7 +20,7 @@ from .models import (
     CarrierStatistics, ExpenseReport
 )
 from .forms import (
-    CarrierRegistrationForm, CarrierProfileForm, CarrierRouteForm,
+    CarrierProfileForm, CarrierRouteForm,
     MissionForm, CollectionDayForm, DocumentUploadForm,
     FinancialTransactionForm, CarrierReviewForm, CarrierOfferForm,
     MissionAcceptanceForm, MissionStatusUpdateForm, DeliveryProofForm,
@@ -48,79 +48,6 @@ def is_carrier_owner(user, carrier):
     """Vérifie si l'utilisateur est propriétaire du transporteur"""
     return user == carrier.user
 
-
-class CarrierRegistrationView(CreateView):
-    """Vue d'inscription pour les transporteurs avec CreateView"""
-    template_name = 'carriers/registration/register.html'
-    form_class = CarrierRegistrationForm
-    success_url = reverse_lazy('carriers:registration_success')
-    model = Carrier
-
-    def dispatch(self, request, *args, **kwargs):
-        # Vérifier si l'utilisateur est déjà authentifié
-        if request.user.is_authenticated:
-            if hasattr(request.user, 'carrier_profile'):
-                return redirect('carriers:dashboard')
-            else:
-                return redirect('carriers:profile')
-        return super().dispatch(request, *args, **kwargs)
-
-    def get_initial(self):
-        """Pré-remplir le formulaire avec les données de la session"""
-        initial = super().get_initial()
-        session_data = self.request.session.get('user_registration_data')
-
-        if session_data:
-            # Pré-remplir les champs avec les données de la session
-            initial['email'] = session_data.get('email')
-            initial['password'] = session_data.get('password')
-            initial['password_confirm'] = session_data.get('password')
-            initial['first_name'] = session_data.get('first_name')
-            initial['last_name'] = session_data.get('last_name')
-            initial['phone'] = session_data.get('phone')
-
-        return initial
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['title'] = _("Inscription Transporteur")
-
-        # Vérifier s'il y a des données en session pour le transporteur
-        session_data = self.request.session.get('user_registration_data')
-        if session_data:
-            context['prefilled_data'] = True
-
-        return context
-
-    def form_valid(self, form):
-        try:
-            # Supprimer les données de session après utilisation réussie
-            if 'user_registration_data' in self.request.session:
-                del self.request.session['user_registration_data']
-
-            # Le formulaire s'occupe de créer User et Carrier
-            carrier = form.save()
-
-            # Connecter l'utilisateur
-            from django.contrib.auth import login
-            login(self.request, carrier.user)
-
-            messages.success(self.request,
-                _("Inscription réussie ! Votre compte transporteur est en attente de validation."))
-
-            return redirect(self.success_url)
-
-        except Exception as e:
-            logger.error(f"Erreur lors de l'inscription: {str(e)}")
-            messages.error(self.request,
-                _("Une erreur est survenue lors de l'inscription. Veuillez réessayer."))
-
-            # Réafficher le formulaire avec les erreurs
-            return self.render_to_response(self.get_context_data(form=form))
-
-def registration_success(request):
-    """Page de succès d'inscription"""
-    return render(request, 'carriers/registration/success.html')
 
 
 
@@ -226,18 +153,6 @@ def carrier_profile(request):
 
     return render(request, 'carriers/profile.html', context)
 
-
-
-@login_required
-def apply_as_carrier(request):
-    """Vue pour devenir transporteur"""
-    # Vérifier si l'utilisateur a déjà un profil transporteur
-    if hasattr(request.user, 'carrier_profile'):
-        messages.info(request, _("Vous êtes déjà transporteur."))
-        return redirect('carriers:dashboard')
-
-    # Rediriger vers la page d'inscription des transporteurs
-    return redirect('carriers:register')
 
 @login_required
 @user_passes_test(is_carrier)

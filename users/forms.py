@@ -7,6 +7,7 @@ from django_countries import countries
 from phonenumber_field.formfields import PhoneNumberField
 from datetime import datetime
 import logging
+import os
 
 from .models import User, UserProfile
 from carriers.models import Carrier, MerchandiseTypes
@@ -212,6 +213,7 @@ class CarrierRegistrationForm(UserCreationForm):
         min_value=0.001,
         max_digits=8,
         decimal_places=3,
+        initial=1000,
         widget=forms.NumberInput(attrs={
             'class': 'form-control',
             'step': '0.001',
@@ -224,6 +226,7 @@ class CarrierRegistrationForm(UserCreationForm):
         min_value=0.001,
         max_digits=10,
         decimal_places=3,
+        initial=10,
         widget=forms.NumberInput(attrs={
             'class': 'form-control',
             'step': '0.001',
@@ -237,6 +240,7 @@ class CarrierRegistrationForm(UserCreationForm):
         max_digits=6,
         decimal_places=2,
         required=False,
+        initial=1.5,
         widget=forms.NumberInput(attrs={
             'class': 'form-control',
             'step': '0.01'
@@ -249,6 +253,7 @@ class CarrierRegistrationForm(UserCreationForm):
         max_digits=6,
         decimal_places=2,
         required=False,
+        initial=1.0,
         widget=forms.NumberInput(attrs={
             'class': 'form-control',
             'step': '0.01'
@@ -261,6 +266,7 @@ class CarrierRegistrationForm(UserCreationForm):
         max_digits=6,
         decimal_places=2,
         required=False,
+        initial=1.0,
         widget=forms.NumberInput(attrs={
             'class': 'form-control',
             'step': '0.01'
@@ -271,6 +277,7 @@ class CarrierRegistrationForm(UserCreationForm):
     provides_packaging = forms.BooleanField(
         label=_("Fournit l'emballage"),
         required=False,
+        initial=False,
         widget=forms.CheckboxInput(attrs={
             'class': 'form-check-input'
         })
@@ -279,6 +286,7 @@ class CarrierRegistrationForm(UserCreationForm):
     provides_insurance = forms.BooleanField(
         label=_("Fournit l'assurance transport"),
         required=False,
+        initial=False,
         widget=forms.CheckboxInput(attrs={
             'class': 'form-check-input'
         })
@@ -287,6 +295,7 @@ class CarrierRegistrationForm(UserCreationForm):
     provides_loading = forms.BooleanField(
         label=_("Fournit le chargement"),
         required=False,
+        initial=False,
         widget=forms.CheckboxInput(attrs={
             'class': 'form-check-input'
         })
@@ -295,6 +304,7 @@ class CarrierRegistrationForm(UserCreationForm):
     provides_unloading = forms.BooleanField(
         label=_("Fournit le déchargement"),
         required=False,
+        initial=False,
         widget=forms.CheckboxInput(attrs={
             'class': 'form-check-input'
         })
@@ -306,6 +316,7 @@ class CarrierRegistrationForm(UserCreationForm):
         min_value=0,
         max_digits=8,
         decimal_places=4,
+        initial=1.0,
         widget=forms.NumberInput(attrs={
             'class': 'form-control',
             'step': '0.0001',
@@ -318,6 +329,7 @@ class CarrierRegistrationForm(UserCreationForm):
         min_value=0,
         max_digits=8,
         decimal_places=2,
+        initial=10.0,
         widget=forms.NumberInput(attrs={
             'class': 'form-control',
             'step': '0.01',
@@ -370,7 +382,7 @@ class CarrierRegistrationForm(UserCreationForm):
         label=_("Photo de profil"),
         required=False,
         widget=forms.FileInput(attrs={
-            'class': 'form-control-file',
+            'class': 'form-control',
             'accept': 'image/*'
         })
     )
@@ -379,7 +391,7 @@ class CarrierRegistrationForm(UserCreationForm):
         label=_("Recto pièce d'identité *"),
         required=True,
         widget=forms.FileInput(attrs={
-            'class': 'form-control-file',
+            'class': 'form-control',
             'accept': 'image/*',
             'id': 'id_id_front'
         })
@@ -389,7 +401,7 @@ class CarrierRegistrationForm(UserCreationForm):
         label=_("Verso pièce d'identité"),
         required=False,
         widget=forms.FileInput(attrs={
-            'class': 'form-control-file',
+            'class': 'form-control',
             'accept': 'image/*',
             'id': 'id_id_back'
         })
@@ -464,6 +476,10 @@ class CarrierRegistrationForm(UserCreationForm):
         # Masquer certains champs initialement
         self.fields['custom_merchandise_types'].widget.attrs['style'] = 'display: none;'
 
+        # Ajouter du JavaScript pour gérer l'affichage conditionnel
+        self.fields['carrier_type'].widget.attrs['onchange'] = 'toggleCompanyFields()'
+        self.fields['accepted_merchandise_types'].widget.attrs['onchange'] = 'toggleCustomMerchandise()'
+
     def clean(self):
         """Validation croisée des données"""
         cleaned_data = super().clean()
@@ -508,6 +524,19 @@ class CarrierRegistrationForm(UserCreationForm):
                             limits['max_volume']
                         ))
 
+        # Validation des photos
+        id_front = cleaned_data.get('id_front')
+        if id_front:
+            # Vérifier la taille du fichier (max 5MB)
+            if id_front.size > 5 * 1024 * 1024:
+                self.add_error('id_front', _("La photo est trop volumineuse. Taille max: 5MB"))
+
+            # Vérifier le type de fichier
+            valid_extensions = ['.jpg', '.jpeg', '.png', '.gif']
+            ext = os.path.splitext(id_front.name)[1].lower()
+            if ext not in valid_extensions:
+                self.add_error('id_front', _("Format de fichier non supporté. Formats acceptés: JPG, PNG, GIF"))
+
         return cleaned_data
 
     def clean_email(self):
@@ -523,6 +552,7 @@ class CarrierRegistrationForm(UserCreationForm):
         if User.objects.filter(phone=phone).exists():
             raise ValidationError(_("Un compte avec ce numéro de téléphone existe déjà"))
         return phone
+
 
     def save(self, commit=True):
         """
@@ -549,94 +579,119 @@ class CarrierRegistrationForm(UserCreationForm):
             user.address = self.cleaned_data.get('address', '')
             user.preferred_language = self.cleaned_data.get('preferred_language', 'fr')
             user.role = user_role
-            user.is_available = True  # Disponible par défaut
+            user.is_available = True
+            user.is_verified = False
+            user.kyc_verified = False
+            user.email_verified = False
+            user.phone_verified = False
 
             if commit:
                 user.save()
+                logger.info(f"Utilisateur créé: {user.username}")
 
             # ========== CRÉATION DU PROFIL UTILISATEUR ==========
             try:
-                # Créer UserProfile si nécessaire
-                if hasattr(user, 'profile'):
-                    profile = user.profile
-                else:
-                    profile = UserProfile(user=user)
+                profile, created = UserProfile.objects.get_or_create(user=user)
 
-                # Remplir les champs de l'entreprise si professionnel
                 if carrier_type == Carrier.CarrierType.PROFESSIONAL:
                     profile.company_name = self.cleaned_data.get('transport_company_name', '')
                     profile.company_registration = self.cleaned_data.get('transport_company_registration', '')
                     profile.tax_id = self.cleaned_data.get('transport_tax_id', '')
 
                 profile.save()
+                logger.info(f"UserProfile {'créé' if created else 'mis à jour'} pour {user.username}")
+
             except Exception as e:
-                logger.warning(f"UserProfile non créé: {e}")
+                logger.error(f"Erreur UserProfile pour {user.username}: {e}")
 
             # ========== CRÉATION DU PROFIL TRANSPORTEUR ==========
-            carrier = Carrier(
-                user=user,
-                carrier_type=carrier_type,
-                vehicle_type=self.cleaned_data['vehicle_type'],
-                vehicle_make=self.cleaned_data.get('vehicle_make', ''),
-                vehicle_model=self.cleaned_data.get('vehicle_model', ''),
-                vehicle_year=self.cleaned_data.get('vehicle_year'),
-                vehicle_registration=self.cleaned_data.get('vehicle_registration', ''),
-                max_weight=self.cleaned_data['max_weight'],
-                max_volume=self.cleaned_data['max_volume'],
-                max_length=self.cleaned_data.get('max_length', 0),
-                max_width=self.cleaned_data.get('max_width', 0),
-                max_height=self.cleaned_data.get('max_height', 0),
-                provides_packaging=self.cleaned_data.get('provides_packaging', False),
-                provides_insurance=self.cleaned_data.get('provides_insurance', False),
-                provides_loading=self.cleaned_data.get('provides_loading', False),
-                provides_unloading=self.cleaned_data.get('provides_unloading', False),
-                base_price_per_km=self.cleaned_data['base_price_per_km'],
-                min_price=self.cleaned_data['min_price'],
-                currency=self.cleaned_data['currency'],
-                coverage_cities=self.cleaned_data.get('coverage_cities', ''),
-                transport_is_available=True,
-                status=Carrier.Status.PENDING,
-                verification_level=0
-            )
+            try:
+                # Vérifier si un profil transporteur existe déjà
+                if hasattr(user, 'carrier_profile'):
+                    carrier = user.carrier_profile
+                    logger.warning(f"Profil transporteur existant pour {user.username}, mise à jour")
+                    created_carrier = False
+                else:
+                    carrier = Carrier(user=user)
+                    created_carrier = True
 
-            # Champs entreprise pour professionnels
-            if carrier_type == Carrier.CarrierType.PROFESSIONAL:
-                carrier.transport_company_name = self.cleaned_data.get('transport_company_name', '')
-                carrier.transport_company_registration = self.cleaned_data.get('transport_company_registration', '')
-                carrier.transport_tax_id = self.cleaned_data.get('transport_tax_id', '')
-                carrier.transport_company_address = self.cleaned_data.get('transport_company_address', '')
+                # Remplir les champs de base
+                carrier.carrier_type = carrier_type
+                carrier.vehicle_type = self.cleaned_data['vehicle_type']
+                carrier.vehicle_make = self.cleaned_data.get('vehicle_make', '')
+                carrier.vehicle_model = self.cleaned_data.get('vehicle_model', '')
+                carrier.vehicle_year = self.cleaned_data.get('vehicle_year')
+                carrier.vehicle_registration = self.cleaned_data.get('vehicle_registration', '')
+                carrier.max_weight = self.cleaned_data['max_weight']
+                carrier.max_volume = self.cleaned_data['max_volume']
+                carrier.max_length = self.cleaned_data.get('max_length', 1.5)
+                carrier.max_width = self.cleaned_data.get('max_width', 1.0)
+                carrier.max_height = self.cleaned_data.get('max_height', 1.0)
+                carrier.provides_packaging = self.cleaned_data.get('provides_packaging', False)
+                carrier.provides_insurance = self.cleaned_data.get('provides_insurance', False)
+                carrier.provides_loading = self.cleaned_data.get('provides_loading', False)
+                carrier.provides_unloading = self.cleaned_data.get('provides_unloading', False)
+                carrier.base_price_per_km = self.cleaned_data['base_price_per_km']
+                carrier.min_price = self.cleaned_data['min_price']
+                carrier.currency = self.cleaned_data['currency']
+                carrier.coverage_cities = self.cleaned_data.get('coverage_cities', '')
+                carrier.transport_is_available = True
+                carrier.status = Carrier.Status.PENDING
+                carrier.verification_level = 0
 
-            # Types de marchandises
-            accepted_types = self.cleaned_data.get('accepted_merchandise_types', [])
-            carrier.accepted_merchandise_types = accepted_types
+                # Champs entreprise pour professionnels
+                if carrier_type == Carrier.CarrierType.PROFESSIONAL:
+                    carrier.transport_company_name = self.cleaned_data.get('transport_company_name', '')
+                    carrier.transport_company_registration = self.cleaned_data.get('transport_company_registration', '')
+                    carrier.transport_tax_id = self.cleaned_data.get('transport_tax_id', '')
+                    carrier.transport_company_address = self.cleaned_data.get('transport_company_address', '')
 
-            custom_types = self.cleaned_data.get('custom_merchandise_types', '')
-            if custom_types:
-                carrier.custom_merchandise_types = custom_types
+                # Types de marchandises
+                accepted_types = self.cleaned_data.get('accepted_merchandise_types', [])
+                if accepted_types:
+                    carrier.accepted_merchandise_types = accepted_types
 
-            # Photos
-            if self.cleaned_data.get('profile_photo'):
-                carrier.profile_photo = self.cleaned_data['profile_photo']
+                custom_types = self.cleaned_data.get('custom_merchandise_types', '')
+                if custom_types:
+                    carrier.custom_merchandise_types = custom_types
 
-            if self.cleaned_data.get('id_front'):
-                carrier.id_front = self.cleaned_data['id_front']
+                # IMPORTANT: Traitement des fichiers images
+                if self.cleaned_data.get('profile_photo'):
+                    carrier.profile_photo = self.cleaned_data['profile_photo']
+                    logger.info(f"Photo de profil enregistrée pour {user.username}")
 
-            if self.cleaned_data.get('id_back'):
-                carrier.id_back = self.cleaned_data['id_back']
+                if self.cleaned_data.get('id_front'):
+                    carrier.id_front = self.cleaned_data['id_front']
+                    logger.info(f"ID front enregistrée pour {user.username}")
 
-            if commit:
-                carrier.save()
+                if self.cleaned_data.get('id_back'):
+                    carrier.id_back = self.cleaned_data['id_back']
+                    logger.info(f"ID back enregistrée pour {user.username}")
 
-            logger.info(f"Transporteur créé avec succès: {user.username}")
+                # Sauvegarder le carrier avec commit=True
+                if commit:
+                    carrier.save()
+
+                    if created_carrier:
+                        logger.info(f"Carrier créé avec succès: {user.username} (ID: {carrier.id})")
+                    else:
+                        logger.info(f"Carrier mis à jour: {user.username} (ID: {carrier.id})")
+
+            except Exception as e:
+                logger.error(f"Erreur lors de la création du Carrier pour {user.username}: {e}", exc_info=True)
+                # Si le Carrier échoue, on peut quand même garder l'utilisateur
+                raise ValidationError(_(
+                    f"Erreur lors de la création du profil transporteur: {str(e)}"
+                ))
+
             return user
 
         except Exception as e:
-            logger.error(f"Erreur lors de la création du transporteur: {e}")
+            logger.error(f"Erreur générale lors de la création du transporteur: {e}", exc_info=True)
             raise ValidationError(_(
-                "Erreur lors de l'inscription. Veuillez réessayer. "
-                "Si le problème persiste, contactez le support."
+                f"Erreur lors de l'inscription: {str(e)}. "
+                "Veuillez réessayer ou contacter le support."
             ))
-
 # Les autres formulaires existants restent inchangés
 class CustomUserCreationForm(UserCreationForm):
     """Formulaire pour créer un nouvel utilisateur avec des champs supplémentaires"""
@@ -692,16 +747,12 @@ class CustomUserCreationForm(UserCreationForm):
                             'ES': '34',   # Espagne
                             'IT': '39',   # Italie
                             'PT': '351',  # Portugal
-                            # Ajoutez d'autres pays selon vos besoins
                         }
 
-                        code = country_codes.get(country.code, '')
+                        code = country_codes.get(country, '')
                         if code:
                             # Enlever le 0 initial et ajouter le code pays
                             phone = f"+{code}{phone[1:]}"
-                        else:
-                            # Code pays non trouvé, laisser tel quel
-                            pass
 
                 # Convertir 00 en + si présent (format 00212...)
                 elif phone.startswith('00'):
@@ -712,7 +763,7 @@ class CustomUserCreationForm(UserCreationForm):
                     phone = '+' + phone
 
                 # Validation de la longueur minimale
-                if len(phone) < 10:  # +212612345678 = 13 caractères
+                if len(phone) < 10:
                     raise forms.ValidationError(
                         _("Numéro de téléphone trop court. Format attendu : +212612345678")
                     )
@@ -750,7 +801,7 @@ class CustomUserCreationForm(UserCreationForm):
             'class': 'form-control',
             'placeholder': _("Votre ville")
         })
-        self.fields['city'].required = False  # Rendre optionnel
+        self.fields['city'].required = False
 
         # Rendre le pays obligatoire pour aider à la validation du téléphone
         self.fields['country'].required = True
@@ -849,11 +900,10 @@ class KYCVerificationForm(forms.ModelForm):
 
     class Meta:
         model = User
-        fields = []  # Aucun champ du modèle User, seulement les fichiers
+        fields = []
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Logique spécifique pour les transporteurs professionnels
         if self.instance and self.instance.role == User.Role.CARRIER:
             self.fields['company_registration_doc'] = forms.FileField(
                 label=_("Document d'immatriculation"),
