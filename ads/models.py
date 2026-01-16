@@ -11,6 +11,14 @@ import uuid
 from mptt.models import MPTTModel, TreeForeignKey
 from django_countries.fields import CountryField
 
+
+# ~/ebi3/ads/models.py - Version corrigée de la classe AdImage
+from io import BytesIO
+from PIL import Image
+from django.core.files.base import ContentFile
+import os
+
+
 # Validateurs personnalisés
 def validate_file_size(value):
     """Validateur pour la taille maximale des fichiers (10MB)"""
@@ -151,11 +159,6 @@ def save(self, *args, **kwargs):
 
     # Générer la miniature si elle n'existe pas
     if self.image and not self.thumbnail:
-        from PIL import Image
-        import os
-        from django.core.files.base import ContentFile
-
-        # Ouvrir l'image originale
         img = Image.open(self.image.path)
 
         # Calculer les dimensions de la miniature (200x200)
@@ -537,7 +540,6 @@ def ad_image_upload_path(instance, filename):
     filename = f"{uuid.uuid4()}.{ext}"
     return f"ads/{instance.ad.seller.username}/{instance.ad.slug}/images/{filename}"
 
-
 class AdImage(models.Model):
     ad = models.ForeignKey(
         Ad,
@@ -612,12 +614,99 @@ class AdImage(models.Model):
         return f"Image pour {self.ad.title}"
 
     def save(self, *args, **kwargs):
+        # Gérer l'image principale
         if not self.ad.images.exists() and not self.is_primary:
             self.is_primary = True
+
         if self.is_primary:
             AdImage.objects.filter(ad=self.ad, is_primary=True).exclude(pk=self.pk).update(is_primary=False)
+
+        # Sauvegarder d'abord pour avoir un ID
+        is_new = self._state.adding
+
+        if is_new:
+            # Pour une nouvelle image, sauvegarder d'abord sans thumbnail
+            super().save(*args, **kwargs)
+
+        # Générer la miniature si l'image existe et qu'on n'a pas de thumbnail
+        if self.image and (is_new or not self.thumbnail):
+            try:
+                # Ouvrir l'image originale
+                img = Image.open(self.image.path)
+
+                # Convertir en RGB si nécessaire
+                if img.mode in ('RGBA', 'LA', 'P'):
+                    background = Image.new('RGB', img.size, (255, 255, 255))
+                    if img.mode == 'P':
+                        img = img.convert('RGBA')
+                    background.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
+                    img = background
+
+                # Calculer les dimensions de la miniature (200x200)
+                img.thumbnail((200, 200), Image.Resampling.LANCZOS)
+
+                # Préparer le nom du fichier thumbnail
+                thumb_name, thumb_extension = os.path.splitext(self.image.name)
+                thumb_extension = thumb_extension.lower()
+
+                # Déterminer le format
+                if thumb_extension in ['.jpg', '.jpeg']:
+                    format = 'JPEG'
+                    thumb_extension = '.jpg'
+                elif thumb_extension == '.png':
+                    format = 'PNG'
+                elif thumb_extension == '.webp':
+                    format = 'WEBP'
+                elif thumb_extension == '.gif':
+                    format = 'GIF'
+                else:
+                    format = 'JPEG'
+                    thumb_extension = '.jpg'
+
+                thumb_filename = f"{thumb_name}_thumb{thumb_extension}"
+
+                # Sauvegarder la miniature
+                temp_thumb = BytesIO()
+                img.save(temp_thumb, format, quality=85)
+                temp_thumb.seek(0)
+
+                # Sauvegarder dans le champ thumbnail
+                if self.thumbnail:
+                    self.thumbnail.delete(save=False)
+
+                self.thumbnail.save(
+                    thumb_filename,
+                    ContentFile(temp_thumb.read()),
+                    save=False
+                )
+                temp_thumb.close()
+
+            except Exception as e:
+                # En cas d'erreur, on laisse thumbnail vide
+                print(f"Erreur lors de la création de la miniature: {e}")
+                # Ne pas bloquer la sauvegarde si la miniature échoue
+
+        # Sauvegarder avec les modifications
         super().save(*args, **kwargs)
 
+    def delete(self, *args, **kwargs):
+        """Supprime aussi les fichiers physiques"""
+        if self.image:
+            # Ne pas supprimer l'image si d'autres images y font référence
+            # (dans le cas où plusieurs AdImage partagent le même fichier)
+            pass
+        if self.thumbnail:
+            self.thumbnail.delete(save=False)
+        super().delete(*args, **kwargs)
+
+    @property
+    def thumbnail_url(self):
+        """Retourne l'URL de la miniature ou de l'image si pas de miniature"""
+        if self.thumbnail and hasattr(self.thumbnail, 'url'):
+            return self.thumbnail.url
+        elif self.image and hasattr(self.image, 'url'):
+            return self.image.url
+        return ''
 
 def ad_video_upload_path(instance, filename):
     ext = filename.split('.')[-1]

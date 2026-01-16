@@ -4,27 +4,34 @@ from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
 from django.urls import reverse
 from django.contrib import messages
+from django.contrib.auth import get_user_model
+from django.utils import timezone
+from django.utils.safestring import mark_safe
 from .models import (
     Carrier, CarrierRoute, Mission, CollectionDay,
     CarrierDocument, FinancialTransaction, CarrierReview,
     CarrierOffer, CarrierAvailability, CarrierNotification,
-    CarrierStatistics, ExpenseReport
+    CarrierStatistics, ExpenseReport, MerchandiseTypes
 )
+
+User = get_user_model()
 
 
 @admin.register(Carrier)
 class CarrierAdmin(admin.ModelAdmin):
-    """Admin pour les transporteurs - Version corrigée pour les nouveaux noms de champs"""
+    """Admin pour les transporteurs - Version améliorée avec actions d'approbation"""
 
     list_display = [
-        'id', 'user_display', 'carrier_type', 'status',
-        'verification_level', 'vehicle_type', 'transport_is_available_display',
+        'id', 'user_display', 'carrier_type', 'status_display',
+        'is_active_in_frontend_display', 'verification_level_display',
+        'vehicle_type', 'transport_is_available_display',
         'transport_average_rating_display', 'created_at'
     ]
 
     list_filter = [
         'status', 'carrier_type', 'vehicle_type',
-        'transport_is_available', 'created_at'
+        'transport_is_available', 'is_active_in_frontend',
+        'created_at'
     ]
 
     search_fields = [
@@ -33,7 +40,7 @@ class CarrierAdmin(admin.ModelAdmin):
     ]
 
     readonly_fields = [
-        'created_at', 'updated_at', 'approved_at', 'verified_at',
+        'created_at', 'updated_at', 'verified_at',
         'total_transport_missions', 'completed_transport_missions',
         'transport_success_rate', 'transport_average_rating',
         'transport_total_reviews', 'user_info_display'
@@ -41,7 +48,11 @@ class CarrierAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (_("Informations utilisateur"), {
-            'fields': ('user_info_display', 'status', 'verification_level')
+            'fields': ('user_info_display', 'status', 'verification_level', 'rejection_reason')
+        }),
+        (_("Approbation frontend"), {
+            'fields': ('is_active_in_frontend', 'approved_by'),
+            'classes': ('collapse',)
         }),
         (_("Informations professionnelles"), {
             'fields': (
@@ -89,11 +100,6 @@ class CarrierAdmin(admin.ModelAdmin):
                 'transport_weekly_schedule_display'
             )
         }),
-        (_("Sécurité et conformité"), {
-            'fields': (
-                'rgpd_consent', 'terms_accepted'
-            )
-        }),
         (_("Statistiques transport"), {
             'fields': (
                 'total_transport_missions', 'completed_transport_missions',
@@ -106,13 +112,66 @@ class CarrierAdmin(admin.ModelAdmin):
         }),
     )
 
-    actions = ['approve_carriers', 'reject_carriers', 'verify_documents']
+    actions = [
+        'approve_and_activate_carriers',
+        'activate_in_frontend',
+        'deactivate_from_frontend',
+        'reject_carriers',
+        'verify_documents',
+        'mark_as_professional',
+        'mark_as_personal',
+        'reset_verification'
+    ]
 
     def user_display(self, obj):
         """Affiche l'utilisateur avec lien"""
         url = reverse("admin:users_user_change", args=[obj.user.id])
         return format_html('<a href="{}">{}</a>', url, obj.user)
     user_display.short_description = _("Utilisateur")
+
+    def status_display(self, obj):
+        """Affiche le statut avec couleur"""
+        colors = {
+            'PENDING': 'orange',
+            'APPROVED': 'green',
+            'REJECTED': 'red',
+            'SUSPENDED': 'gray',
+            'INACTIVE': 'darkgray',
+        }
+        color = colors.get(obj.status, 'gray')
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{}</span>',
+            color, obj.get_status_display()
+        )
+    status_display.short_description = _("Statut")
+
+    def is_active_in_frontend_display(self, obj):
+        """Affiche l'état d'activation dans le frontend"""
+        if obj.is_active_in_frontend:
+            return format_html(
+                '<span style="color: green; font-weight: bold;">✓ {}</span>',
+                _("Actif")
+            )
+        return format_html(
+            '<span style="color: red;">✗ {}</span>',
+            _("Inactif")
+        )
+    is_active_in_frontend_display.short_description = _("Frontend")
+
+    def verification_level_display(self, obj):
+        """Affiche le niveau de vérification"""
+        level = obj.verification_level
+        if level == 0:
+            return format_html('<span style="color: red;">● {}</span>', _("Non vérifié"))
+        elif level == 1:
+            return format_html('<span style="color: orange;">● {}</span>', _("Basique"))
+        elif level == 2:
+            return format_html('<span style="color: blue;">● {}</span>', _("Intermédiaire"))
+        elif level == 3:
+            return format_html('<span style="color: green;">● {}</span>', _("Avancé"))
+        elif level >= 4:
+            return format_html('<span style="color: darkgreen; font-weight: bold;">★ {}</span>', _("Expert"))
+    verification_level_display.short_description = _("Vérification")
 
     def user_info_display(self, obj):
         """Affiche les informations utilisateur"""
@@ -121,12 +180,16 @@ class CarrierAdmin(admin.ModelAdmin):
                 '<strong>Utilisateur:</strong> <a href="{}">{}</a><br>'
                 '<strong>Email:</strong> {}<br>'
                 '<strong>Téléphone:</strong> {}<br>'
-                '<strong>Rôle:</strong> {}',
+                '<strong>Rôle:</strong> {}<br>'
+                '<strong>Vérifié:</strong> {}<br>'
+                '<strong>KYC:</strong> {}',
                 reverse("admin:users_user_change", args=[obj.user.id]),
                 obj.user.get_full_name() or obj.user.username,
                 obj.user.email,
                 obj.user.phone,
-                obj.user.get_role_display()
+                obj.user.get_role_display(),
+                "✓" if obj.user.is_verified else "✗",
+                "✓" if obj.user.kyc_verified else "✗"
             )
         return _("Aucun utilisateur associé")
     user_info_display.short_description = _("Informations utilisateur")
@@ -228,10 +291,9 @@ class CarrierAdmin(admin.ModelAdmin):
                     end = details['end'].replace(':', 'h')
                     schedule_text.append(f"{day_fr}: {start}-{end}")
 
-            return '<br>'.join(schedule_text) if schedule_text else _("Non défini")
+            return format_html('<br>'.join(schedule_text)) if schedule_text else _("Non défini")
         return _("Non défini")
     transport_weekly_schedule_display.short_description = _("Emploi du temps")
-    transport_weekly_schedule_display.allow_tags = True
 
     def transport_is_available_display(self, obj):
         """Affiche la disponibilité avec une icône"""
@@ -246,53 +308,239 @@ class CarrierAdmin(admin.ModelAdmin):
         )
     transport_is_available_display.short_description = _("Disponible")
 
-    def transport_average_rating_display(self, obj):
-        """Affiche la note moyenne avec des étoiles"""
-        stars = '★' * int(obj.transport_average_rating)
-        half_star = '½' if obj.transport_average_rating % 1 >= 0.5 else ''
-        empty_stars = '☆' * (5 - int(obj.transport_average_rating) - (1 if half_star else 0))
 
-        return format_html(
-            '<span style="color: gold; font-size: 14px;">{}{}{}</span> '
-            '<span>({:.1f}/5)</span>',
-            stars, half_star, empty_stars, obj.transport_average_rating
-        )
+    def transport_average_rating_display(self, obj):
+        """Affiche la note moyenne avec des étoiles - Version corrigée avec mark_safe"""
+        # Récupérer la note comme float
+        try:
+            rating = float(obj.transport_average_rating)
+        except (ValueError, TypeError, AttributeError):
+            rating = 0.0
+
+        # Générer les étoiles
+        full_stars = int(rating)
+        half_star = '½' if rating - full_stars >= 0.5 else ''
+        empty_stars = 5 - full_stars - (1 if half_star else 0)
+
+        # Construire le HTML directement
+        html = f'<span style="color: gold; font-size: 14px;">'
+        html += '★' * full_stars
+        html += half_star
+        html += '☆' * empty_stars
+        html += f'</span> <span>({rating:.1f}/5)</span>'
+
+        return mark_safe(html)
+
     transport_average_rating_display.short_description = _("Note")
 
-    def approve_carriers(self, request, queryset):
-        """Approuver les transporteurs sélectionnés"""
-        updated = queryset.update(status=Carrier.Status.APPROVED)
+    # ========== ACTIONS D'ADMINISTRATION ==========
+
+    def approve_and_activate_carriers(self, request, queryset):
+        """
+        Approuver ET activer les transporteurs dans le frontend
+        """
+        count = 0
+        for carrier in queryset:
+            # Mettre à jour le statut
+            carrier.status = Carrier.Status.APPROVED
+            carrier.is_active_in_frontend = True
+            carrier.approved_at = timezone.now()
+            carrier.approved_by = request.user
+
+            # Augmenter le niveau de vérification
+            carrier.verification_level = max(carrier.verification_level, 3)
+
+            # Mettre à jour l'utilisateur associé
+            carrier.user.is_verified = True
+            carrier.user.save(update_fields=['is_verified'])
+
+            carrier.save()
+            count += 1
+
+            # Créer une notification pour le transporteur
+            CarrierNotification.objects.create(
+                carrier=carrier,
+                notification_type=CarrierNotification.NotificationType.STATUS_CHANGED,
+                title=_("Votre compte a été approuvé"),
+                message=_("Félicitations ! Votre compte transporteur a été approuvé et est maintenant visible dans le frontend."),
+                is_important=True
+            )
+
         self.message_user(
             request,
-            _("{} transporteurs approuvés avec succès.").format(updated),
+            _("{} transporteurs approuvés et activés dans le frontend.").format(count),
             messages.SUCCESS
         )
-    approve_carriers.short_description = _("Approuver les transporteurs sélectionnés")
+    approve_and_activate_carriers.short_description = _("✅ Approuver et activer dans le frontend")
 
-    def reject_carriers(self, request, queryset):
-        """Rejeter les transporteurs sélectionnés"""
+    def activate_in_frontend(self, request, queryset):
+        """
+        Activer les transporteurs approuvés dans le frontend
+        """
+        count = 0
         for carrier in queryset:
-            carrier.status = Carrier.Status.REJECTED
-            carrier.save()
+            if carrier.status == Carrier.Status.APPROVED and not carrier.is_active_in_frontend:
+                carrier.is_active_in_frontend = True
+                carrier.save()
+                count += 1
+
+                CarrierNotification.objects.create(
+                    carrier=carrier,
+                    notification_type=CarrierNotification.NotificationType.STATUS_CHANGED,
+                    title=_("Activé dans le frontend"),
+                    message=_("Votre profil est maintenant visible dans les recherches du frontend."),
+                    is_important=True
+                )
+
+        if count > 0:
+            self.message_user(
+                request,
+                _("{} transporteurs activés dans le frontend.").format(count),
+                messages.SUCCESS
+            )
+        else:
+            self.message_user(
+                request,
+                _("Aucun transporteur éligible pour activation (doit être approuvé)."),
+                messages.WARNING
+            )
+    activate_in_frontend.short_description = _("🔵 Activer dans le frontend")
+
+    def deactivate_from_frontend(self, request, queryset):
+        """
+        Désactiver les transporteurs du frontend
+        """
+        count = 0
+        for carrier in queryset:
+            if carrier.is_active_in_frontend:
+                carrier.is_active_in_frontend = False
+                carrier.save()
+                count += 1
+
+                CarrierNotification.objects.create(
+                    carrier=carrier,
+                    notification_type=CarrierNotification.NotificationType.STATUS_CHANGED,
+                    title=_("Désactivé du frontend"),
+                    message=_("Votre profil n'est plus visible dans les recherches du frontend."),
+                    is_important=True
+                )
+
         self.message_user(
             request,
-            _("{} transporteurs rejetés.").format(queryset.count()),
+            _("{} transporteurs désactivés du frontend.").format(count),
             messages.WARNING
         )
-    reject_carriers.short_description = _("Rejeter les transporteurs sélectionnés")
+    deactivate_from_frontend.short_description = _("🔴 Désactiver du frontend")
+
+    def reject_carriers(self, request, queryset):
+        """
+        Rejeter les transporteurs
+        """
+        count = 0
+        for carrier in queryset:
+            carrier.status = Carrier.Status.REJECTED
+            carrier.is_active_in_frontend = False
+            carrier.save()
+            count += 1
+
+            CarrierNotification.objects.create(
+                carrier=carrier,
+                notification_type=CarrierNotification.NotificationType.STATUS_CHANGED,
+                title=_("Demande rejetée"),
+                message=_("Votre demande d'inscription transporteur a été rejetée."),
+                is_important=True
+            )
+
+        self.message_user(
+            request,
+            _("{} transporteurs rejetés.").format(count),
+            messages.ERROR
+        )
+    reject_carriers.short_description = _("❌ Rejeter les transporteurs")
 
     def verify_documents(self, request, queryset):
-        """Vérifier les documents des transporteurs"""
+        """
+        Vérifier les documents des transporteurs
+        """
+        count = 0
         for carrier in queryset:
             if carrier.verification_level < 3:
                 carrier.verification_level = 3
+                carrier.verified_at = timezone.now()
                 carrier.save()
+                count += 1
+
+                CarrierNotification.objects.create(
+                    carrier=carrier,
+                    notification_type=CarrierNotification.NotificationType.DOCUMENT_VERIFIED,
+                    title=_("Documents vérifiés"),
+                    message=_("Vos documents ont été vérifiés avec succès."),
+                    is_important=True
+                )
+
         self.message_user(
             request,
-            _("Documents vérifiés pour {} transporteurs.").format(queryset.count()),
+            _("Documents vérifiés pour {} transporteurs.").format(count),
             messages.SUCCESS
         )
-    verify_documents.short_description = _("Vérifier les documents")
+    verify_documents.short_description = _("📄 Vérifier les documents")
+
+    def mark_as_professional(self, request, queryset):
+        """
+        Marquer comme transporteur professionnel
+        """
+        count = 0
+        for carrier in queryset:
+            carrier.carrier_type = Carrier.CarrierType.PROFESSIONAL
+            carrier.user.role = User.Role.CARRIER
+            carrier.user.save()
+            carrier.save()
+            count += 1
+
+        self.message_user(
+            request,
+            _("{} transporteurs marqués comme professionnels.").format(count),
+            messages.SUCCESS
+        )
+    mark_as_professional.short_description = _("🏢 Marquer comme professionnel")
+
+    def mark_as_personal(self, request, queryset):
+        """
+        Marquer comme transporteur particulier
+        """
+        count = 0
+        for carrier in queryset:
+            carrier.carrier_type = Carrier.CarrierType.PERSONAL
+            carrier.user.role = User.Role.CARRIER_PERSONAL
+            carrier.user.save()
+            carrier.save()
+            count += 1
+
+        self.message_user(
+            request,
+            _("{} transporteurs marqués comme particuliers.").format(count),
+            messages.SUCCESS
+        )
+    mark_as_personal.short_description = _("👤 Marquer comme particulier")
+
+    def reset_verification(self, request, queryset):
+        """
+        Réinitialiser la vérification
+        """
+        count = 0
+        for carrier in queryset:
+            carrier.verification_level = 0
+            carrier.verified_at = None
+            carrier.is_active_in_frontend = False
+            carrier.save()
+            count += 1
+
+        self.message_user(
+            request,
+            _("Vérification réinitialisée pour {} transporteurs.").format(count),
+            messages.WARNING
+        )
+    reset_verification.short_description = _("🔄 Réinitialiser la vérification")
 
 
 @admin.register(CarrierRoute)
@@ -301,7 +549,7 @@ class CarrierRouteAdmin(admin.ModelAdmin):
 
     list_display = [
         'id', 'carrier_link', 'start_city', 'end_city',
-        'departure_date', 'is_active', 'is_full'
+        'departure_date', 'is_active_display', 'is_full_display'
     ]
 
     list_filter = ['is_active', 'is_full', 'frequency', 'departure_date']
@@ -317,6 +565,22 @@ class CarrierRouteAdmin(admin.ModelAdmin):
         return format_html('<a href="{}">{}</a>', url, obj.carrier)
     carrier_link.short_description = _("Transporteur")
 
+    def is_active_display(self, obj):
+        """Affiche l'état actif"""
+        if obj.is_active:
+            return format_html('<span style="color: green;">✓ {}</span>', _("Actif"))
+        return format_html('<span style="color: red;">✗ {}</span>', _("Inactif"))
+    is_active_display.short_description = _("Actif")
+
+    def is_full_display(self, obj):
+        """Affiche l'état complet"""
+        if obj.is_full:
+            return format_html('<span style="color: orange;">✓ {}</span>', _("Complet"))
+        return format_html('<span style="color: blue;">○ {}</span>', _("Disponible"))
+    is_full_display.short_description = _("Complet")
+
+
+# Les autres classes admin restent inchangées...
 
 @admin.register(Mission)
 class MissionAdmin(admin.ModelAdmin):
@@ -335,55 +599,6 @@ class MissionAdmin(admin.ModelAdmin):
     ]
 
     readonly_fields = ['mission_number', 'created_at', 'updated_at']
-
-    fieldsets = (
-        (_("Informations générales"), {
-            'fields': ('mission_number', 'carrier_link', 'sender_link', 'status', 'priority')
-        }),
-        (_("Expédition"), {
-            'fields': (
-                'sender_address', 'sender_phone',
-                'recipient_name', 'recipient_address', 'recipient_phone'
-            )
-        }),
-        (_("Marchandise"), {
-            'fields': (
-                'merchandise_type', 'custom_merchandise_type',
-                'description', 'weight', 'length', 'width', 'height',
-                'is_fragile', 'requires_special_handling'
-            )
-        }),
-        (_("Organisation"), {
-            'fields': ('collection_order', 'position_in_vehicle')
-        }),
-        (_("Dates"), {
-            'fields': (
-                'preferred_pickup_date', 'preferred_delivery_date',
-                'actual_pickup_date', 'actual_delivery_date'
-            )
-        }),
-        (_("Finances"), {
-            'fields': ('agreed_price', 'currency')
-        }),
-        (_("Livraison"), {
-            'fields': (
-                'delivery_proof_photo', 'recipient_signature',
-                'delivery_notes'
-            )
-        }),
-        (_("Incidents"), {
-            'fields': (
-                'has_incident', 'incident_description',
-                'incident_resolved', 'delay_reason', 'delay_duration'
-            )
-        }),
-        (_("Suivi"), {
-            'fields': ('current_location', 'last_location_update')
-        }),
-        (_("Métadonnées"), {
-            'fields': ('created_at', 'updated_at', 'accepted_at', 'completed_at')
-        }),
-    )
 
     def carrier_link(self, obj):
         """Lien vers le transporteur"""

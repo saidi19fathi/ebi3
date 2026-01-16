@@ -85,6 +85,12 @@ class Carrier(models.Model):
         help_text=_("Administrateur qui a approuvé ce transporteur")
     )
 
+    approved_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Approuvé le")
+    )
+
     # ========== RELATIONS EXISTANTES ==========
     user = models.OneToOneField(
         User,
@@ -426,7 +432,6 @@ class Carrier(models.Model):
     # Métadonnées
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    approved_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = _("Profil Transporteur")
@@ -437,7 +442,6 @@ class Carrier(models.Model):
             models.Index(fields=['transport_is_available', 'status']),
             models.Index(fields=['user', 'status']),
             models.Index(fields=['coverage_countries']),
-            # Nouvel index pour le filtrage frontend
             models.Index(fields=['is_active_in_frontend', 'status', 'transport_is_available']),
         ]
         permissions = [
@@ -649,15 +653,6 @@ class Carrier(models.Model):
         else:
             return "active"
 
-
-    def get_rating_for_display(self):
-        """Retourne la note pour l'affichage, garantie d'être un float"""
-        try:
-            return float(self.transport_average_rating or 0)
-        except (ValueError, TypeError):
-            return 0.0
-
-
     @property
     def transport_average_rating_display(self):
         """Retourne la note moyenne formatée pour l'affichage"""
@@ -665,22 +660,30 @@ class Carrier(models.Model):
             return f"{self.transport_average_rating:.1f}/5"
         return "Non noté"
 
-    # OU si le problème est dans format_html, corrigez-le :
     def get_stars_display(self):
         """Retourne les étoiles pour l'affichage"""
         from django.utils.html import format_html
-        rating = float(self.transport_average_rating or 0)
-        stars = '★' * int(rating)
-        half_star = '½' if rating % 1 >= 0.5 else ''
-        empty_stars = '☆' * (5 - int(rating) - (1 if half_star else 0))
 
-        # Correction : utiliser des nombres, pas des SafeString
+        # Convertir en float pour éviter les erreurs
+        try:
+            rating = float(self.transport_average_rating or 0)
+        except (ValueError, TypeError):
+            rating = 0.0
+
+        full_stars = int(rating)
+        half_star = 1 if rating - full_stars >= 0.5 else 0
+        empty_stars = 5 - full_stars - half_star
+
+        full_stars_html = '★' * full_stars
+        half_star_html = '½' if half_star else ''
+        empty_stars_html = '☆' * empty_stars
+
         return format_html(
             '<span style="color: gold;">{}</span>'
             '<span style="color: gold;">{}</span>'
             '<span style="color: lightgray;">{}</span>'
             '<span> ({:.1f}/5)</span>',
-            stars, half_star, empty_stars, rating
+            full_stars_html, half_star_html, empty_stars_html, rating
         )
 
 
@@ -917,6 +920,8 @@ class CarrierRoute(gis_models.Model):
 
         return True
 
+
+# Le reste du fichier reste identique...
 
 class Mission(models.Model):
     """Mission de livraison"""
@@ -1468,7 +1473,6 @@ class CollectionDay(models.Model):
             return []
 
         # Simple optimisation par ordre de collection
-        # Dans une version réelle, on utiliserait un service comme Google Maps API
         sorted_missions = sorted(missions, key=lambda m: m.collection_order)
 
         route = []
@@ -1643,7 +1647,6 @@ class CarrierDocument(models.Model):
     def generate_customs_form(self):
         """Génère un formulaire douanier"""
         if self.is_customs_document and self.declaration_data:
-            # Dans une version réelle, on générerait un PDF
             return {
                 'type': self.customs_type,
                 'country': self.customs_country,
@@ -1669,7 +1672,7 @@ class FinancialTransaction(models.Model):
         BANK_TRANSFER = 'BANK_TRANSFER', _('Virement bancaire')
         CARD = 'CARD', _('Carte bancaire')
         MOBILE_MONEY = 'MOBILE_MONEY', _('Mobile money')
-        PAYPAL = 'PAYPAY', _('PayPal')
+        PAYPAL = 'PAYPAL', _('PayPal')
         STRIPE = 'STRIPE', _('Stripe')
         OTHER = 'OTHER', _('Autre')
 
@@ -1854,7 +1857,6 @@ class FinancialTransaction(models.Model):
 
     def generate_receipt(self):
         """Génère un reçu électronique"""
-        # Dans une version réelle, on générerait un PDF
         return {
             'receipt_number': self.receipt_number,
             'date': self.transaction_date,
@@ -1867,15 +1869,14 @@ class FinancialTransaction(models.Model):
 
     def generate_invoice(self):
         """Génère une facture"""
-        # Dans une version réelle, on générerait un PDF
         return {
             'invoice_number': self.invoice_number,
             'date': self.transaction_date,
             'carrier': self.carrier.user.get_full_name(),
             'company_info': {
-                'name': self.carrier.company_name,
-                'tax_id': self.carrier.tax_id,
-                'address': self.carrier.company_address
+                'name': self.carrier.transport_company_name,
+                'tax_id': self.carrier.transport_tax_id,
+                'address': self.carrier.transport_company_address
             },
             'amount': self.amount,
             'currency': self.currency,
@@ -2026,7 +2027,7 @@ class ExpenseReport(models.Model):
             },
             'carrier': {
                 'name': self.carrier.user.get_full_name(),
-                'company': self.carrier.company_name
+                'company': self.carrier.transport_company_name
             },
             'summary': {
                 'total_income': self.total_income,
@@ -2204,6 +2205,7 @@ class CarrierReview(models.Model):
         self.response_date = timezone.now()
         self.save()
 
+
 class CarrierStatistics(models.Model):
     """Statistiques de performance détaillées"""
 
@@ -2342,8 +2344,8 @@ class CarrierStatistics(models.Model):
             'missions': month_missions.count(),
             'completed_missions': month_missions.filter(status=Mission.MissionStatus.DELIVERED).count(),
             'revenue': float(month_revenue),
-            'distance': 0,  # À calculer avec le suivi GPS
-            'hours': 0      # À calculer avec le temps de travail
+            'distance': 0,
+            'hours': 0
         }
 
         self.monthly_stats = monthly_data
@@ -2444,7 +2446,6 @@ class CarrierNotification(models.Model):
         DOCUMENT_VERIFIED = 'DOCUMENT_VERIFIED', _('Document vérifié')
         STATUS_CHANGED = 'STATUS_CHANGED', _('Statut changé')
         SYSTEM = 'SYSTEM', _('Système')
-        # Nouvelles notifications
         COLLECTION_DAY = 'COLLECTION_DAY', _('Jour de collecte')
         EXPENSE_ALERT = 'EXPENSE_ALERT', _('Alerte dépense')
         DOCUMENT_EXPIRY = 'DOCUMENT_EXPIRY', _('Document expiré')
@@ -2531,10 +2532,6 @@ class CarrierNotification(models.Model):
         self.is_read = True
         self.save(update_fields=['is_read'])
 
-
-# === MODÈLES POUR LA MARKETPLACE ===
-
-# === MODÈLES POUR LA MARKETPLACE ===
 
 class CarrierOffer(models.Model):
     """Offre de service d'un transporteur"""
@@ -2760,7 +2757,7 @@ class CarrierSearch(models.Model):
         from django.db.models import Q
 
         # Construire la requête à partir des critères
-        query = Q(status=Carrier.Status.APPROVED, is_available=True)
+        query = Q(status=Carrier.Status.APPROVED, is_active_in_frontend=True, transport_is_available=True)
 
         criteria = self.search_criteria
 
@@ -2795,7 +2792,7 @@ class CarrierSearch(models.Model):
 
         # Filtre par note minimum
         if criteria.get('min_rating'):
-            query &= Q(average_rating__gte=criteria['min_rating'])
+            query &= Q(transport_average_rating__gte=criteria['min_rating'])
 
         # Exécuter la requête
         results = Carrier.objects.filter(query).distinct()

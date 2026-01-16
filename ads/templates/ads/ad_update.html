@@ -1,6 +1,6 @@
 {# ~/ebi3/ads/templates/ads/ad_update.html #}
 {% extends 'ads/base_ads.html' %}
-{% load i18n crispy_forms_tags %}
+{% load i18n crispy_forms_tags ads_filters %}
 
 {% block title %}{% trans "Modifier l'annonce" %} - Ebi3{% endblock %}
 
@@ -14,7 +14,7 @@
                 </h2>
             </div>
             <div class="card-body">
-                <form method="post" enctype="multipart/form-data">
+                <form method="post" enctype="multipart/form-data" id="adUpdateForm">
                     {% csrf_token %}
 
                     <div class="row">
@@ -121,74 +121,216 @@
                     </div>
 
                     <!-- Section Images -->
-                    <h4 class="mt-4 mb-3">{% trans "Images" %}</h4>
+                    <h4 class="mt-4 mb-3">
+                        <i class="fas fa-images"></i> {% trans "Images" %}
+                        <small class="text-muted">
+                            ({% trans "Images actuellement" %}: {{ image_formset.initial_forms|length }})
+                        </small>
+                    </h4>
+
                     <div class="alert alert-info mb-4">
-                        <i class="fas fa-info-circle"></i>
-                        {% blocktrans %}
-                            Vous pouvez télécharger jusqu'à <strong>3 images gratuitement</strong>.
-                            Les images supplémentaires sont payantes (1€ par image).
-                        {% endblocktrans %}
+                        <div class="d-flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-info-circle fa-2x"></i>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h5 class="alert-heading">{% trans "Informations sur les images" %}</h5>
+                                <p class="mb-1">
+                                    {% blocktrans %}
+                                    Vous pouvez télécharger jusqu'à <strong>3 images gratuitement</strong>.
+                                    Les images supplémentaires sont payantes (1€ par image).
+                                    {% endblocktrans %}
+                                </p>
+                                <p class="mb-0">
+                                    {% trans "Formats acceptés" %}: JPG, PNG, WebP • {% trans "Taille max" %}: 10MB
+                                </p>
+                            </div>
+                        </div>
                     </div>
 
                     {{ image_formset.management_form }}
 
-                    <div class="row">
+                    <div class="row" id="images-container">
                         {% for form in image_formset %}
-                            <div class="col-md-6 mb-4">
+                            <div class="col-md-6 mb-4 image-form-container" data-form-index="{{ forloop.counter0 }}">
                                 <div class="card h-100">
+                                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0">
+                                            {% trans "Image" %} #{{ forloop.counter }}
+                                            {% if form.instance.is_primary %}
+                                                <span class="badge bg-primary ms-2">{% trans "Principale" %}</span>
+                                            {% endif %}
+                                        </h6>
+                                        {% if image_formset.can_delete and form.instance.pk %}
+                                            <div class="form-check form-check-inline">
+                                                {{ form.DELETE }}
+                                                <label class="form-check-label text-danger delete-label" for="{{ form.DELETE.id_for_label }}">
+                                                    <i class="fas fa-trash"></i>
+                                                </label>
+                                            </div>
+                                        {% endif %}
+                                    </div>
                                     <div class="card-body">
+                                        {{ form.id }}
+
                                         {% if form.instance.image %}
                                             <div class="text-center mb-3">
-                                                <img src="{{ form.instance.thumbnail.url|default:form.instance.image.url }}"
-                                                     class="img-fluid rounded"
-                                                     style="max-height: 150px;">
+                                                {% comment %} Vérification sécurisée de la thumbnail {% endcomment %}
+                                                {% with form.instance as image_instance %}
+                                                    {% if image_instance.thumbnail and image_instance.thumbnail.url %}
+                                                        <img src="{{ image_instance.thumbnail.url }}"
+                                                             class="img-fluid rounded border"
+                                                             style="max-height: 150px; max-width: 100%;"
+                                                             alt="{% trans 'Miniature' %}">
+                                                    {% elif image_instance.image and image_instance.image.url %}
+                                                        <img src="{{ image_instance.image.url }}"
+                                                             class="img-fluid rounded border"
+                                                             style="max-height: 150px; max-width: 100%;"
+                                                             alt="{% trans 'Image' %}">
+                                                    {% endif %}
+                                                {% endwith %}
                                             </div>
                                         {% endif %}
 
-                                        {{ form.id }}
-
-                                        <div class="form-group">
-                                            {{ form.image.label_tag }}
+                                        <div class="form-group mb-3">
+                                            <label for="{{ form.image.id_for_label }}" class="form-label">
+                                                {% if form.instance.pk %}
+                                                    {% trans "Remplacer l'image" %}
+                                                {% else %}
+                                                    {% trans "Nouvelle image" %}
+                                                {% endif %}
+                                            </label>
                                             {{ form.image }}
                                             {% if form.image.errors %}
                                                 <div class="invalid-feedback d-block">
                                                     {{ form.image.errors }}
                                                 </div>
                                             {% endif %}
+                                            <small class="form-text text-muted">
+                                                {% trans "Cliquez pour choisir ou glisser-déposer" %}
+                                            </small>
                                         </div>
 
                                         {{ form.caption|as_crispy_field }}
 
                                         <div class="row">
-                                            <div class="col-md-6">
+                                            <div class="col-md-8">
                                                 {{ form.is_primary|as_crispy_field }}
+                                                <small class="form-text text-muted">
+                                                    {% trans "L'image principale sera affichée en premier" %}
+                                                </small>
                                             </div>
-                                            <div class="col-md-6">
+                                            <div class="col-md-4">
                                                 {{ form.display_order|as_crispy_field }}
                                             </div>
                                         </div>
 
-                                        {% if image_formset.can_delete %}
-                                            <div class="form-check">
-                                                {{ form.DELETE }}
-                                                <label class="form-check-label text-danger" for="{{ form.DELETE.id_for_label }}">
-                                                    {% trans "Supprimer cette image" %}
-                                                </label>
+                                        <!-- Informations sur le statut -->
+                                        {% if form.instance.pk %}
+                                            <div class="mt-3 pt-3 border-top">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-clock"></i>
+                                                    {% trans "Ajoutée le" %} {{ form.instance.created_at|date:"d/m/Y H:i" }}
+                                                    {% if form.instance.is_paid %}
+                                                        <span class="badge bg-success ms-2">{% trans "Payée" %}</span>
+                                                    {% else %}
+                                                        <span class="badge bg-info ms-2">{% trans "Gratuite" %}</span>
+                                                    {% endif %}
+                                                </small>
                                             </div>
                                         {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% empty %}
+                            <!-- Formulaire vide pour nouvelle image -->
+                            <div class="col-md-6 mb-4 image-form-container" data-form-index="0">
+                                <div class="card h-100">
+                                    <div class="card-header bg-light">
+                                        <h6 class="mb-0">{% trans "Nouvelle image" %}</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="form-group mb-3">
+                                            <label for="id_images-0-image" class="form-label">
+                                                {% trans "Télécharger une image" %}
+                                            </label>
+                                            <input type="file" name="images-0-image" class="form-control" id="id_images-0-image">
+                                            <small class="form-text text-muted">
+                                                {% trans "Formats acceptés: JPG, PNG, WebP • Max 10MB" %}
+                                            </small>
+                                        </div>
+                                        <div class="form-group mb-3">
+                                            <label for="id_images-0-caption" class="form-label">
+                                                {% trans "Légende (optionnel)" %}
+                                            </label>
+                                            <input type="text" name="images-0-caption" class="form-control" id="id_images-0-caption" maxlength="200">
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-8">
+                                                <div class="form-check mb-3">
+                                                    <input type="checkbox" name="images-0-is_primary" class="form-check-input" id="id_images-0-is_primary">
+                                                    <label class="form-check-label" for="id_images-0-is_primary">
+                                                        {% trans "Image principale" %}
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="form-group mb-3">
+                                                    <label for="id_images-0-display_order" class="form-label">
+                                                        {% trans "Ordre" %}
+                                                    </label>
+                                                    <input type="number" name="images-0-display_order" value="0" class="form-control" id="id_images-0-display_order">
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         {% endfor %}
                     </div>
 
-                    <div class="d-flex justify-content-between mt-4">
-                        <a href="{% url 'ads:ad_detail' slug=object.slug %}" class="btn btn-outline-secondary">
-                            <i class="fas fa-times"></i> {% trans "Annuler" %}
-                        </a>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save"></i> {% trans "Enregistrer les modifications" %}
+                    <!-- Bouton pour ajouter plus d'images -->
+                    <div class="text-center mb-4">
+                        <button type="button" id="add-more-images" class="btn btn-outline-primary">
+                            <i class="fas fa-plus"></i> {% trans "Ajouter une image" %}
                         </button>
+                        <span class="ms-3 text-muted" id="image-counter">
+                            {% trans "Images" %}: <span id="current-count">{{ image_formset.initial_forms|length }}</span>/<span id="max-count">{{ image_formset.max_num|default:"10" }}</span>
+                        </span>
+                    </div>
+
+                    <!-- Validation et boutons -->
+                    <div class="alert alert-warning">
+                        <div class="d-flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <p class="mb-0">
+                                    <strong>{% trans "Important" %}:</strong>
+                                    {% trans "Après modification, votre annonce sera soumise à une nouvelle validation par nos modérateurs." %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <div>
+                            <a href="{% url 'ads:ad_detail' slug=object.slug %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times"></i> {% trans "Annuler" %}
+                            </a>
+                            <a href="{% url 'ads:ad_list' %}" class="btn btn-outline-primary ms-2">
+                                <i class="fas fa-list"></i> {% trans "Retour aux annonces" %}
+                            </a>
+                        </div>
+                        <div>
+                            <button type="submit" name="save_draft" value="true" class="btn btn-outline-warning">
+                                <i class="fas fa-save"></i> {% trans "Enregistrer en brouillon" %}
+                            </button>
+                            <button type="submit" name="submit_for_review" value="true" class="btn btn-primary ms-2">
+                                <i class="fas fa-check-circle"></i> {% trans "Soumettre pour validation" %}
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -201,18 +343,207 @@
 <script>
     $(document).ready(function() {
         // Afficher/masquer le champ de valeur d'assurance
-        $('#id_requires_insurance').change(function() {
+        const insuranceCheckbox = $('#id_requires_insurance');
+        const insuranceField = $('#insurance-value-field');
+
+        insuranceCheckbox.on('change', function() {
             if ($(this).is(':checked')) {
-                $('#insurance-value-field').slideDown();
+                insuranceField.slideDown();
+                $('#id_insurance_value').prop('required', true);
             } else {
-                $('#insurance-value-field').slideUp();
+                insuranceField.slideUp();
+                $('#id_insurance_value').val('').prop('required', false);
             }
         });
 
         // Initialiser l'état
-        if (!$('#id_requires_insurance').is(':checked')) {
-            $('#insurance-value-field').hide();
+        if (!insuranceCheckbox.is(':checked')) {
+            insuranceField.hide();
+            $('#id_insurance_value').prop('required', false);
         }
+
+        // Gestion des images multiples
+        let formIndex = {{ image_formset.total_form_count|default:1 }};
+        const maxImages = {{ image_formset.max_num|default:"10" }};
+        const imageFormsetPrefix = '{{ image_formset.prefix }}';
+        const totalFormsInput = $('#id_' + imageFormsetPrefix + '-TOTAL_FORMS');
+
+        // Mettre à jour le compteur d'images
+        function updateImageCounter() {
+            const currentCount = $('.image-form-container:not([style*="display: none"])').length;
+            $('#current-count').text(currentCount);
+
+            // Désactiver le bouton d'ajout si on atteint le maximum
+            if (currentCount >= maxImages) {
+                $('#add-more-images').prop('disabled', true)
+                    .addClass('disabled')
+                    .html('<i class="fas fa-ban"></i> {% trans "Maximum atteint" %}');
+            } else {
+                $('#add-more-images').prop('disabled', false)
+                    .removeClass('disabled')
+                    .html('<i class="fas fa-plus"></i> {% trans "Ajouter une image" %}');
+            }
+        }
+
+        // Ajouter un nouveau formulaire d'image
+        $('#add-more-images').on('click', function(e) {
+            e.preventDefault();
+
+            if (formIndex >= maxImages) {
+                alert('{% trans "Vous ne pouvez pas ajouter plus d\'images." %}');
+                return;
+            }
+
+            // Cloner le premier formulaire vide
+            const template = $('.image-form-container[data-form-index="0"]').first().clone();
+            const newIndex = formIndex;
+
+            // Mettre à jour les attributs et IDs
+            template.attr('data-form-index', newIndex);
+            template.find('input, select, textarea, label').each(function() {
+                const $this = $(this);
+
+                // Mettre à jour les IDs
+                if ($this.attr('id')) {
+                    $this.attr('id', $this.attr('id').replace('-0-', '-' + newIndex + '-'));
+                }
+
+                // Mettre à jour les noms
+                if ($this.attr('name')) {
+                    $this.attr('name', $this.attr('name').replace('-0-', '-' + newIndex + '-'));
+                }
+
+                // Mettre à jour les for des labels
+                if ($this.attr('for')) {
+                    $this.attr('for', $this.attr('for').replace('-0-', '-' + newIndex + '-'));
+                }
+
+                // Effacer les valeurs sauf pour display_order
+                if ($this.attr('name') && !$this.attr('name').includes('display_order')) {
+                    if ($this.is(':checkbox, :radio')) {
+                        $this.prop('checked', false);
+                    } else {
+                        $this.val('');
+                    }
+                }
+            });
+
+            // Mettre à jour le header
+            template.find('.card-header h6').text('{% trans "Nouvelle image" %} #' + (newIndex + 1));
+
+            // Supprimer les informations de statut
+            template.find('.border-top').remove();
+
+            // Ajouter au container
+            $('#images-container').append(template);
+
+            // Incrémenter le compteur
+            formIndex++;
+            totalFormsInput.val(formIndex);
+
+            // Mettre à jour le compteur
+            updateImageCounter();
+        });
+
+        // Gestion de la suppression d'images
+        $(document).on('change', 'input[name$="-DELETE"]', function() {
+            const $container = $(this).closest('.image-form-container');
+            const isChecked = $(this).is(':checked');
+
+            if (isChecked) {
+                $container.addClass('border-danger border-3');
+                $container.find('.delete-label').addClass('text-danger fw-bold');
+                $container.find('.card').addClass('bg-light');
+            } else {
+                $container.removeClass('border-danger border-3');
+                $container.find('.delete-label').removeClass('text-danger fw-bold');
+                $container.find('.card').removeClass('bg-light');
+            }
+
+            updateImageCounter();
+        });
+
+        // Gestion de l'image principale (un seul checkbox coché)
+        $(document).on('change', 'input[name$="-is_primary"]', function() {
+            if ($(this).is(':checked')) {
+                // Décocher tous les autres
+                $('input[name$="-is_primary"]').not(this).prop('checked', false);
+            }
+        });
+
+        // Validation du formulaire
+        $('#adUpdateForm').on('submit', function(e) {
+            const title = $('#id_title').val().trim();
+            const description = $('#id_description').val().trim();
+            const price = parseFloat($('#id_price').val());
+
+            // Validation basique
+            if (!title || title.length < 10) {
+                alert('{% trans "Le titre doit contenir au moins 10 caractères." %}');
+                e.preventDefault();
+                return false;
+            }
+
+            if (!description || description.length < 50) {
+                alert('{% trans "La description doit contenir au moins 50 caractères." %}');
+                e.preventDefault();
+                return false;
+            }
+
+            if (!price || price <= 0) {
+                alert('{% trans "Veuillez entrer un prix valide." %}');
+                e.preventDefault();
+                return false;
+            }
+
+            // Compter le nombre d'images
+            const imageCount = $('.image-form-container:not([style*="display: none"])').length;
+            if (imageCount === 0) {
+                if (!confirm('{% trans "Vous n\'avez ajouté aucune image. Voulez-vous continuer ?" %}')) {
+                    e.preventDefault();
+                    return false;
+                }
+            }
+        });
+
+        // Initialiser le compteur
+        updateImageCounter();
+
+        // Prévisualisation des images avant upload
+        $(document).on('change', 'input[type="file"]', function(e) {
+            const input = this;
+            const $container = $(this).closest('.image-form-container');
+            const $previewContainer = $container.find('.text-center.mb-3');
+
+            // Supprimer l'ancienne prévisualisation
+            $previewContainer.find('img').remove();
+
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+
+                reader.onload = function(e) {
+                    // Créer l'élément image
+                    const img = $('<img>', {
+                        'class': 'img-fluid rounded border',
+                        'style': 'max-height: 150px; max-width: 100%;',
+                        'src': e.target.result,
+                        'alt': '{% trans "Prévisualisation" %}'
+                    });
+
+                    // Ajouter ou créer le conteneur
+                    if ($previewContainer.length === 0) {
+                        $container.find('.card-body').prepend(
+                            '<div class="text-center mb-3"></div>'
+                        );
+                        $container.find('.text-center.mb-3').html(img);
+                    } else {
+                        $previewContainer.html(img);
+                    }
+                };
+
+                reader.readAsDataURL(input.files[0]);
+            }
+        });
     });
 </script>
 {% endblock %}
